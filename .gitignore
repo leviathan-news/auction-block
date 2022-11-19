@@ -1,0 +1,20 @@
+# python
+__pycache__
+*.pyc
+
+build/
+reports/
+.history
+venv/
+
+# testing
+.hypothesis/
+.tox/
+/coverage
+/reports
+
+# vi(m)
+*.swp
+*.swo
+
+.env
