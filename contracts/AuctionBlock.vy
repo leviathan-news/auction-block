@@ -119,14 +119,18 @@ def current_auctions() -> DynArray[uint256, 100]:
     @return Array of auction IDs that haven't been settled
     """
     active_auctions: DynArray[uint256, 100] = []
-
-    # Iterate through all auctions up to current auction_id
-    for i in range(1, self.auction_id + 1):
-        auction: Auction = self.auction_list[i]
+    
+    # Iterate through all auctions up to current auction_id, with max bound of 100
+    for i: uint256 in range(100):
+        # Skip if we've gone past the current auction_id
+        if i + 1 > self.auction_id:
+            break
+            
+        auction: Auction = self.auction_list[i + 1]
         # Check if auction exists (start_time != 0) and isn't settled
         if auction.start_time != 0 and not auction.settled:
-            active_auctions.append(i)
-
+            active_auctions.append(i + 1)
+    
     return active_auctions
 
 @external
