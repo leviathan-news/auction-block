@@ -111,6 +111,23 @@ def __init__(
 
 ### AUCTION CREATION/SETTLEMENT ###
 
+@external
+@view
+def current_auctions() -> DynArray[uint256, 100]:
+    """
+    @dev Returns an array of active auction IDs
+    @return Array of auction IDs that haven't been settled
+    """
+    active_auctions: DynArray[uint256, 100] = []
+
+    # Iterate through all auctions up to current auction_id
+    for i in range(1, self.auction_id + 1):
+        auction: Auction = self.auction_list[i]
+        # Check if auction exists (start_time != 0) and isn't settled
+        if auction.start_time != 0 and not auction.settled:
+            active_auctions.append(i)
+
+    return active_auctions
 
 @external
 @nonreentrant
