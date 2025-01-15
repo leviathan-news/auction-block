@@ -39,6 +39,10 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
     """Test settling an auction with no bids"""
     auction_id = auction_house_with_auction.auction_id()
     
+    # Get initial state
+    initial_auction = auction_house_with_auction.auction_list(auction_id)
+    print(f"Initial auction state: {initial_auction}")
+    
     # Fast forward past auction end
     boa.env.time_travel(seconds=4000)
     
@@ -46,10 +50,17 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
         auction_house_with_auction.pause()
         auction_house_with_auction.settle_and_create_auction(auction_id)
     
-    # Check that the auction was settled and a new one was created
+    # Get final state
+    final_auction = auction_house_with_auction.auction_list(auction_id)
+    new_auction = auction_house_with_auction.auction_list(auction_id + 1)
+    print(f"Final auction state: {final_auction}")
+    print(f"New auction state: {new_auction}")
+    print(f"New auction ID: {auction_house_with_auction.auction_id()}")
+    
+    # Verify auction was settled and new one created
     assert auction_house_with_auction.auction_id() == auction_id + 1
-    original_auction = auction_house_with_auction.auction_list(auction_id)
-    assert original_auction[5] == True  # settled
+    assert final_auction[5] == True  # settled
+    assert new_auction[0] == auction_id + 1  # new auction has correct ID
 
 def test_settle_auction_with_single_bid(auction_house_with_auction, alice, deployer, proceeds_receiver):
     """Test settling auction with one bid"""
