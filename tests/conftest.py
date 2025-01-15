@@ -17,6 +17,14 @@ def bob():
     boa.env.set_balance(addr, 10 ** 18)
     return addr
 
+
+@pytest.fixture(scope="function")
+def charlie():
+    addr = boa.env.generate_address()
+    boa.env.set_balance(addr, 10 ** 18)
+    return addr
+
+
 @pytest.fixture(scope="function")
 def proceeds_receiver():
     return boa.env.generate_address()
