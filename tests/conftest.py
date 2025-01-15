@@ -6,31 +6,35 @@ def deployer():
     return boa.env.generate_address()
 
 @pytest.fixture(scope="function")
-def alice():
+def alice(payment_token):
     addr = boa.env.generate_address()
-    boa.env.set_balance(addr, 10 ** 18)
+    payment_token._mint_for_testing(addr, 1_000 * 10 ** 18)
     return addr
 
 @pytest.fixture(scope="function")
-def bob():
+def bob(payment_token):
     addr = boa.env.generate_address()
-    boa.env.set_balance(addr, 10 ** 18)
+    payment_token._mint_for_testing(addr, 1_000 * 10 ** 18)
     return addr
 
 
 @pytest.fixture(scope="function")
-def charlie():
+def charlie(payment_token):
     addr = boa.env.generate_address()
-    boa.env.set_balance(addr, 10 ** 18)
+    payment_token._mint_for_testing(addr, 1_000 * 10 ** 18)
     return addr
 
+@pytest.fixture(scope="function")
+def payment_token():
+    token = boa.load_partial('contracts/test/ERC20.vy')
+    return token.deploy("Test Token", "TEST", 18)
 
 @pytest.fixture(scope="function")
 def proceeds_receiver():
     return boa.env.generate_address()
 
 @pytest.fixture(scope="function")
-def auction_house(deployer, proceeds_receiver):
+def auction_house(deployer, proceeds_receiver, payment_token):
     """Deploy the auction house contract with standard test parameters"""
     with boa.env.prank(deployer):
         contract = boa.load_partial('contracts/AuctionBlock.vy')
@@ -41,6 +45,7 @@ def auction_house(deployer, proceeds_receiver):
             3600, # duration (1 hour)
             proceeds_receiver,
             95,   # proceeds_receiver_split_percentage
+            payment_token
         )
 
 @pytest.fixture(scope="function")

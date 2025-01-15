@@ -1,9 +1,10 @@
 # @version 0.4.0
 
-# @notice Squid Auction Block
+# @notice Squid Auction Block with ERC20 payments
 # @author Leviathan
 # @license MIT
-#
+
+from ethereum.ercs import IERC20
 
 struct Auction:
     auction_id: uint256
@@ -59,9 +60,6 @@ event Withdraw:
     _amount: uint256
 
 
-# Technically vyper doesn't need this as it is automatic
-# in all recent vyper versions, but Etherscan verification
-# will bork without it.
 IDENTITY_PRECOMPILE: constant(
     address
 ) = 0x0000000000000000000000000000000000000004
@@ -78,6 +76,8 @@ pending_returns: public(HashMap[address, uint256])
 auction_list: public(HashMap[uint256, Auction])
 auction_id: public(uint256)
 
+# Payment token
+payment_token: public(IERC20)
 
 # Permissions
 owner: public(address)
@@ -98,6 +98,7 @@ def __init__(
     _duration: uint256,
     _proceeds_receiver: address,
     _proceeds_receiver_split_percentage: uint256,
+    _payment_token: IERC20
 ):
     self.time_buffer = _time_buffer
     self.reserve_price = _reserve_price
@@ -106,10 +107,9 @@ def __init__(
     self.owner = msg.sender
     self.paused = True
     self.proceeds_receiver = _proceeds_receiver
-    self.proceeds_receiver_split_percentage = _proceeds_receiver_split_percentage  # This should be a number between 1-99
+    self.proceeds_receiver_split_percentage = _proceeds_receiver_split_percentage
+    self.payment_token = _payment_token
 
-
-### AUCTION CREATION/SETTLEMENT ###
 
 @external
 @view
@@ -120,29 +120,25 @@ def current_auctions() -> DynArray[uint256, 100]:
     """
     active_auctions: DynArray[uint256, 100] = []
     
-    # Iterate through all auctions up to current auction_id, with max bound of 100
     for i: uint256 in range(100):
-        # Skip if we've gone past the current auction_id
         if i + 1 > self.auction_id:
             break
             
         auction: Auction = self.auction_list[i + 1]
-        # Check if auction exists (start_time != 0) and isn't settled
         if auction.start_time != 0 and not auction.settled:
             active_auctions.append(i + 1)
     
     return active_auctions
 
+
 @external
 @nonreentrant
 def settle_auction(auction_id: uint256):
     """
-    @dev Settle the current auction and start a new one.
+    @dev Settle an auction.
       Throws if the auction house is paused.
     """
-
     assert self.paused == False, "Auction house is paused"
-
     self._settle_auction(auction_id)
 
 
@@ -150,11 +146,10 @@ def settle_auction(auction_id: uint256):
 @nonreentrant
 def create_new_auction():
     """
-    @dev Settle the current auction and start a new one.
+    @dev Create a new auction.
       Throws if the auction house is paused.
     """
     assert self.paused == False, "Auction house is paused"
-
     self._create_auction()
 
 
@@ -162,58 +157,44 @@ def create_new_auction():
 @nonreentrant
 def settle_and_create_auction(auction_id: uint256):
     """
-    @dev Settle the current auction.
+    @dev Settle the current auction and create a new one.
       Throws if the auction house is not paused.
     """
-
     assert self.paused == True, "Auction house is not paused"
-
     self._settle_auction(auction_id)
     self._create_auction()
 
 
-### BIDDING ###
-
-
 @external
-@payable
 @nonreentrant
-def create_bid(llama_id: uint256, bid_amount: uint256):
+def create_bid(auction_id: uint256, bid_amount: uint256):
     """
-    @dev Create a bid.
-      Throws if the whitelist is enabled.
+    @dev Create a bid using ERC20 tokens
     """
-
-    self._create_bid(llama_id, bid_amount)
-
-
-### WITHDRAW ###
+    self._create_bid(auction_id, bid_amount)
 
 
 @external
 @nonreentrant
 def withdraw():
     """
-    @dev Withdraw ETH after losing auction.
+    @dev Withdraw ERC20 tokens after losing auction
     """
-
     pending_amount: uint256 = self.pending_returns[msg.sender]
+    assert pending_amount > 0, "No pending returns"
+    
     self.pending_returns[msg.sender] = 0
-    raw_call(msg.sender, b"", value=pending_amount)
-
+    assert extcall self.payment_token.transfer(msg.sender, pending_amount), "Token transfer failed"
+    
     log Withdraw(msg.sender, pending_amount)
-
-
-### ADMIN FUNCTIONS
 
 
 @external
 @nonreentrant
 def withdraw_stale(addresses: DynArray[address, ADMIN_MAX_WITHDRAWALS]):
     """
-    @dev Admin function to withdraw pending returns that have not been claimed.
+    @dev Admin function to withdraw pending returns that have not been claimed
     """
-
     assert msg.sender == self.owner, "Caller is not the owner"
 
     total_fee: uint256 = 0
@@ -221,102 +202,71 @@ def withdraw_stale(addresses: DynArray[address, ADMIN_MAX_WITHDRAWALS]):
         pending_amount: uint256 = self.pending_returns[_address]
         if pending_amount == 0:
             continue
+            
         # Take a 5% fee
         fee: uint256 = pending_amount * 5 // 100
         withdrawer_return: uint256 = pending_amount - fee
         self.pending_returns[_address] = 0
-        raw_call(_address, b"", value=withdrawer_return)
+        
+        assert extcall self.payment_token.transfer(_address, withdrawer_return), "Token transfer failed"
         total_fee += fee
 
-    raw_call(self.owner, b"", value=total_fee)
+    if total_fee > 0:
+        assert extcall self.payment_token.transfer(self.owner, total_fee), "Fee transfer failed"
 
 
 @external
 def pause():
-    """
-    @notice Admin function to pause to auction house.
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
     self._pause()
 
 
 @external
 def unpause():
-    """
-    @notice Admin function to unpause to auction house.
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
     self._unpause()
 
 
 @external
 def set_time_buffer(_time_buffer: uint256):
-    """
-    @notice Admin function to set the time buffer.
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
-
     self.time_buffer = _time_buffer
-
     log AuctionTimeBufferUpdated(_time_buffer)
 
 
 @external
 def set_reserve_price(_reserve_price: uint256):
-    """
-    @notice Admin function to set the reserve price.
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
-
     self.reserve_price = _reserve_price
-
     log AuctionReservePriceUpdated(_reserve_price)
 
 
 @external
 def set_min_bid_increment_percentage(_min_bid_increment_percentage: uint256):
-    """
-    @notice Admin function to set the min bid increment percentage.
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
     assert (
         _min_bid_increment_percentage >= 2
         and _min_bid_increment_percentage <= 15
     ), "_min_bid_increment_percentage out of range"
-
+    
     self.min_bid_increment_percentage = _min_bid_increment_percentage
-
     log AuctionMinBidIncrementPercentageUpdated(_min_bid_increment_percentage)
 
 
 @external
 def set_duration(_duration: uint256):
-    """
-    @notice Admin function to set the duration.
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
     assert _duration >= 3600 and _duration <= 259200, "_duration out of range"
-
+    
     self.duration = _duration
-
     log AuctionDurationUpdated(_duration)
 
 
 @external
 def set_owner(_owner: address):
-    """
-    @notice Admin function to set the owner
-    """
-
     assert msg.sender == self.owner, "Caller is not the owner"
     assert _owner != empty(address), "Cannot set owner to zero address"
-
+    
     self.owner = _owner
 
 
@@ -345,7 +295,6 @@ def _settle_auction(auction_id: uint256):
     assert _auction.settled == False, "Auction has already been settled"
     assert block.timestamp > _auction.end_time, "Auction hasn't completed"
 
-    # Create new auction in storage with updated settled flag
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=_auction.amount,
@@ -356,26 +305,16 @@ def _settle_auction(auction_id: uint256):
     )
 
     if _auction.amount > 0:
-        fee: uint256 = (
-            _auction.amount * self.proceeds_receiver_split_percentage
-        ) // 100
+        fee: uint256 = (_auction.amount * self.proceeds_receiver_split_percentage) // 100
         owner_amount: uint256 = _auction.amount - fee
-        raw_call(self.owner, b"", value=owner_amount)
-        raw_call(self.proceeds_receiver, b"", value=fee)
+        
+        assert extcall self.payment_token.transfer(self.owner, owner_amount), "Owner payment failed"
+        assert extcall self.payment_token.transfer(self.proceeds_receiver, fee), "Fee payment failed"
 
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
-
 @internal
-@payable
 def _create_bid(auction_id: uint256, amount: uint256):
-    if msg.value < amount:
-        missing_amount: uint256 = amount - msg.value
-        # Try to use the users pending returns
-        assert (
-            self.pending_returns[msg.sender] >= missing_amount
-        ), "Does not have enough pending returns to cover remainder"
-        self.pending_returns[msg.sender] -= missing_amount
     _auction: Auction = self.auction_list[auction_id]
 
     assert _auction.auction_id == auction_id, "Invalid auction ID"
@@ -385,8 +324,25 @@ def _create_bid(auction_id: uint256, amount: uint256):
         (_auction.amount * self.min_bid_increment_percentage) // 100
     ), "Must send more than last bid by min_bid_increment_percentage amount"
 
-    last_bidder: address = _auction.bidder
+    # If msg.value < amount, try to use pending returns for the remainder
+    pending_amount: uint256 = self.pending_returns[msg.sender]
+    tokens_needed: uint256 = amount
+    
+    if pending_amount > 0:
+        if pending_amount >= amount:
+            # Use pending returns only
+            self.pending_returns[msg.sender] -= amount
+            tokens_needed = 0
+        else:
+            # Use all pending returns plus some tokens
+            self.pending_returns[msg.sender] = 0
+            tokens_needed = amount - pending_amount
 
+    # Transfer any additional tokens needed
+    if tokens_needed > 0:
+        assert extcall self.payment_token.transferFrom(msg.sender, self, tokens_needed), "Token transfer failed"
+
+    last_bidder: address = _auction.bidder
     if last_bidder != empty(address):
         self.pending_returns[last_bidder] += _auction.amount
 
@@ -404,6 +360,7 @@ def _create_bid(auction_id: uint256, amount: uint256):
 
     if extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
+
 
 
 @internal

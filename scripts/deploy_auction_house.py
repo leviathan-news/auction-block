@@ -2,7 +2,7 @@ import os, boa
 from dotenv import load_dotenv
 from eth_account import Account
 
-FORK = True
+FORK = False
 load_dotenv()
 
 if FORK:
@@ -20,10 +20,12 @@ reserve_price = int(0.2 * 10**18)
 min_bid_increment_percentage = 2
 duration = 5400
 
+test_token = boa.load_partial("contracts/test/ERC20.vy")
 auction_house = boa.load_partial("contracts/AuctionBlock.vy")
 
+token = test_token.deploy("Test Squid", "SQUID", 18)
 house = auction_house.deploy(
-    time_buffer, reserve_price, min_bid_increment_percentage, duration, boa.env.eoa, 100
+    time_buffer, reserve_price, min_bid_increment_percentage, duration, boa.env.eoa, 100, token
 )
 
 house.unpause()
