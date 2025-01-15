@@ -5,7 +5,6 @@
 # @license MIT
 #
 
-
 struct Auction:
     auction_id: uint256
     amount: uint256
@@ -78,6 +77,7 @@ duration: public(uint256)
 pending_returns: public(HashMap[address, uint256])
 auction_list: public(HashMap[uint256, Auction])
 auction_id: public(uint256)
+
 
 # Permissions
 owner: public(address)
@@ -345,7 +345,15 @@ def _settle_auction(auction_id: uint256):
     assert _auction.settled == False, "Auction has already been settled"
     assert block.timestamp > _auction.end_time, "Auction hasn't completed"
 
-    _auction.settled = True
+    # Create new auction in storage with updated settled flag
+    self.auction_list[auction_id] = Auction(
+        auction_id=_auction.auction_id,
+        amount=_auction.amount,
+        start_time=_auction.start_time,
+        end_time=_auction.end_time,
+        bidder=_auction.bidder,
+        settled=True
+    )
 
     if _auction.amount > 0:
         fee: uint256 = (
@@ -382,13 +390,15 @@ def _create_bid(auction_id: uint256, amount: uint256):
     if last_bidder != empty(address):
         self.pending_returns[last_bidder] += _auction.amount
 
-    _auction.amount = amount
-    _auction.bidder = msg.sender
-
     extended: bool = _auction.end_time - block.timestamp < self.time_buffer
-
-    if extended:
-        _auction.end_time = block.timestamp + self.time_buffer
+    self.auction_list[auction_id] = Auction(
+        auction_id=_auction.auction_id,
+        amount=amount,
+        start_time=_auction.start_time,
+        end_time=_auction.end_time if not extended else block.timestamp + self.time_buffer,
+        bidder=msg.sender,
+        settled=_auction.settled
+    )
 
     log AuctionBid(_auction.auction_id, msg.sender, amount, extended)
 
