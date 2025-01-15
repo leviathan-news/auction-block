@@ -1,18 +1,18 @@
 # @version 0.4.0
 
-# @notice Squid Auction Block 
+# @notice Squid Auction Block
 # @author Leviathan
 # @license MIT
 #
 
 
 struct Auction:
-        auction_id: uint256
-        amount: uint256
-        start_time: uint256
-        end_time: uint256
-        bidder: address
-        settled: bool
+    auction_id: uint256
+    amount: uint256
+    start_time: uint256
+    end_time: uint256
+    bidder: address
+    settled: bool
 
 
 event AuctionBid:
@@ -70,7 +70,6 @@ IDENTITY_PRECOMPILE: constant(
 ADMIN_MAX_WITHDRAWALS: constant(uint256) = 100
 
 
-
 # Auction
 time_buffer: public(uint256)
 reserve_price: public(uint256)
@@ -125,6 +124,7 @@ def settle_auction(auction_id: uint256):
 
     self._settle_auction(auction_id)
 
+
 @external
 @nonreentrant
 def create_new_auction():
@@ -135,6 +135,7 @@ def create_new_auction():
     assert self.paused == False, "Auction house is paused"
 
     self._create_auction()
+
 
 @external
 @nonreentrant
@@ -229,7 +230,6 @@ def unpause():
     self._unpause()
 
 
-
 @external
 def set_time_buffer(_time_buffer: uint256):
     """
@@ -299,7 +299,6 @@ def set_owner(_owner: address):
     self.owner = _owner
 
 
-
 @internal
 def _create_auction():
     _start_time: uint256 = block.timestamp
@@ -307,12 +306,12 @@ def _create_auction():
     self.auction_id += 1
 
     self.auction_list[self.auction_id] = Auction(
-            auction_id= self.auction_id,
-            amount= 0,
-            start_time= _start_time,
-            end_time= _end_time,
-            bidder= empty(address),
-            settled= False,
+        auction_id=self.auction_id,
+        amount=0,
+        start_time=_start_time,
+        end_time=_end_time,
+        bidder=empty(address),
+        settled=False,
     )
 
     log AuctionCreated(self.auction_id, _start_time, _end_time)
@@ -335,9 +334,7 @@ def _settle_auction(auction_id: uint256):
         raw_call(self.owner, b"", value=owner_amount)
         raw_call(self.proceeds_receiver, b"", value=fee)
 
-    log AuctionSettled(
-        _auction.auction_id, _auction.bidder, _auction.amount
-    )
+    log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
 
 @internal
@@ -377,6 +374,7 @@ def _create_bid(auction_id: uint256, amount: uint256):
     if extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
 
+
 @internal
 def _pause():
     self.paused = True
@@ -385,5 +383,3 @@ def _pause():
 @internal
 def _unpause():
     self.paused = False
-
-

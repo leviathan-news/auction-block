@@ -1,18 +1,22 @@
-from brownie import LlamaAuctionHouse, accounts, web3
+import os
 
+import boa
+from dotenv import load_dotenv
+from eth_account import Account
 
-def main():
-    acct = accounts.load("llama_deployer")
-    llamas_addr = "0xe127cE638293FA123Be79C25782a5652581Db234"
-    time_buffer = 300
-    reserve_price = web3.toWei(0.2, "ether")
-    min_bid_increment_percentage = 2
-    duration = 5400
-    LlamaAuctionHouse.deploy(
-        llamas_addr,
-        time_buffer,
-        reserve_price,
-        min_bid_increment_percentage,
-        duration,
-        {"from": acct},
-    )
+load_dotenv()
+acct = Account.from_key(os.getenv("ADMIN_PRIVATE_KEY"))
+
+boa.set_network_env("https://ethereum-sepolia-rpc.publicnode.com")
+boa.env.add_account(acct)
+
+time_buffer = 300
+reserve_price = int(0.2 * 10**18)
+min_bid_increment_percentage = 2
+duration = 5400
+
+auction_house = boa.load_partial("contracts/AuctionBlock.vy")
+
+auction_house.deploy(
+    time_buffer, reserve_price, min_bid_increment_percentage, duration, boa.env.eoa, 100
+)
