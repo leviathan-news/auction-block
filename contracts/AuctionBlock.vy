@@ -115,8 +115,8 @@ def __init__(
 @view
 def current_auctions() -> DynArray[uint256, 100]:
     """
-    @dev Returns an array of active auction IDs
-    @return Array of auction IDs that haven't been settled
+    @dev Returns an array of currently active auction IDs based on timestamp
+    @return Array of auction IDs that are currently active (between start and end time)
     """
     active_auctions: DynArray[uint256, 100] = []
     
@@ -125,7 +125,10 @@ def current_auctions() -> DynArray[uint256, 100]:
             break
             
         auction: Auction = self.auction_list[i + 1]
-        if auction.start_time != 0 and not auction.settled:
+        # Check if auction is currently active based on timestamp
+        if (auction.start_time <= block.timestamp and 
+            block.timestamp <= auction.end_time and 
+            not auction.settled):
             active_auctions.append(i + 1)
     
     return active_auctions
