@@ -13,6 +13,7 @@ struct Auction:
     end_time: uint256
     bidder: address
     settled: bool
+    ipfs_hash: String[46]
 
 
 event AuctionBid:
@@ -47,6 +48,7 @@ event AuctionCreated:
     _auction_id: indexed(uint256)
     _start_time: uint256
     _end_time: uint256
+    _ipfs_hash: String[46]
 
 
 event AuctionSettled:
@@ -147,25 +149,27 @@ def settle_auction(auction_id: uint256):
 
 @external
 @nonreentrant
-def create_new_auction():
+def create_new_auction(ipfs_hash: String[46] = '') -> uint256:
     """
     @dev Create a new auction.
+    @return New auction id
       Throws if the auction house is paused.
     """
     assert self.paused == False, "Auction house is paused"
-    self._create_auction()
+    self._create_auction(ipfs_hash)
+    return self.auction_id
 
 
 @external
 @nonreentrant
-def settle_and_create_auction(auction_id: uint256):
+def settle_and_create_auction(auction_id: uint256, ipfs_hash: String[46] = ''):
     """
     @dev Settle the current auction and create a new one.
       Throws if the auction house is not paused.
     """
     assert self.paused == True, "Auction house is not paused"
     self._settle_auction(auction_id)
-    self._create_auction()
+    self._create_auction(ipfs_hash)
 
 
 @external
@@ -274,7 +278,7 @@ def set_owner(_owner: address):
 
 
 @internal
-def _create_auction():
+def _create_auction(ipfs_hash: String[46]):
     _start_time: uint256 = block.timestamp
     _end_time: uint256 = _start_time + self.duration
     self.auction_id += 1
@@ -286,9 +290,10 @@ def _create_auction():
         end_time=_end_time,
         bidder=empty(address),
         settled=False,
+        ipfs_hash=ipfs_hash
     )
 
-    log AuctionCreated(self.auction_id, _start_time, _end_time)
+    log AuctionCreated(self.auction_id, _start_time, _end_time, ipfs_hash)
 
 
 @internal
@@ -304,7 +309,8 @@ def _settle_auction(auction_id: uint256):
         start_time=_auction.start_time,
         end_time=_auction.end_time,
         bidder=_auction.bidder,
-        settled=True
+        settled=True,
+        ipfs_hash=_auction.ipfs_hash
     )
 
     if _auction.amount > 0:
@@ -356,7 +362,8 @@ def _create_bid(auction_id: uint256, amount: uint256):
         start_time=_auction.start_time,
         end_time=_auction.end_time if not extended else block.timestamp + self.time_buffer,
         bidder=msg.sender,
-        settled=_auction.settled
+        settled=_auction.settled,
+        ipfs_hash=_auction.ipfs_hash
     )
 
     log AuctionBid(_auction.auction_id, msg.sender, amount, extended)

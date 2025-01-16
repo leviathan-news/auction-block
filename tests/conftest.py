@@ -6,6 +6,10 @@ def deployer():
     return boa.env.generate_address()
 
 @pytest.fixture(scope="function")
+def ipfs_hash():
+    return "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
+
+@pytest.fixture(scope="function")
 def alice(payment_token):
     addr = boa.env.generate_address()
     payment_token._mint_for_testing(addr, 1_000 * 10 ** 18)
@@ -49,11 +53,11 @@ def auction_house(deployer, proceeds_receiver, payment_token):
         )
 
 @pytest.fixture(scope="function")
-def auction_house_with_auction(auction_house, deployer):
+def auction_house_with_auction(auction_house, deployer, ipfs_hash):
     """Deploy and unpause the auction house"""
     with boa.env.prank(deployer):
         auction_house.unpause()
-        auction_house.create_new_auction()  # Create first auction
+        auction_house.create_new_auction(ipfs_hash)  # Create first auction
     return auction_house
 
 
