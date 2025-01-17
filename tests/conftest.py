@@ -149,7 +149,7 @@ def base_auction_house(auction_house_contract, deployer, proceeds_receiver, paym
     with boa.env.prank(deployer):
         return auction_house_contract.deploy(
             100,  # time_buffer
-            DEFAULT_RESERVE_PRICE,  # reserve_price
+            100, #DEFAULT_RESERVE_PRICE,  # reserve_price
             5,    # min_bid_increment_percentage
             3600, # duration
             proceeds_receiver,
