@@ -1,23 +1,28 @@
 import pytest
 import boa
 
-def test_withdraw_after_outbid(auction_house_with_auction, alice, bob, payment_token):
+def test_withdraw_after_outbid(auction_house_with_auction, alice, bob, payment_token, default_reserve_price):
     """Test withdrawing funds after being outbid"""
     # Track initial balance
     alice_balance_before = payment_token.balanceOf(alice)
     
+    # Calculate bid amounts
+    first_bid = default_reserve_price
+    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    second_bid = first_bid + (first_bid * min_increment) // 100
+    
     # First bid from alice
     with boa.env.prank(alice):
-        payment_token.approve(auction_house_with_auction.address, 100)
-        auction_house_with_auction.create_bid(1, 100)
+        payment_token.approve(auction_house_with_auction.address, first_bid)
+        auction_house_with_auction.create_bid(1, first_bid)
     
     # Bob outbids
     with boa.env.prank(bob):
-        payment_token.approve(auction_house_with_auction.address, 200)
-        auction_house_with_auction.create_bid(1, 200)
+        payment_token.approve(auction_house_with_auction.address, second_bid)
+        auction_house_with_auction.create_bid(1, second_bid)
     
     # Alice should have pending returns
-    assert auction_house_with_auction.pending_returns(alice) == 100
+    assert auction_house_with_auction.pending_returns(alice) == first_bid
     
     # Alice withdraws
     with boa.env.prank(alice):
@@ -64,7 +69,16 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
     assert final_auction[5] == True  # settled
     assert new_auction[0] == auction_id + 1  # new auction has correct ID
 
-def test_settle_auction_with_single_bid(auction_house_with_auction, alice, deployer, proceeds_receiver, payment_token):
+
+def test_settle_auction_with_single_bid(
+    auction_house_with_auction, 
+    alice, 
+    deployer, 
+    proceeds_receiver, 
+    payment_token, 
+    default_reserve_price,
+    default_split_percentage
+):
     """Test settling auction with one bid"""
     auction_id = auction_house_with_auction.auction_id()
     
@@ -73,9 +87,10 @@ def test_settle_auction_with_single_bid(auction_house_with_auction, alice, deplo
     proceeds_receiver_balance_before = payment_token.balanceOf(proceeds_receiver)
     
     # Place bid
+    bid_amount = default_reserve_price
     with boa.env.prank(alice):
-        payment_token.approve(auction_house_with_auction.address, 100)
-        auction_house_with_auction.create_bid(auction_id, 100)
+        payment_token.approve(auction_house_with_auction.address, bid_amount)
+        auction_house_with_auction.create_bid(auction_id, bid_amount)
     
     # Fast forward and settle
     boa.env.time_travel(seconds=4000)
@@ -88,12 +103,24 @@ def test_settle_auction_with_single_bid(auction_house_with_auction, alice, deplo
     deployer_balance_after = payment_token.balanceOf(deployer)
     proceeds_receiver_balance_after = payment_token.balanceOf(proceeds_receiver)
     
-    # Owner should get 5% of 100 = 5
-    assert deployer_balance_after - deployer_balance_before == 5
-    # Proceeds receiver should get 95% of 100 = 95
-    assert proceeds_receiver_balance_after - proceeds_receiver_balance_before == 95
+    # Proceeds split according to default_split_percentage
+    owner_share = bid_amount - (bid_amount * default_split_percentage // 100)
+    receiver_share = bid_amount * default_split_percentage // 100
+    
+    assert deployer_balance_after - deployer_balance_before == owner_share
+    assert proceeds_receiver_balance_after - proceeds_receiver_balance_before == receiver_share
 
-def test_settle_multiple_bids(auction_house_with_auction, alice, bob, deployer, proceeds_receiver, payment_token):
+
+def test_settle_multiple_bids(
+    auction_house_with_auction, 
+    alice, 
+    bob, 
+    deployer, 
+    proceeds_receiver, 
+    payment_token, 
+    default_reserve_price,
+    default_split_percentage
+):
     """Test settling with multiple bids"""
     auction_id = auction_house_with_auction.auction_id()
     
@@ -102,14 +129,19 @@ def test_settle_multiple_bids(auction_house_with_auction, alice, bob, deployer, 
     deployer_balance_before = payment_token.balanceOf(deployer)
     proceeds_receiver_balance_before = payment_token.balanceOf(proceeds_receiver)
     
+    # Calculate bid amounts
+    first_bid = default_reserve_price
+    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    second_bid = first_bid + (first_bid * min_increment) // 100
+    
     # Place bids
     with boa.env.prank(alice):
-        payment_token.approve(auction_house_with_auction.address, 100)
-        auction_house_with_auction.create_bid(auction_id, 100)
+        payment_token.approve(auction_house_with_auction.address, first_bid)
+        auction_house_with_auction.create_bid(auction_id, first_bid)
     
     with boa.env.prank(bob):
-        payment_token.approve(auction_house_with_auction.address, 1000)
-        auction_house_with_auction.create_bid(auction_id, 1000)
+        payment_token.approve(auction_house_with_auction.address, second_bid)
+        auction_house_with_auction.create_bid(auction_id, second_bid)
     
     # Fast forward and settle
     boa.env.time_travel(seconds=4000)
@@ -120,7 +152,7 @@ def test_settle_multiple_bids(auction_house_with_auction, alice, bob, deployer, 
     
     # Check balances
     alice_balance_mid = payment_token.balanceOf(alice)
-    assert alice_balance_mid == alice_balance_before - 100  # Alice's bid is pending return
+    assert alice_balance_mid == alice_balance_before - first_bid  # Alice's bid is pending return
     
     # Alice withdraws
     with boa.env.prank(alice):
@@ -133,8 +165,11 @@ def test_settle_multiple_bids(auction_house_with_auction, alice, bob, deployer, 
     deployer_balance_after = payment_token.balanceOf(deployer)
     proceeds_receiver_balance_after = payment_token.balanceOf(proceeds_receiver)
     
-    assert deployer_balance_after - deployer_balance_before == 50  # 5% of 1000
-    assert proceeds_receiver_balance_after - proceeds_receiver_balance_before == 950  # 95% of 1000
+    owner_share = second_bid - (second_bid * default_split_percentage // 100)
+    receiver_share = second_bid * default_split_percentage // 100
+    
+    assert deployer_balance_after - deployer_balance_before == owner_share
+    assert proceeds_receiver_balance_after - proceeds_receiver_balance_before == receiver_share
 
 def test_settle_auction_not_ended(auction_house_with_auction, deployer):
     """Test cannot settle auction before it ends"""
@@ -144,14 +179,19 @@ def test_settle_auction_not_ended(auction_house_with_auction, deployer):
         auction_house_with_auction.pause()
         auction_house_with_auction.settle_and_create_auction(auction_id)
 
-def test_auction_extension(auction_house_with_auction, alice, bob, payment_token):
+def test_auction_extension(auction_house_with_auction, alice, bob, payment_token, default_reserve_price):
     """Test auction gets extended when bid near end"""
     auction_id = auction_house_with_auction.auction_id()
     
+    # Calculate bid amounts
+    first_bid = default_reserve_price
+    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    second_bid = first_bid + (first_bid * min_increment) // 100
+    
     # Place initial bid
     with boa.env.prank(alice):
-        payment_token.approve(auction_house_with_auction.address, 100)
-        auction_house_with_auction.create_bid(auction_id, 100)
+        payment_token.approve(auction_house_with_auction.address, first_bid)
+        auction_house_with_auction.create_bid(auction_id, first_bid)
     
     # Move to near end of auction
     auction = auction_house_with_auction.auction_list(auction_id)
@@ -160,8 +200,8 @@ def test_auction_extension(auction_house_with_auction, alice, bob, payment_token
     
     # Place bid near end
     with boa.env.prank(bob):
-        payment_token.approve(auction_house_with_auction.address, 200)
-        auction_house_with_auction.create_bid(auction_id, 200)
+        payment_token.approve(auction_house_with_auction.address, second_bid)
+        auction_house_with_auction.create_bid(auction_id, second_bid)
     
     # Check auction was extended
     new_auction = auction_house_with_auction.auction_list(auction_id)

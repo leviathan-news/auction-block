@@ -28,10 +28,10 @@ def test_create_auction_with_ipfs(auction_house, deployer):
     assert auction[0] == 1  # auction_id
 
 
-def test_ipfs_hash_persists_after_bid(auction_house, deployer, alice, payment_token):
+def test_ipfs_hash_persists_after_bid(auction_house, deployer, alice, payment_token, default_reserve_price):
     """Test that IPFS hash persists after bids are placed"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
-    bid_amount = 150  # Above reserve price
+    bid_amount = default_reserve_price  # Use default reserve price as bid
     
     # Create auction with IPFS hash
     with boa.env.prank(deployer):
@@ -52,10 +52,16 @@ def test_ipfs_hash_persists_after_bid(auction_house, deployer, alice, payment_to
     assert auction[4] == alice  # bidder
 
 
-def test_ipfs_hash_persists_after_settlement(auction_house, deployer, alice, payment_token):
+def test_ipfs_hash_persists_after_settlement(
+    auction_house, 
+    deployer, 
+    alice, 
+    payment_token,
+    default_reserve_price
+):
     """Test that IPFS hash persists after auction settlement"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
-    bid_amount = 150
+    bid_amount = default_reserve_price
     
     # Create and bid on auction
     with boa.env.prank(deployer):

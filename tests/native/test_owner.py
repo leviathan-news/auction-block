@@ -25,23 +25,35 @@ def test_set_reserve_price(auction_house, deployer):
         auction_house.set_reserve_price(200)
     assert auction_house.reserve_price() == 200
 
-def test_set_min_bid_increment_percentage(auction_house, deployer):
+def test_set_min_bid_increment_percentage(
+    auction_house, 
+    deployer, 
+    default_min_bid_increment
+):
     """Test minimum bid increment can be updated by owner within valid range"""
     with boa.env.prank(deployer):
         auction_house.set_min_bid_increment_percentage(10)
     assert auction_house.min_bid_increment_percentage() == 10
 
-def test_set_min_bid_increment_percentage_too_high(auction_house, deployer):
+def test_set_min_bid_increment_percentage_too_high(
+    auction_house, 
+    deployer, 
+    default_min_bid_increment
+):
     """Test minimum bid increment cannot be set above maximum"""
     with boa.env.prank(deployer), boa.reverts("_min_bid_increment_percentage out of range"):
         auction_house.set_min_bid_increment_percentage(16)
-    assert auction_house.min_bid_increment_percentage() == 5
+    assert auction_house.min_bid_increment_percentage() == default_min_bid_increment
 
-def test_set_min_bid_increment_percentage_too_low(auction_house, deployer):
+def test_set_min_bid_increment_percentage_too_low(
+    auction_house, 
+    deployer, 
+    default_min_bid_increment
+):
     """Test minimum bid increment cannot be set below minimum"""
     with boa.env.prank(deployer), boa.reverts("_min_bid_increment_percentage out of range"):
         auction_house.set_min_bid_increment_percentage(1)
-    assert auction_house.min_bid_increment_percentage() == 5
+    assert auction_house.min_bid_increment_percentage() == default_min_bid_increment
 
 def test_set_duration(auction_house, deployer):
     """Test duration can be updated by owner within valid range"""

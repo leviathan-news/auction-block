@@ -12,13 +12,12 @@ TEST_TOKEN_ADDR = '0x9ee77bfb546805fafeb0a5e0cb150d5f82cda47d'
 TEST_POOL_ADDR = '0x3ff0c368af361ff01906f75a7750480d1e2d7aa9'
 WETH_ADDR = '0x980b62da83eff3d4576c647993b0c1d7faf17c73'
 
-# Default auction parameters
-DEFAULT_TIME_BUFFER = 300
-DEFAULT_RESERVE_PRICE = int(0.2 * 10**18)
-DEFAULT_MIN_BID_INCREMENT = 2
-DEFAULT_DURATION = 1 * 60 * 60
-DEFAULT_SPLIT_PERCENTAGE = 100
-
+# Default auction parameters 
+DEFAULT_TIME_BUFFER = 300  # 5 minutes
+DEFAULT_RESERVE_PRICE = int(0.2 * 10**18)  # 0.2 tokens
+DEFAULT_MIN_BID_INCREMENT = 2  # 2%
+DEFAULT_DURATION = 3600  # 1 hour
+DEFAULT_SPLIT_PERCENTAGE = 100  # 100%
 
 @dataclass
 class Auction:
@@ -30,6 +29,26 @@ class Auction:
     settled: bool
     ipfs_hash: str
 
+# Fixtures for default values
+@pytest.fixture(scope="session")
+def default_time_buffer():
+    return DEFAULT_TIME_BUFFER
+
+@pytest.fixture(scope="session")
+def default_reserve_price():
+    return DEFAULT_RESERVE_PRICE
+
+@pytest.fixture(scope="session")
+def default_min_bid_increment():
+    return DEFAULT_MIN_BID_INCREMENT
+
+@pytest.fixture(scope="session")
+def default_duration():
+    return DEFAULT_DURATION
+
+@pytest.fixture(scope="session")
+def default_split_percentage():
+    return DEFAULT_SPLIT_PERCENTAGE
 
 @pytest.fixture(scope="session")
 def fork_mode(request):
@@ -58,7 +77,6 @@ def pytest_runtest_setup(item):
     if "fork_only" in item.keywords and not item.config.getoption("--fork"):
         pytest.skip("test requires fork network")
 
-
 @pytest.fixture(scope="session")
 def deployer():
     return boa.env.generate_address()
@@ -76,7 +94,6 @@ def weth(env, fork_mode):
     else:
         return None
 
-
 @pytest.fixture(scope="session")
 def trading_pool(env, fork_mode):
     pool_contract = boa.load_partial('contracts/test/CurveTwoCrypto.vy')
@@ -89,9 +106,7 @@ def trading_pool(env, fork_mode):
 def make_user(payment_token, env, fork_mode, weth):
     def _make_user_with_weth(eth_amount: int = 10 * 10**18):  # Default 10 ETH
         addr = boa.env.generate_address()
-        # Fund address with ETH
         boa.env.set_balance(addr, eth_amount)
-        # Have user deposit ETH for WETH
         with boa.env.prank(addr):
             weth.deposit(value=eth_amount)
         payment_token._mint_for_testing(addr, 1_000 * 10 ** 18)
@@ -131,7 +146,6 @@ def payment_token(env, fork_mode):
 def proceeds_receiver():
     return boa.env.generate_address()
 
-
 @pytest.fixture(scope="session")
 def auction_house_contract():
     """Cache the contract bytecode"""
@@ -144,16 +158,26 @@ def state_anchor():
         yield
 
 @pytest.fixture(scope="session")
-def base_auction_house(auction_house_contract, deployer, proceeds_receiver, payment_token):
+def base_auction_house(
+    auction_house_contract, 
+    deployer, 
+    proceeds_receiver, 
+    payment_token,
+    default_time_buffer,
+    default_reserve_price,
+    default_min_bid_increment,
+    default_duration,
+    default_split_percentage
+):
     """Deploy the auction house contract once for the session"""
     with boa.env.prank(deployer):
         return auction_house_contract.deploy(
-            100,  # time_buffer
-            100, #DEFAULT_RESERVE_PRICE,  # reserve_price
-            5,    # min_bid_increment_percentage
-            3600, # duration
+            default_time_buffer,
+            default_reserve_price,
+            default_min_bid_increment,
+            default_duration,
             proceeds_receiver,
-            95,   # proceeds_receiver_split_percentage
+            default_split_percentage,
             payment_token
         )
 
@@ -170,7 +194,6 @@ def auction_house_with_auction(auction_house, deployer, ipfs_hash):
         auction_house.create_new_auction(ipfs_hash)
     return auction_house
 
-
 @pytest.fixture(scope="session")
 def pool_indices():
     # WETH -> SQUID
@@ -184,10 +207,8 @@ def weth_trader(payment_token, weth, trading_pool, pool_indices):
     assert trading_pool.coins(weth_index) == weth.address
 
     contract = boa.load_partial('contracts/AuctionTrade.vy')
-    return contract.deploy(payment_token, weth, trading_pool, [weth_index, squid_index]) 
+    return contract.deploy(payment_token, weth, trading_pool, [weth_index, squid_index])
 
 @pytest.fixture(scope="session")
 def auction_house_with_weth(auction_house_with_auction, weth_trader):
-    house = auction_house_with_auction
-    
     return auction_house_with_auction
