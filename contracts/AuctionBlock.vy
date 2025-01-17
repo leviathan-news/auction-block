@@ -147,22 +147,22 @@ def current_auctions() -> DynArray[uint256, 100]:
 
 @external
 @view
-def minimum_bid(auction_id: uint256) -> uint256:
+def minimum_total_bid(auction_id: uint256) -> uint256:
     """
     @notice Returns the minimum bid one must place for a given auction
     @return Minimum bid in the payment token
     """
-    return self._minimum_bid(auction_id, empty(address))
+    return self._minimum_total_bid(auction_id)
 
 
 @external
 @view
-def minimum_bid_for_user(auction_id: uint256, user: address) -> uint256:
+def minimum_additional_bid_for_user(auction_id: uint256, user: address) -> uint256:
     """
-    @notice Returns the minimum amount a user must place to become top bidder for an auction
+    @notice Returns the minimum additional amount a user must add to become top bidder for an auction
     @return Required amount to bid in the payment token
     """
-    return self._minimum_bid(auction_id, user)
+    return self._minimum_additional_bid(auction_id, user)
 
 
 @external
@@ -414,33 +414,33 @@ def _settle_auction(auction_id: uint256):
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
 @internal
-def _create_bid(auction_id: uint256, amount: uint256, bidder: address):
+def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     """
     @dev Internal function to create a bid
     @param auction_id The ID of the auction
-    @param amount The bid amount
+    @param total_bid The bid amount to set (not the amount of additional tokens to send)
     @param bidder The address that will be recorded as the bidder
     """
     _auction: Auction = self.auction_list[auction_id]
 
     assert _auction.auction_id == auction_id, "Invalid auction ID"
     assert block.timestamp < _auction.end_time, "Auction expired"
-    assert amount >= self.reserve_price, "Must send at least reservePrice"
-    assert amount >= self._minimum_bid(auction_id, bidder), "Must send more than last bid by min_bid_increment_percentage amount"
+    assert total_bid >= self.reserve_price, "Must send at least reservePrice"
+    assert total_bid >= self._minimum_total_bid(auction_id), "Must send more than last bid by min_bid_increment_percentage amount"
 
     # If this is a delegated bid, we need to transfer from the actual bidder
     pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
-    tokens_needed: uint256 = amount
+    tokens_needed: uint256 = total_bid
     
     if pending_amount > 0:
-        if pending_amount >= amount:
+        if pending_amount >= total_bid:
             # Use entire bid amount from pending returns
-            self.auction_pending_returns[auction_id][bidder] = pending_amount - amount
+            self.auction_pending_returns[auction_id][bidder] = pending_amount - total_bid
             tokens_needed = 0
         else:
             # Use all pending returns and require additional tokens
             self.auction_pending_returns[auction_id][bidder] = 0
-            tokens_needed = amount - pending_amount
+            tokens_needed = total_bid - pending_amount
 
     if tokens_needed > 0:
         assert extcall self.payment_token.transferFrom(bidder, self, tokens_needed), "Token transfer failed"
@@ -453,7 +453,7 @@ def _create_bid(auction_id: uint256, amount: uint256, bidder: address):
     extended: bool = _auction.end_time - block.timestamp < self.time_buffer
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
-        amount=amount,
+        amount=total_bid,
         start_time=_auction.start_time,
         end_time=_auction.end_time if not extended else block.timestamp + self.time_buffer,
         bidder=bidder,
@@ -461,7 +461,7 @@ def _create_bid(auction_id: uint256, amount: uint256, bidder: address):
         ipfs_hash=_auction.ipfs_hash
     )
 
-    log AuctionBid(_auction.auction_id, bidder, amount, extended)
+    log AuctionBid(_auction.auction_id, bidder, total_bid, extended)
 
     if extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
@@ -479,8 +479,17 @@ def _unpause():
 
 @internal
 @view
-def _minimum_bid(auction_id: uint256, bidder: address = empty(address)) -> uint256:
+def _minimum_total_bid(auction_id: uint256) -> uint256:
     _auction: Auction = self.auction_list[auction_id] 
     _min_pct: uint256 = self.min_bid_increment_percentage
-    return _auction.amount + ((_auction.amount * _min_pct) // 100) 
+    _bid_amt: uint256 = _auction.amount + ((_auction.amount * _min_pct) // 100) 
+
+    return _bid_amt 
     
+
+@internal
+@view
+def _minimum_additional_bid(auction_id: uint256, bidder: address = empty(address)) -> uint256:
+    _bid_amt: uint256 = self._minimum_total_bid(auction_id)
+    return _bid_amt - self.auction_pending_returns[auction_id][bidder]
+ 
