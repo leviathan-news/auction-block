@@ -264,7 +264,7 @@ def create_bid(auction_id: uint256, bid_amount: uint256, on_behalf_of: address =
 
 @external
 @nonreentrant
-def create_bid_using_token(auction_id: uint256, bid_amount: uint256, token_addr: uint256, min_dy: uint256, on_behalf_of: address = empty(address)):
+def create_bid_using_token(auction_id: uint256, bid_amount: uint256, token_addr: uint256, on_behalf_of: address = empty(address)):
     """
     @dev Create a bid using ERC20 tokens, optionally on behalf of another address
     @param auction_id The ID of the auction to bid on
@@ -276,12 +276,8 @@ def create_bid_using_token(auction_id: uint256, bid_amount: uint256, token_addr:
     if on_behalf_of != empty(address):
         assert self.delegated_bidders[msg.sender], "Not authorized to bid on behalf"
         bidder = on_behalf_of
-  
-    _trade_contract: TokenTrader = self.additional_tokens[token_addr]
-    assert _trade_contract != empty(address), "Token not registered"
-    extcall received_value = _trade_contract.exchange(bid_amount, min_dy)
-     
-    self._create_bid(auction_id, received_value, bidder)
+    
+    self._create_bid(auction_id, bid_amount, bidder)
 
 
 
@@ -548,7 +544,6 @@ def add_token_support(token_addr: address, trader_addr: TokenTrader):
     assert token_addr != empty(address), "Invalid token address"
  
     self.additional_tokens[token_addr] = trader_addr
-    extcall trader_addr.approve(self, max_value(uint256)
 
 @external
 def revoke_token_support(token_addr: address):
