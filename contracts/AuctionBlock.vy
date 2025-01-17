@@ -62,6 +62,11 @@ event Withdraw:
     _amount: uint256
 
 
+event DelegatedBidderUpdated:
+    _bidder: indexed(address)
+    _allowed: bool
+
+
 IDENTITY_PRECOMPILE: constant(
     address
 ) = 0x0000000000000000000000000000000000000004
@@ -74,9 +79,11 @@ time_buffer: public(uint256)
 reserve_price: public(uint256)
 min_bid_increment_percentage: public(uint256)
 duration: public(uint256)
-pending_returns: public(HashMap[address, uint256])
-auction_list: public(HashMap[uint256, Auction])
 auction_id: public(uint256)
+
+pending_returns: public(HashMap[address, uint256])
+delegated_bidders: public(HashMap[address, bool])
+auction_list: public(HashMap[uint256, Auction])
 
 # Payment token
 payment_token: public(IERC20)
@@ -173,12 +180,33 @@ def settle_and_create_auction(auction_id: uint256, ipfs_hash: String[46] = ''):
 
 
 @external
+def set_delegated_bidder(_bidder: address, _allowed: bool):
+    """
+    @dev Allow or revoke an address to bid on behalf of others
+    @param _bidder The address to update delegation status for
+    @param _allowed Whether the address should be allowed to bid on behalf of others
+    """
+    assert msg.sender == self.owner, "Caller is not the owner"
+    self.delegated_bidders[_bidder] = _allowed
+    log DelegatedBidderUpdated(_bidder, _allowed)
+
+
+@external
 @nonreentrant
-def create_bid(auction_id: uint256, bid_amount: uint256):
+def create_bid(auction_id: uint256, bid_amount: uint256, on_behalf_of: address = empty(address)):
     """
-    @dev Create a bid using ERC20 tokens
+    @dev Create a bid using ERC20 tokens, optionally on behalf of another address
+    @param auction_id The ID of the auction to bid on
+    @param bid_amount The amount to bid
+    @param on_behalf_of Optional address to bid on behalf of. If empty, bid is from msg.sender
     """
-    self._create_bid(auction_id, bid_amount)
+    # If bidding on behalf of someone else, verify permissions
+    bidder: address = msg.sender
+    if on_behalf_of != empty(address):
+        assert self.delegated_bidders[msg.sender], "Not authorized to bid on behalf"
+        bidder = on_behalf_of
+    
+    self._create_bid(auction_id, bid_amount, bidder)
 
 
 @external
@@ -323,7 +351,13 @@ def _settle_auction(auction_id: uint256):
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
 @internal
-def _create_bid(auction_id: uint256, amount: uint256):
+def _create_bid(auction_id: uint256, amount: uint256, bidder: address):
+    """
+    @dev Internal function to create a bid
+    @param auction_id The ID of the auction
+    @param amount The bid amount
+    @param bidder The address that will be recorded as the bidder
+    """
     _auction: Auction = self.auction_list[auction_id]
 
     assert _auction.auction_id == auction_id, "Invalid auction ID"
@@ -333,23 +367,20 @@ def _create_bid(auction_id: uint256, amount: uint256):
         (_auction.amount * self.min_bid_increment_percentage) // 100
     ), "Must send more than last bid by min_bid_increment_percentage amount"
 
-    # If msg.value < amount, try to use pending returns for the remainder
-    pending_amount: uint256 = self.pending_returns[msg.sender]
+    # If this is a delegated bid, we need to transfer from the actual bidder
+    pending_amount: uint256 = self.pending_returns[bidder]
     tokens_needed: uint256 = amount
     
     if pending_amount > 0:
         if pending_amount >= amount:
-            # Use pending returns only
-            self.pending_returns[msg.sender] -= amount
+            self.pending_returns[bidder] -= amount
             tokens_needed = 0
         else:
-            # Use all pending returns plus some tokens
-            self.pending_returns[msg.sender] = 0
+            self.pending_returns[bidder] = 0
             tokens_needed = amount - pending_amount
 
-    # Transfer any additional tokens needed
     if tokens_needed > 0:
-        assert extcall self.payment_token.transferFrom(msg.sender, self, tokens_needed), "Token transfer failed"
+        assert extcall self.payment_token.transferFrom(bidder, self, tokens_needed), "Token transfer failed"
 
     last_bidder: address = _auction.bidder
     if last_bidder != empty(address):
@@ -361,16 +392,15 @@ def _create_bid(auction_id: uint256, amount: uint256):
         amount=amount,
         start_time=_auction.start_time,
         end_time=_auction.end_time if not extended else block.timestamp + self.time_buffer,
-        bidder=msg.sender,
+        bidder=bidder,
         settled=_auction.settled,
         ipfs_hash=_auction.ipfs_hash
     )
 
-    log AuctionBid(_auction.auction_id, msg.sender, amount, extended)
+    log AuctionBid(_auction.auction_id, bidder, amount, extended)
 
     if extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
-
 
 
 @internal
