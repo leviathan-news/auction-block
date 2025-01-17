@@ -6,6 +6,8 @@
 
 from ethereum.ercs import IERC20
 
+# Structures
+
 struct Auction:
     auction_id: uint256
     amount: uint256
@@ -15,6 +17,15 @@ struct Auction:
     settled: bool
     ipfs_hash: String[46]
 
+
+# Interfaces
+
+interface TokenTrader:
+    def exchange(_dx: uint256, _min_dy: uint256) -> uint256: nonpayable
+    def get_dy(_dx: uint256) -> uint256: view
+
+
+# Events
 
 event AuctionBid:
     _auction_id: indexed(uint256)
@@ -88,6 +99,7 @@ auction_list: public(HashMap[uint256, Auction])
 
 # Payment token
 payment_token: public(IERC20)
+additional_tokens: public(HashMap[address, TokenTrader])
 
 # Permissions
 owner: public(address)
@@ -248,6 +260,29 @@ def create_bid(auction_id: uint256, bid_amount: uint256, on_behalf_of: address =
         bidder = on_behalf_of
     
     self._create_bid(auction_id, bid_amount, bidder)
+
+
+@external
+@nonreentrant
+def create_bid_using_token(auction_id: uint256, bid_amount: uint256, token_addr: uint256, min_dy: uint256, on_behalf_of: address = empty(address)):
+    """
+    @dev Create a bid using ERC20 tokens, optionally on behalf of another address
+    @param auction_id The ID of the auction to bid on
+    @param bid_amount The amount to bid
+    @param on_behalf_of Optional address to bid on behalf of. If empty, bid is from msg.sender
+    """
+    # If bidding on behalf of someone else, verify permissions
+    bidder: address = msg.sender
+    if on_behalf_of != empty(address):
+        assert self.delegated_bidders[msg.sender], "Not authorized to bid on behalf"
+        bidder = on_behalf_of
+  
+    _trade_contract: TokenTrader = self.additional_tokens[token_addr]
+    assert _trade_contract != empty(address), "Token not registered"
+    extcall received_value = _trade_contract.exchange(bid_amount, min_dy)
+     
+    self._create_bid(auction_id, received_value, bidder)
+
 
 
 
@@ -481,15 +516,49 @@ def _unpause():
 @view
 def _minimum_total_bid(auction_id: uint256) -> uint256:
     _auction: Auction = self.auction_list[auction_id] 
-    _min_pct: uint256 = self.min_bid_increment_percentage
-    _bid_amt: uint256 = _auction.amount + ((_auction.amount * _min_pct) // 100) 
-
-    return _bid_amt 
+    assert _auction.start_time != 0, "Invalid auction ID"
+    assert not _auction.settled, "Auction is settled"
     
+    if _auction.amount == 0:
+        return self.reserve_price
+        
+    _min_pct: uint256 = self.min_bid_increment_percentage
+    return _auction.amount + ((_auction.amount * _min_pct) // 100)
 
 @internal
 @view
 def _minimum_additional_bid(auction_id: uint256, bidder: address = empty(address)) -> uint256:
-    _bid_amt: uint256 = self._minimum_total_bid(auction_id)
-    return _bid_amt - self.auction_pending_returns[auction_id][bidder]
+    _total_min: uint256 = self._minimum_total_bid(auction_id)
+    if bidder == empty(address):
+        return _total_min
+        
+    pending: uint256 = self.auction_pending_returns[auction_id][bidder]
+    if pending >= _total_min:
+        return 0
+    return _total_min - pending
+
+# Trade
+def add_token_support(token_addr: address, trader_addr: TokenTrader):
+    """
+    @notice Adds support for trading a specific token
+    @param token_addr The token address to revoke trading support for
+    @param trader_addr Contract which handles trading
+    """
+    assert msg.sender == self.owner, "Caller is not the owner"
+    assert token_addr != empty(address), "Invalid token address"
  
+    self.additional_tokens[token_addr] = trader_addr
+    extcall trader_addr.approve(self, max_value(uint256)
+
+@external
+def revoke_token_support(token_addr: address):
+    """
+    @notice Revokes support for trading a specific token
+    @param token_addr The token address to revoke trading support for
+    """
+    assert msg.sender == self.owner, "Caller is not the owner"
+    assert token_addr != empty(address), "Invalid token address"
+    assert self.additional_tokens[token_addr].address != empty(address), "Token not supported"
+    
+    self.additional_tokens[token_addr] = empty(TokenTrader)
+
