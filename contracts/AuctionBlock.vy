@@ -99,7 +99,7 @@ auction_list: public(HashMap[uint256, Auction])
 
 # Payment token
 payment_token: public(IERC20)
-additional_tokens: public(HashMap[address, TokenTrader])
+additional_tokens: public(HashMap[IERC20, TokenTrader])
 
 # Permissions
 owner: public(address)
@@ -247,24 +247,6 @@ def set_delegated_bidder(_bidder: address, _allowed: bool):
 @external
 @nonreentrant
 def create_bid(auction_id: uint256, bid_amount: uint256, on_behalf_of: address = empty(address)):
-    """
-    @dev Create a bid using ERC20 tokens, optionally on behalf of another address
-    @param auction_id The ID of the auction to bid on
-    @param bid_amount The amount to bid
-    @param on_behalf_of Optional address to bid on behalf of. If empty, bid is from msg.sender
-    """
-    # If bidding on behalf of someone else, verify permissions
-    bidder: address = msg.sender
-    if on_behalf_of != empty(address):
-        assert self.delegated_bidders[msg.sender], "Not authorized to bid on behalf"
-        bidder = on_behalf_of
-    
-    self._create_bid(auction_id, bid_amount, bidder)
-
-
-@external
-@nonreentrant
-def create_bid_using_token(auction_id: uint256, bid_amount: uint256, token_addr: uint256, on_behalf_of: address = empty(address)):
     """
     @dev Create a bid using ERC20 tokens, optionally on behalf of another address
     @param auction_id The ID of the auction to bid on
@@ -534,25 +516,26 @@ def _minimum_additional_bid(auction_id: uint256, bidder: address = empty(address
     return _total_min - pending
 
 # Trade
-def add_token_support(token_addr: address, trader_addr: TokenTrader):
+def add_token_support(token_addr: IERC20, trader_addr: TokenTrader):
     """
     @notice Adds support for trading a specific token
     @param token_addr The token address to revoke trading support for
     @param trader_addr Contract which handles trading
     """
     assert msg.sender == self.owner, "Caller is not the owner"
-    assert token_addr != empty(address), "Invalid token address"
+    assert token_addr.address != empty(address), "Invalid token address"
  
     self.additional_tokens[token_addr] = trader_addr
+    extcall token_addr.approve(trader_addr.address, max_value(uint256))
 
 @external
-def revoke_token_support(token_addr: address):
+def revoke_token_support(token_addr: IERC20):
     """
     @notice Revokes support for trading a specific token
     @param token_addr The token address to revoke trading support for
     """
     assert msg.sender == self.owner, "Caller is not the owner"
-    assert token_addr != empty(address), "Invalid token address"
+    assert token_addr.address != empty(address), "Invalid token address"
     assert self.additional_tokens[token_addr].address != empty(address), "Token not supported"
     
     self.additional_tokens[token_addr] = empty(TokenTrader)
