@@ -72,6 +72,7 @@ IDENTITY_PRECOMPILE: constant(
 ) = 0x0000000000000000000000000000000000000004
 
 ADMIN_MAX_WITHDRAWALS: constant(uint256) = 100
+MAX_AUCTION_ITERATIONS: constant(uint256) = 100  
 
 
 # Auction
@@ -81,7 +82,7 @@ min_bid_increment_percentage: public(uint256)
 duration: public(uint256)
 auction_id: public(uint256)
 
-pending_returns: public(HashMap[address, uint256])
+auction_pending_returns: public(HashMap[uint256, HashMap[address, uint256]])
 delegated_bidders: public(HashMap[address, bool])
 auction_list: public(HashMap[uint256, Auction])
 
@@ -119,6 +120,7 @@ def __init__(
     self.proceeds_receiver_split_percentage = _proceeds_receiver_split_percentage
     self.payment_token = _payment_token
 
+# VIEWS
 
 @external
 @view
@@ -142,6 +144,45 @@ def current_auctions() -> DynArray[uint256, 100]:
     
     return active_auctions
 
+
+@external
+@view
+def minimum_bid(auction_id: uint256) -> uint256:
+    """
+    @notice Returns the minimum bid one must place for a given auction
+    @return Minimum bid in the payment token
+    """
+    return self._minimum_bid(auction_id, empty(address))
+
+
+@external
+@view
+def minimum_bid_for_user(auction_id: uint256, user: address) -> uint256:
+    """
+    @notice Returns the minimum amount a user must place to become top bidder for an auction
+    @return Required amount to bid in the payment token
+    """
+    return self._minimum_bid(auction_id, user)
+
+
+@external
+@view
+def pending_returns(user: address) -> uint256:
+    """
+    @notice Get total pending returns for a user across all auctions
+    @param user The address to check pending returns for
+    @return Total pending returns amount
+    """
+    total_pending: uint256 = 0
+    for i: uint256 in range(MAX_AUCTION_ITERATIONS):
+        auction_id: uint256 = i + 1
+        if auction_id > self.auction_id:
+            break
+        total_pending += self.auction_pending_returns[auction_id][user]
+    return total_pending
+
+
+# CALLS
 
 @external
 @nonreentrant
@@ -209,16 +250,26 @@ def create_bid(auction_id: uint256, bid_amount: uint256, on_behalf_of: address =
     self._create_bid(auction_id, bid_amount, bidder)
 
 
+
 @external
 @nonreentrant
 def withdraw():
     """
     @dev Withdraw ERC20 tokens after losing auction
     """
-    pending_amount: uint256 = self.pending_returns[msg.sender]
-    assert pending_amount > 0, "No pending returns"
+    pending_amount: uint256 = 0
+    # Sum up pending returns across all auctions
+    for i: uint256 in range(MAX_AUCTION_ITERATIONS):
+        auction_id: uint256 = i + 1
+        if auction_id > self.auction_id:
+            break
+            
+        auction_pending: uint256 = self.auction_pending_returns[auction_id][msg.sender]
+        if auction_pending > 0:
+            pending_amount += auction_pending
+            self.auction_pending_returns[auction_id][msg.sender] = 0
     
-    self.pending_returns[msg.sender] = 0
+    assert pending_amount > 0, "No pending returns"
     assert extcall self.payment_token.transfer(msg.sender, pending_amount), "Token transfer failed"
     
     log Withdraw(msg.sender, pending_amount)
@@ -234,21 +285,30 @@ def withdraw_stale(addresses: DynArray[address, ADMIN_MAX_WITHDRAWALS]):
 
     total_fee: uint256 = 0
     for _address: address in addresses:
-        pending_amount: uint256 = self.pending_returns[_address]
+        # Sum up pending returns across all auctions
+        pending_amount: uint256 = 0
+        for i: uint256 in range(MAX_AUCTION_ITERATIONS):
+            auction_id: uint256 = i + 1
+            if auction_id > self.auction_id:
+                break
+                
+            auction_pending: uint256 = self.auction_pending_returns[auction_id][_address]
+            if auction_pending > 0:
+                pending_amount += auction_pending
+                self.auction_pending_returns[auction_id][_address] = 0
+                
         if pending_amount == 0:
             continue
             
         # Take a 5% fee
         fee: uint256 = pending_amount * 5 // 100
         withdrawer_return: uint256 = pending_amount - fee
-        self.pending_returns[_address] = 0
         
         assert extcall self.payment_token.transfer(_address, withdrawer_return), "Token transfer failed"
         total_fee += fee
 
     if total_fee > 0:
         assert extcall self.payment_token.transfer(self.owner, total_fee), "Fee transfer failed"
-
 
 @external
 def pause():
@@ -304,6 +364,9 @@ def set_owner(_owner: address):
     
     self.owner = _owner
 
+
+
+# INTERNAL
 
 @internal
 def _create_auction(ipfs_hash: String[46]):
@@ -363,20 +426,20 @@ def _create_bid(auction_id: uint256, amount: uint256, bidder: address):
     assert _auction.auction_id == auction_id, "Invalid auction ID"
     assert block.timestamp < _auction.end_time, "Auction expired"
     assert amount >= self.reserve_price, "Must send at least reservePrice"
-    assert amount >= _auction.amount + (
-        (_auction.amount * self.min_bid_increment_percentage) // 100
-    ), "Must send more than last bid by min_bid_increment_percentage amount"
+    assert amount >= self._minimum_bid(auction_id, bidder), "Must send more than last bid by min_bid_increment_percentage amount"
 
     # If this is a delegated bid, we need to transfer from the actual bidder
-    pending_amount: uint256 = self.pending_returns[bidder]
+    pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
     tokens_needed: uint256 = amount
     
     if pending_amount > 0:
         if pending_amount >= amount:
-            self.pending_returns[bidder] -= amount
+            # Use entire bid amount from pending returns
+            self.auction_pending_returns[auction_id][bidder] = pending_amount - amount
             tokens_needed = 0
         else:
-            self.pending_returns[bidder] = 0
+            # Use all pending returns and require additional tokens
+            self.auction_pending_returns[auction_id][bidder] = 0
             tokens_needed = amount - pending_amount
 
     if tokens_needed > 0:
@@ -384,7 +447,8 @@ def _create_bid(auction_id: uint256, amount: uint256, bidder: address):
 
     last_bidder: address = _auction.bidder
     if last_bidder != empty(address):
-        self.pending_returns[last_bidder] += _auction.amount
+        # Store pending return for the auction it came from
+        self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
 
     extended: bool = _auction.end_time - block.timestamp < self.time_buffer
     self.auction_list[auction_id] = Auction(
@@ -411,3 +475,12 @@ def _pause():
 @internal
 def _unpause():
     self.paused = False
+
+
+@internal
+@view
+def _minimum_bid(auction_id: uint256, bidder: address = empty(address)) -> uint256:
+    _auction: Auction = self.auction_list[auction_id] 
+    _min_pct: uint256 = self.min_bid_increment_percentage
+    return _auction.amount + ((_auction.amount * _min_pct) // 100) 
+    

@@ -1,5 +1,17 @@
 import pytest
 import boa
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class Auction:
+    auction_id: int
+    amount: int
+    start_time: int
+    end_time: int
+    bidder: str
+    settled: bool
+    ipfs_hash: str
 
 @pytest.fixture(scope="function")
 def deployer():
@@ -20,7 +32,6 @@ def bob(payment_token):
     addr = boa.env.generate_address()
     payment_token._mint_for_testing(addr, 1_000 * 10 ** 18)
     return addr
-
 
 @pytest.fixture(scope="function")
 def charlie(payment_token):
@@ -59,5 +70,3 @@ def auction_house_with_auction(auction_house, deployer, ipfs_hash):
         auction_house.unpause()
         auction_house.create_new_auction(ipfs_hash)  # Create first auction
     return auction_house
-
-
