@@ -9,6 +9,7 @@ def balanceOf(account: address) -> uint256:
     """
     return 0
 
+
 @view
 @external
 def allowance(owner: address, spender: address) -> uint256:
@@ -17,12 +18,14 @@ def allowance(owner: address, spender: address) -> uint256:
     """
     return 0
 
+
 @external
 def approve(spender: address, amount: uint256) -> bool:
     """
     @notice Approve a spender to transfer tokens
     """
     return True
+
 
 @external
 def transfer(recipient: address, amount: uint256) -> bool:
@@ -31,12 +34,14 @@ def transfer(recipient: address, amount: uint256) -> bool:
     """
     return True
 
+
 @external
 def transferFrom(sender: address, recipient: address, amount: uint256) -> bool:
     """
     @notice Transfer tokens from one address to another
     """
     return True
+
 
 # WETH-specific functions
 @external
@@ -46,6 +51,7 @@ def deposit():
     @notice Deposit ETH for WETH
     """
     pass
+
 
 @external
 def withdraw(amount: uint256):
