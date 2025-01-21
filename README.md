@@ -1,4 +1,4 @@
-# Llamas
+# Leviathan Auction House
 
 **Please read this entire document carefully to ensure the proper setup of each component.**
 
