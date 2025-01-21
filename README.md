@@ -26,20 +26,11 @@ To learn more about `venv`, see the official [Python documentation](https://docs
 
 ## Setting up your .env file
 
-The brownie config requies a `.env` file to exist.
-Run `touch .env` to create one, you can leave it blank.
-
-## Setting up ganache
-Ganache is needed for testing
-
-Make sure to install ganache globally with `npm install -g ganache@7.0.2`
-
-## Running the Tests and Linting
-
-To run all of the project's unit tests:
+The config requies a `.env` file to exist.
+Run `cp example.env .env` to create one and update.
 
 ```bash
-brownie test
+pytest
 ```
 
 You can use the `--gas` flag to estimate gas usage
