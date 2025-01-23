@@ -23,6 +23,7 @@ interface TokenTrader:
     def exchange(
         _dx: uint256, _min_dy: uint256, _from: address = msg.sender
     ) -> uint256: nonpayable
+    def get_dx(_dy: uint256) -> uint256: view
     def get_dy(_dx: uint256) -> uint256: view
 
 
@@ -137,6 +138,38 @@ def __init__(
 
 
 # VIEWS
+
+@external
+@view
+def get_dy(_token_addr: IERC20, _dx: uint256) -> uint256:
+    return staticcall self.additional_tokens[_token_addr].get_dy(_dx)
+
+
+@external
+@view
+def get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
+    return staticcall self.additional_tokens[_token_addr].get_dx(_dy)
+
+
+@external
+@view
+def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
+    """
+    @dev A gas fuzzling function, recommend not to use in smart contracts
+    @return A safe dx above the minimum required to guarantee dy
+    """
+
+    _actual_dy: uint256 = 0
+    _dx: uint256 = staticcall self.additional_tokens[_token_addr].get_dx(_dy)
+    for _i: uint256 in range(10):
+        _actual_dy = staticcall self.additional_tokens[_token_addr].get_dy(_dx)
+        if _actual_dy >= _dy:
+            break
+        else:
+            _dx = _dx * 10000000001 // 10000000000
+    assert _actual_dy >= _dy
+    return _dx
+
 
 @external
 @view
@@ -358,8 +391,6 @@ def withdraw_stale(addresses: DynArray[address, ADMIN_MAX_WITHDRAWALS]):
         if pending_amount == 0:
             continue
 
-
-        # Take a 5% fee
         fee: uint256 = pending_amount * 5 // 100
         withdrawer_return: uint256 = pending_amount - fee
         assert extcall self.payment_token.transfer(

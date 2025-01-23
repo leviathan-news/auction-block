@@ -9,6 +9,7 @@ from ethereum.ercs import IERC20
 
 interface Pool:
     def get_dy(i: uint256, j: uint256, dx: uint256) -> uint256: view
+    def get_dx(i: uint256, j: uint256, dy: uint256) -> uint256: view
     def exchange(
         i: uint256,
         j: uint256,
@@ -63,8 +64,20 @@ def exchange(
 
 @external
 @view
+def get_dx(_dy: uint256) -> uint256:
+    return self._get_dx(_dy)
+
+
+@external
+@view
 def get_dy(_dx: uint256) -> uint256:
     return self._get_dy(_dx)
+
+
+@internal
+@view
+def _get_dx(_dy: uint256) -> uint256:
+    return staticcall self.pool.get_dx(self.indices[0], self.indices[1], _dy)
 
 
 @internal
