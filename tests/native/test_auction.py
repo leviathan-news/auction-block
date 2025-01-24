@@ -5,13 +5,13 @@ import pytest
 def test_initial_state(
     auction_house,
     deployer,
-    proceeds_receiver,
+    fee_receiver,
     payment_token,
     default_time_buffer,
     default_reserve_price,
     default_min_bid_increment,
     default_duration,
-    default_split_percentage,
+    default_fee,
 ):
     """Test the initial state of the auction house after deployment"""
     assert auction_house.owner() == deployer
@@ -19,9 +19,9 @@ def test_initial_state(
     assert auction_house.reserve_price() == default_reserve_price
     assert auction_house.min_bid_increment_percentage() == default_min_bid_increment
     assert auction_house.duration() == default_duration
-    assert auction_house.paused() == True
-    assert auction_house.proceeds_receiver() == proceeds_receiver
-    assert auction_house.proceeds_receiver_split_percentage() == default_split_percentage
+    assert auction_house.paused() == False
+    assert auction_house.fee_receiver() == fee_receiver
+    assert auction_house.fee() == default_fee
     assert auction_house.auction_id() == 0
     assert auction_house.payment_token() == payment_token.address
 
@@ -30,7 +30,6 @@ def test_create_auction(auction_house, deployer):
     """Test auction creation and initial auction state"""
     # Need to create an auction first since it's not automatically created
     with boa.env.prank(deployer):
-        auction_house.unpause()
         auction_house.create_new_auction()
 
     auction_id = auction_house.auction_id()
@@ -58,7 +57,7 @@ def test_create_bid(auction_house_with_auction, alice, payment_token, default_re
     low_bid = default_reserve_price // 2
     with boa.env.prank(alice):
         payment_token.approve(house.address, low_bid)
-        with boa.reverts("Must send at least reservePrice"):
+        with boa.reverts("!reservePrice"):
             house.create_bid(auction_id, low_bid)
 
     # Make valid bid

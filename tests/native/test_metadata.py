@@ -1,11 +1,9 @@
 import boa
 import pytest
 
-
 def test_create_auction_without_ipfs(auction_house, deployer):
     """Test creating an auction without an IPFS hash"""
     with boa.env.prank(deployer):
-        auction_house.unpause()
         auction_house.create_new_auction("")
 
     auction = auction_house.auction_list(1)
@@ -14,13 +12,11 @@ def test_create_auction_without_ipfs(auction_house, deployer):
     assert auction[0] == 1  # auction_id
     assert auction[5] == False  # settled
 
-
 def test_create_auction_with_ipfs(auction_house, deployer):
     """Test creating an auction with an IPFS hash"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
 
     with boa.env.prank(deployer):
-        auction_house.unpause()
         auction_house.create_new_auction(test_hash)
 
     auction = auction_house.auction_list(1)
@@ -28,17 +24,15 @@ def test_create_auction_with_ipfs(auction_house, deployer):
     assert auction[6] == test_hash  # ipfs_hash
     assert auction[0] == 1  # auction_id
 
-
 def test_ipfs_hash_persists_after_bid(
     auction_house, deployer, alice, payment_token, default_reserve_price
 ):
     """Test that IPFS hash persists after bids are placed"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
-    bid_amount = default_reserve_price  # Use default reserve price as bid
+    bid_amount = default_reserve_price
 
     # Create auction with IPFS hash
     with boa.env.prank(deployer):
-        auction_house.unpause()
         auction_house.create_new_auction(test_hash)
 
     print(f"Initial auction state: {auction_house.auction_list(1)}")
@@ -54,7 +48,6 @@ def test_ipfs_hash_persists_after_bid(
     assert auction[1] == bid_amount  # amount
     assert auction[4] == alice  # bidder
 
-
 def test_ipfs_hash_persists_after_settlement(
     auction_house, deployer, alice, payment_token, default_reserve_price
 ):
@@ -64,7 +57,6 @@ def test_ipfs_hash_persists_after_settlement(
 
     # Create and bid on auction
     with boa.env.prank(deployer):
-        auction_house.unpause()
         auction_house.create_new_auction(test_hash)
 
     print(f"Initial auction state: {auction_house.auction_list(1)}")
@@ -89,7 +81,6 @@ def test_ipfs_hash_persists_after_settlement(
     assert auction[5] == True  # settled
     assert auction[4] == alice  # bidder
 
-
 def test_multiple_auctions_different_ipfs(auction_house, deployer):
     """Test creating multiple auctions with different IPFS hashes"""
     test_hashes = [
@@ -99,8 +90,6 @@ def test_multiple_auctions_different_ipfs(auction_house, deployer):
     ]
 
     with boa.env.prank(deployer):
-        auction_house.unpause()
-
         # Create multiple auctions
         for hash in test_hashes:
             auction_house.create_new_auction(hash)
@@ -114,14 +103,11 @@ def test_multiple_auctions_different_ipfs(auction_house, deployer):
         print(f"Auction {i} state: {auction}")
         assert auction[6] == expected_hash  # ipfs_hash
 
-
 def test_invalid_ipfs_hash_length(auction_house, deployer):
     """Test that oversized IPFS hashes are rejected"""
     too_long_hash = "Q" * 47  # One character too long
 
     with boa.env.prank(deployer):
-        auction_house.unpause()
-
         # Should revert due to string length
         with pytest.raises(Exception):
             auction_house.create_new_auction(too_long_hash)
