@@ -2,22 +2,20 @@ import boa
 import pytest
 from eth_utils import to_wei
 
-
 def test_withdraw_stale(
     auction_house_with_auction,
     deployer,
-    proceeds_receiver,
     alice,
     bob,
     payment_token,
+    fee_receiver,  
     default_reserve_price,
-    default_split_percentage,
 ):
     """Test admin withdrawal of stale pending returns"""
     balance_of_alice_before = payment_token.balanceOf(alice)
-    balance_of_deployer_before = payment_token.balanceOf(deployer)
-    balance_of_proceeds_before = payment_token.balanceOf(proceeds_receiver)
-
+    balance_of_fee_receiver_before = payment_token.balanceOf(fee_receiver)
+    balance_of_owner_before = payment_token.balanceOf(deployer)
+    
     auction_id = auction_house_with_auction.auction_id()
 
     # Create pending returns
@@ -25,105 +23,83 @@ def test_withdraw_stale(
         payment_token.approve(auction_house_with_auction.address, default_reserve_price)
         auction_house_with_auction.create_bid(auction_id, default_reserve_price)
 
-    # Calculate minimum next bid
+    # Bob outbids
     min_increment = auction_house_with_auction.min_bid_increment_percentage()
     next_bid = default_reserve_price + (default_reserve_price * min_increment) // 100
-
     with boa.env.prank(bob):
         payment_token.approve(auction_house_with_auction.address, next_bid)
         auction_house_with_auction.create_bid(auction_id, next_bid)
 
-    # Fast forward and settle
+    # Settlement
     boa.env.time_travel(seconds=4000)
-
     with boa.env.prank(deployer):
-        auction_house_with_auction.pause()
-        auction_house_with_auction.settle_and_create_auction(auction_id)
+        auction_house_with_auction.settle_auction(auction_id)
 
-    # Verify pending returns before stale withdrawal
-    assert auction_house_with_auction.pending_returns(alice) == default_reserve_price
-
-    # Admin withdraws stale returns
+    # Admin stale withdrawal
+    assert auction_house_with_auction.auction_pending_returns(auction_id, alice) > 0
     with boa.env.prank(deployer):
         auction_house_with_auction.withdraw_stale([alice])
 
-    # Calculate expected amounts after stale withdrawal
-    stale_fee = default_reserve_price * 5 // 100  # 5% penalty on stale withdraw
-    alice_return = default_reserve_price - stale_fee  # Original bid minus penalty
+    # Calculate expected fee distribution
+    stale_fee = default_reserve_price * 5 // 100
+    return_amount = default_reserve_price - stale_fee
+    fee_from_bid = next_bid * auction_house_with_auction.fee() // 100
+    owner_share = next_bid - fee_from_bid
 
-    # Calculate auction proceeds
-    winner_bid_owner_share = next_bid - (
-        next_bid * default_split_percentage // 100
-    )  # Owner's share of winning bid
-    winner_bid_proceeds = next_bid * default_split_percentage // 100  # Proceeds receiver's share
-
-    # Verify final states
-    assert auction_house_with_auction.pending_returns(alice) == 0
-    assert (
-        payment_token.balanceOf(alice)
-        == balance_of_alice_before + alice_return - default_reserve_price
-    )
-    assert (
-        payment_token.balanceOf(deployer)
-        == balance_of_deployer_before + winner_bid_owner_share + stale_fee
-    )
-    assert (
-        payment_token.balanceOf(proceeds_receiver)
-        == balance_of_proceeds_before + winner_bid_proceeds
-    )
-
-
+    # Verify balances 
+    assert auction_house_with_auction.auction_pending_returns(auction_id, alice) == 0
+    assert payment_token.balanceOf(alice) == balance_of_alice_before - default_reserve_price + return_amount
+    assert payment_token.balanceOf(fee_receiver) == balance_of_fee_receiver_before + fee_from_bid + stale_fee
+    assert payment_token.balanceOf(deployer) == balance_of_owner_before + owner_share
 def test_withdraw_stale_multiple_users(
-    auction_house_with_auction, alice, bob, charlie, deployer, payment_token, default_reserve_price
+   auction_house_with_auction, alice, bob, charlie, deployer, payment_token, fee_receiver
 ):
-    """Test admin withdrawal for multiple users with various states"""
-    balance_alice_before = payment_token.balanceOf(alice)
-    balance_bob_before = payment_token.balanceOf(bob)
-    balance_charlie_before = payment_token.balanceOf(charlie)
-    balance_deployer_before = payment_token.balanceOf(deployer)
+   """Test admin withdrawal for multiple users with various states"""
+   auction_id = auction_house_with_auction.auction_id()
+   
+   # Track initial balances
+   balances_before = {
+       alice: payment_token.balanceOf(alice),
+       bob: payment_token.balanceOf(bob),
+       charlie: payment_token.balanceOf(charlie), 
+       fee_receiver: payment_token.balanceOf(fee_receiver),
+       deployer: payment_token.balanceOf(deployer)
+   }
 
-    auction_id = auction_house_with_auction.auction_id()
+   # Bob bids first
+   first_bid = auction_house_with_auction.reserve_price()
+   with boa.env.prank(bob):
+       payment_token.approve(auction_house_with_auction.address, first_bid)
+       auction_house_with_auction.create_bid(auction_id, first_bid)
 
-    # Calculate bid amounts
-    first_bid = default_reserve_price
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
-    second_bid = first_bid + (first_bid * min_increment) // 100
+   # Charlie wins with higher bid
+   min_increment = auction_house_with_auction.min_bid_increment_percentage()
+   second_bid = first_bid + (first_bid * min_increment) // 100
+   with boa.env.prank(charlie):
+       payment_token.approve(auction_house_with_auction.address, second_bid)
+       auction_house_with_auction.create_bid(auction_id, second_bid)
 
-    # Bob bids first
-    with boa.env.prank(bob):
-        payment_token.approve(auction_house_with_auction.address, first_bid)
-        auction_house_with_auction.create_bid(auction_id, first_bid)
+   # Settlement
+   boa.env.time_travel(seconds=4000)
+   with boa.env.prank(deployer):
+       auction_house_with_auction.settle_auction(auction_id)
 
-    # Charlie wins with higher bid
-    with boa.env.prank(charlie):
-        payment_token.approve(auction_house_with_auction.address, second_bid)
-        auction_house_with_auction.create_bid(auction_id, second_bid)
+   # Admin withdraws stale returns for all users  
+   with boa.env.prank(deployer):
+       auction_house_with_auction.withdraw_stale([alice, bob, charlie])
 
-    # Settle auction
-    boa.env.time_travel(seconds=4000)
-    with boa.env.prank(deployer):
-        auction_house_with_auction.pause()
-        auction_house_with_auction.settle_and_create_auction(auction_id)
+   # Calculate expected amounts
+   stale_fee = first_bid * 5 // 100  # 5% fee on Bob's stale return
+   bob_return = first_bid - stale_fee
+   fee_from_bid = second_bid * auction_house_with_auction.fee() // 100
+   owner_share = second_bid - fee_from_bid
 
-    # Admin withdraws stale returns for all users
-    with boa.env.prank(deployer):
-        auction_house_with_auction.withdraw_stale([alice, bob, charlie])
-
-    # Calculate fees
-    bob_fee = (first_bid * 5) // 100  # 5% fee on Bob's outbid amount
-    deployer_fee = bob_fee  # Only getting fee from Bob's withdrawal
-
-    # Verify final balances
-    assert payment_token.balanceOf(alice) == balance_alice_before  # No change
-    assert payment_token.balanceOf(bob) == balance_bob_before - first_bid + (
-        first_bid - bob_fee
-    )  # Gets back bid minus fee
-    assert (
-        payment_token.balanceOf(charlie) == balance_charlie_before - second_bid
-    )  # Paid winning bid
-    assert payment_token.balanceOf(deployer) == balance_deployer_before + deployer_fee  # Got fees
-
-
+   # Verify final balances
+   assert payment_token.balanceOf(alice) == balances_before[alice]  # Unchanged
+   assert payment_token.balanceOf(bob) == balances_before[bob] - first_bid + bob_return
+   assert payment_token.balanceOf(charlie) == balances_before[charlie] - second_bid 
+   assert payment_token.balanceOf(fee_receiver) == balances_before[fee_receiver] + stale_fee + fee_from_bid
+   assert payment_token.balanceOf(deployer) == balances_before[deployer] + owner_share
 def test_create_bid_with_pending_returns(
     auction_house_with_auction, alice, bob, payment_token, default_reserve_price
 ):

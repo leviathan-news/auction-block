@@ -74,7 +74,7 @@ def test_bid_validation_wrong_id(
 
     with boa.env.prank(alice):
         payment_token.approve(auction_house_with_auction.address, default_reserve_price)
-        with boa.reverts("Invalid auction ID"):
+        with boa.reverts("!auctionId"):
             auction_house_with_auction.create_bid(wrong_id, default_reserve_price)
 
 
@@ -91,7 +91,7 @@ def test_bid_validation_expired(
 
     with boa.env.prank(alice):
         payment_token.approve(auction_house_with_auction.address, default_reserve_price)
-        with boa.reverts("Auction expired"):
+        with boa.reverts("expired"):
             auction_house_with_auction.create_bid(auction_id, default_reserve_price)
 
 
@@ -104,7 +104,7 @@ def test_bid_validation_too_low(
 
     with boa.env.prank(alice):
         payment_token.approve(auction_house_with_auction.address, low_bid)
-        with boa.reverts("Must send at least reservePrice"):
+        with boa.reverts("!reservePrice"):
             auction_house_with_auction.create_bid(auction_id, low_bid)
 
 
@@ -124,7 +124,7 @@ def test_bid_increment_validation(
     insufficient_increment = bid_amount + 1
     with boa.env.prank(bob):
         payment_token.approve(auction_house_with_auction.address, insufficient_increment)
-        with boa.reverts("Must send more than last bid by min_bid_increment_percentage amount"):
+        with boa.reverts("!increment"):
             auction_house_with_auction.create_bid(auction_id, insufficient_increment)
 
     # Calculate minimum valid next bid
