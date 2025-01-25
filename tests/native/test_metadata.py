@@ -1,6 +1,7 @@
 import boa
 import pytest
 
+
 def test_create_auction_without_ipfs(auction_house, deployer):
     """Test creating an auction without an IPFS hash"""
     with boa.env.prank(deployer):
@@ -11,6 +12,7 @@ def test_create_auction_without_ipfs(auction_house, deployer):
     assert auction[6] == ""  # ipfs_hash
     assert auction[0] == 1  # auction_id
     assert auction[5] == False  # settled
+
 
 def test_create_auction_with_ipfs(auction_house, deployer):
     """Test creating an auction with an IPFS hash"""
@@ -23,6 +25,7 @@ def test_create_auction_with_ipfs(auction_house, deployer):
     print(f"Auction state: {auction}")
     assert auction[6] == test_hash  # ipfs_hash
     assert auction[0] == 1  # auction_id
+
 
 def test_ipfs_hash_persists_after_bid(
     auction_house, deployer, alice, payment_token, default_reserve_price
@@ -47,6 +50,7 @@ def test_ipfs_hash_persists_after_bid(
     assert auction[6] == test_hash  # ipfs_hash
     assert auction[1] == bid_amount  # amount
     assert auction[4] == alice  # bidder
+
 
 def test_ipfs_hash_persists_after_settlement(
     auction_house, deployer, alice, payment_token, default_reserve_price
@@ -81,6 +85,7 @@ def test_ipfs_hash_persists_after_settlement(
     assert auction[5] == True  # settled
     assert auction[4] == alice  # bidder
 
+
 def test_multiple_auctions_different_ipfs(auction_house, deployer):
     """Test creating multiple auctions with different IPFS hashes"""
     test_hashes = [
@@ -102,6 +107,7 @@ def test_multiple_auctions_different_ipfs(auction_house, deployer):
         auction = auction_house.auction_list(i)
         print(f"Auction {i} state: {auction}")
         assert auction[6] == expected_hash  # ipfs_hash
+
 
 def test_invalid_ipfs_hash_length(auction_house, deployer):
     """Test that oversized IPFS hashes are rejected"""

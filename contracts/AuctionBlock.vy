@@ -77,21 +77,27 @@ event AuctionBid:
     value: uint256
     extended: bool
 
+
 event AuctionExtended:
     auction_id: indexed(uint256)
     end_time: uint256
 
+
 event AuctionTimeBufferUpdated:
     time_buffer: uint256
+
 
 event AuctionReservePriceUpdated:
     reserve_price: uint256
 
+
 event AuctionMinBidIncrementPercentageUpdated:
     min_bid_increment_percentage: uint256
 
+
 event AuctionDurationUpdated:
     duration: uint256
+
 
 event AuctionCreated:
     auction_id: indexed(uint256)
@@ -99,10 +105,12 @@ event AuctionCreated:
     end_time: uint256
     ipfs_hash: String[46]
 
+
 event AuctionSettled:
     auction_id: indexed(uint256)
     winner: address
     amount: uint256
+
 
 event Withdraw:
     auction_id: indexed(uint256)
@@ -110,20 +118,25 @@ event Withdraw:
     caller: indexed(address)
     amount: uint256
 
+
 event TokenSupportAdded:
     token: indexed(address)
     trader: indexed(address)
 
+
 event TokenSupportRemoved:
     token: indexed(address)
+
 
 event ApprovedCallerSet:
     account: address
     caller: address
     status: ApprovalStatus
 
+
 event FeeReceiverUpdated:
     fee_receiver: address
+
 
 event FeeUpdated:
     fee: uint256
@@ -216,11 +229,11 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
     @return Array of auction IDs that are currently active (between start and end time)
     """
     active_auctions: DynArray[uint256, MAX_AUCTIONS] = []
-    
+
     for i: uint256 in range(MAX_AUCTIONS):
         if i + 1 > self.auction_id:
             break
-           
+
         auction: Auction = self.auction_list[i + 1]
         if (
             auction.start_time <= block.timestamp
@@ -228,7 +241,6 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
             and not auction.settled
         ):
             active_auctions.append(i + 1)
-    
     return active_auctions
 
 
@@ -252,12 +264,12 @@ def _settle_auction(auction_id: uint256):
     if _auction.amount > 0:
         fee_amount: uint256 = _auction.amount * self.fee // PRECISION
         remaining_amount: uint256 = _auction.amount - fee_amount
-        
+
         if fee_amount > 0:
             assert extcall self.payment_token.transfer(
                 self.fee_receiver, fee_amount, default_return_value=True
             ), "!fee transfer"
-        
+
         assert extcall self.payment_token.transfer(
             ownable.owner, remaining_amount, default_return_value=True
         ), "!owner transfer"
@@ -277,12 +289,13 @@ def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
     if pending_amount > 0:
         if pending_amount >= total_bid:
-            self.auction_pending_returns[auction_id][bidder] = pending_amount - total_bid
+            self.auction_pending_returns[auction_id][bidder] = (
+                pending_amount - total_bid
+            )
             tokens_needed = 0
         else:
             self.auction_pending_returns[auction_id][bidder] = 0
             tokens_needed = total_bid - pending_amount
-
     if tokens_needed > 0:
         assert extcall self.payment_token.transferFrom(
             bidder, self, tokens_needed, default_return_value=True
@@ -297,7 +310,9 @@ def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
         auction_id=_auction.auction_id,
         amount=total_bid,
         start_time=_auction.start_time,
-        end_time=_auction.end_time if not extended else block.timestamp + self.time_buffer,
+        end_time=_auction.end_time
+        if not extended
+        else block.timestamp + self.time_buffer,
         bidder=bidder,
         settled=_auction.settled,
         ipfs_hash=_auction.ipfs_hash,
@@ -345,17 +360,40 @@ def _check_caller(
         _status: ApprovalStatus = self.approved_caller[_account][_caller]
         if _status == ApprovalStatus.BidAndWithdraw:
             return
-        assert (_status == _req_status), "!caller" 
+        assert (_status == _req_status), "!caller"
+
 
 @external
 @view
 def get_dy(_token_addr: IERC20, _dx: uint256) -> uint256:
     return staticcall self.additional_tokens[_token_addr].get_dy(_dx)
 
+
 @external
 @view
 def get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
     return staticcall self.additional_tokens[_token_addr].get_dx(_dy)
+
+
+@external
+@view
+def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
+    """
+    @dev A gas fuzzling function, recommend not to use in smart contracts
+    @return A safe dx above the minimum required to guarantee dy
+    """
+
+    _actual_dy: uint256 = 0
+    _dx: uint256 = staticcall self.additional_tokens[_token_addr].get_dx(_dy)
+    for _i: uint256 in range(10):
+        _actual_dy = staticcall self.additional_tokens[_token_addr].get_dy(_dx)
+        if _actual_dy >= _dy:
+            break
+        else:
+            _dx = _dx * 10000000001 // 10000000000
+    assert _actual_dy >= _dy
+    return _dx
+
 
 @external
 @view
@@ -365,6 +403,7 @@ def minimum_total_bid(auction_id: uint256) -> uint256:
     @return Minimum bid in the payment token
     """
     return self._minimum_total_bid(auction_id)
+
 
 @external
 @view
@@ -395,9 +434,6 @@ def pending_returns(user: address) -> uint256:
     return total_pending
 
 
-
-
-
 # ============================================================================================
 # External functions
 # ============================================================================================
@@ -414,6 +450,7 @@ def create_new_auction(ipfs_hash: String[46] = "") -> uint256:
     ownable._check_owner()
     return self._create_auction(ipfs_hash)
 
+
 @external
 @nonreentrant
 def settle_auction(auction_id: uint256):
@@ -423,6 +460,7 @@ def settle_auction(auction_id: uint256):
     pausable._check_unpaused()
     self._settle_auction(auction_id)
 
+
 @external
 @nonreentrant
 def settle_and_create_auction(auction_id: uint256, ipfs_hash: String[46] = ""):
@@ -430,9 +468,11 @@ def settle_and_create_auction(auction_id: uint256, ipfs_hash: String[46] = ""):
     @dev Settle the current auction and create a new one.
       Throws if the auction house is not paused.
     """
-    pausable._check_paused() 
+    pausable._check_paused()
     self._settle_auction(auction_id)
     self._create_auction(ipfs_hash)
+
+
 @external
 @nonreentrant
 def create_bid(
@@ -445,6 +485,7 @@ def create_bid(
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
     self._create_bid(auction_id, bid_amount, on_behalf_of)
+
 
 @external
 @nonreentrant
@@ -459,14 +500,14 @@ def create_bid_with_token(
     @dev Create a bid using an alternative token
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    
+
     trader: TokenTrader = self.additional_tokens[token]
     assert trader.address != empty(address), "!trader"
-    
     value_traded: uint256 = extcall trader.exchange(
         bid_amount, min_dy, on_behalf_of
     )
     self._create_bid(auction_id, value_traded, on_behalf_of)
+
 
 @external
 @nonreentrant
@@ -477,13 +518,12 @@ def withdraw(auction_id: uint256, on_behalf_of: address = msg.sender):
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     pending: uint256 = self.auction_pending_returns[auction_id][on_behalf_of]
     assert pending > 0, "!pending"
-    
     self.auction_pending_returns[auction_id][on_behalf_of] = 0
     assert extcall self.payment_token.transfer(
         on_behalf_of, pending, default_return_value=True
     ), "!transfer"
-    
     log Withdraw(auction_id, on_behalf_of, msg.sender, pending)
+
 
 @external
 @nonreentrant
@@ -496,14 +536,14 @@ def withdraw_multiple(
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     total_pending: uint256 = 0
-    
     for auction_id: uint256 in auction_ids:
-        pending: uint256 = self.auction_pending_returns[auction_id][on_behalf_of]
+        pending: uint256 = self.auction_pending_returns[auction_id][
+            on_behalf_of
+        ]
         if pending > 0:
             total_pending += pending
             self.auction_pending_returns[auction_id][on_behalf_of] = 0
             log Withdraw(auction_id, on_behalf_of, msg.sender, pending)
-            
     assert total_pending > 0, "!pending"
     assert extcall self.payment_token.transfer(
         on_behalf_of, total_pending, default_return_value=True
@@ -570,10 +610,10 @@ def add_token_support(token_addr: IERC20, trader_addr: TokenTrader):
     ownable._check_owner()
     assert token_addr.address != empty(address), "!token"
     assert trader_addr.address != empty(address), "!trader"
-    
     self.additional_tokens[token_addr] = trader_addr
     extcall token_addr.approve(trader_addr.address, max_value(uint256))
     log TokenSupportAdded(token_addr.address, trader_addr.address)
+
 
 @external
 def revoke_token_support(token_addr: IERC20):
@@ -582,10 +622,12 @@ def revoke_token_support(token_addr: IERC20):
     """
     ownable._check_owner()
     assert token_addr.address != empty(address), "!token"
-    assert self.additional_tokens[token_addr].address != empty(address), "!supported"
-    
+    assert self.additional_tokens[token_addr].address != empty(
+        address
+    ), "!supported"
     self.additional_tokens[token_addr] = empty(TokenTrader)
     log TokenSupportRemoved(token_addr.address)
+
 
 @external
 def set_time_buffer(_time_buffer: uint256):
@@ -593,11 +635,13 @@ def set_time_buffer(_time_buffer: uint256):
     self.time_buffer = _time_buffer
     log AuctionTimeBufferUpdated(_time_buffer)
 
+
 @external
 def set_reserve_price(_reserve_price: uint256):
     ownable._check_owner()
     self.reserve_price = _reserve_price
     log AuctionReservePriceUpdated(_reserve_price)
+
 
 @external
 def set_min_bid_increment_percentage(_percentage: uint256):
@@ -609,6 +653,7 @@ def set_min_bid_increment_percentage(_percentage: uint256):
     self.min_bid_increment_percentage = _percentage
     log AuctionMinBidIncrementPercentageUpdated(_percentage)
 
+
 @external
 def set_duration(_duration: uint256):
     ownable._check_owner()
@@ -616,12 +661,14 @@ def set_duration(_duration: uint256):
     self.duration = _duration
     log AuctionDurationUpdated(_duration)
 
+
 @external
 def set_fee_receiver(_fee_receiver: address):
     ownable._check_owner()
     assert _fee_receiver != empty(address), "!fee_receiver"
     self.fee_receiver = _fee_receiver
     log FeeReceiverUpdated(_fee_receiver)
+
 
 @external
 def set_fee(_fee: uint256):

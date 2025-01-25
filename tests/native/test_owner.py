@@ -10,10 +10,12 @@ def test_set_owner(auction_house, deployer, alice):
         auction_house.accept_ownership()
     assert auction_house.owner() == alice
 
+
 def test_set_owner_zero_address(auction_house, deployer):
     """Test owner can transfer to zero address but it cannot accept"""
     with boa.env.prank(deployer):
         auction_house.transfer_ownership("0x0000000000000000000000000000000000000000")
+
 
 def test_set_time_buffer(auction_house, deployer):
     """Test time buffer can be updated by owner"""
@@ -83,7 +85,7 @@ def test_non_owner_cannot_set_parameters(auction_house, alice):
     with boa.env.prank(alice), boa.reverts("!owner"):
         auction_house.set_reserve_price(200)
 
-    with boa.env.prank(alice), boa.reverts("!owner"):  
+    with boa.env.prank(alice), boa.reverts("!owner"):
         auction_house.set_min_bid_increment_percentage(10)
 
     with boa.env.prank(alice), boa.reverts("!owner"):

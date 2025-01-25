@@ -42,9 +42,10 @@ def test_bid_with_misc_token(auction_house, weth_trader, weth, payment_token, al
 
     # Setup auction and unpause as owner
     with boa.env.prank(owner):
-        auction_house.unpause()
+        auction_house.pause()
         auction_house.add_token_support(weth, weth_trader)
-    auction_id = auction_house.create_new_auction()
+        auction_house.unpause()
+        auction_id = auction_house.create_new_auction()
 
     # Get required bid amount
     min_bid = auction_house.minimum_total_bid(auction_id)
@@ -59,7 +60,7 @@ def test_bid_with_misc_token(auction_house, weth_trader, weth, payment_token, al
     with boa.env.prank(alice):
         weth.approve(weth_trader, 2**256 - 1)
         payment_token.approve(auction_house, 2**256 - 1)
-        auction_house.create_bid_with_misc_token(auction_id, min_bid, weth, expected_payment)
+        auction_house.create_bid_with_token(auction_id, min_bid, weth, expected_payment)
 
     # Verify WETH was spent
     assert weth.balanceOf(alice) < init_weth
@@ -75,9 +76,10 @@ def test_bid_with_misc_token_reverts_on_bad_slippage(auction_house, weth_trader,
 
     # Setup auction and unpause as owner
     with boa.env.prank(owner):
-        auction_house.unpause()
+        auction_house.pause()
         auction_house.add_token_support(weth, weth_trader)
-    auction_id = auction_house.create_new_auction()
+        auction_house.unpause()
+        auction_id = auction_house.create_new_auction()
 
     # Get required bid amount
     min_bid = auction_house.minimum_total_bid(auction_id)
@@ -87,7 +89,7 @@ def test_bid_with_misc_token_reverts_on_bad_slippage(auction_house, weth_trader,
     with boa.env.prank(alice):
         weth.approve(weth_trader, 2**256 - 1)  # Approve trader instead of auction house
         with pytest.raises(Exception):  # Should revert
-            auction_house.create_bid_with_misc_token(
+            auction_house.create_bid_with_token(
                 auction_id, min_bid, weth, expected_payment * 2  # Unrealistic slippage protection
             )
 
@@ -97,8 +99,7 @@ def test_bid_with_misc_token_reverts_on_unsupported_token(auction_house, weth, a
 
     # Setup auction and unpause as owner
     with boa.env.prank(owner):
-        auction_house.unpause()
-    auction_id = auction_house.create_new_auction()
+        auction_id = auction_house.create_new_auction()
 
     # Get required bid amount
     min_bid = auction_house.minimum_total_bid(auction_id)
@@ -107,4 +108,4 @@ def test_bid_with_misc_token_reverts_on_unsupported_token(auction_house, weth, a
     with boa.env.prank(alice):
         weth.approve(auction_house, 2**256 - 1)
         with pytest.raises(Exception):
-            auction_house.create_bid_with_misc_token(auction_id, min_bid, weth, min_bid)
+            auction_house.create_bid_with_token(auction_id, min_bid, weth, min_bid)

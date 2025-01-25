@@ -19,7 +19,8 @@ DEFAULT_RESERVE_PRICE = int(0.2 * 10**18)  # 0.2 tokens
 DEFAULT_MIN_BID_INCREMENT = 2  # 2%
 DEFAULT_DURATION = 3600  # 1 hour
 DEFAULT_SPLIT_PERCENTAGE = 100  # 100%
-DEFAULT_FEE=5 # 5%
+DEFAULT_FEE = 5  # 5%
+
 
 @dataclass
 class Auction:
@@ -62,9 +63,11 @@ def default_split_percentage():
 def default_fee():
     return DEFAULT_FEE
 
-@pytest.fixture(scope="session") 
+
+@pytest.fixture(scope="session")
 def fee_receiver():
     return boa.env.generate_address()
+
 
 @pytest.fixture(scope="session")
 def fork_mode(request):
@@ -187,6 +190,7 @@ def state_anchor():
     with boa.env.anchor():
         yield
 
+
 @pytest.fixture(scope="session")
 def base_auction_house(
     auction_house_contract,
@@ -210,6 +214,7 @@ def base_auction_house(
             default_fee,
         )
 
+
 @pytest.fixture
 def auction_house(base_auction_house):
     """Return the session-scoped contract for each test"""
@@ -220,7 +225,7 @@ def auction_house(base_auction_house):
 def auction_house_with_auction(auction_house, deployer, ipfs_hash):
     """Setup auction state using the session-scoped contract"""
     with boa.env.prank(deployer):
-        #auction_house.unpause()
+        # auction_house.unpause()
         auction_house.create_new_auction(ipfs_hash)
     return auction_house
 
@@ -246,6 +251,7 @@ def weth_trader(payment_token, weth, trading_pool, pool_indices):
 def auction_house_with_weth(auction_house_with_auction, weth_trader):
     return auction_house_with_auction
 
+
 @pytest.fixture(scope="session")
 def ApprovalStatus():
     class ApprovalFlags:
@@ -253,9 +259,10 @@ def ApprovalStatus():
         BidOnly = 1
         WithdrawOnly = 2
         BidAndWithdraw = 3
+
     return ApprovalFlags
+
 
 @pytest.fixture(scope="session")
 def BidFlag():
     return 1  # BidOnly in contract ApprovalStatus flag
-
