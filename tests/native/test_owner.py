@@ -2,6 +2,11 @@ import boa
 import pytest
 
 
+def test_non_owner_cannot_create_auction(auction_house, alice):
+    with boa.env.prank(alice), boa.reverts("!owner"):
+        auction_house.create_new_auction()
+
+
 def test_set_owner(auction_house, deployer, alice):
     """Test owner can be changed by current owner"""
     with boa.env.prank(deployer):

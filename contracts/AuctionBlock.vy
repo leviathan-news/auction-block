@@ -153,7 +153,7 @@ MIN_DURATION: constant(uint256) = 3600  # 1 hour
 MAX_DURATION: constant(uint256) = 259200  # 3 days
 MIN_BID_INCREMENT_PERCENTAGE_: constant(uint256) = 2  # 2%
 MAX_BID_INCREMENT_PERCENTAGE: constant(uint256) = 15  # 15%
-MAX_FEE: constant(uint256) = 10  # 10%
+MAX_FEE: constant(uint256) = 100  # 10%
 
 
 # ============================================================================================
@@ -278,13 +278,7 @@ def _settle_auction(auction_id: uint256):
 
 
 @internal
-def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
-    _auction: Auction = self.auction_list[auction_id]
-    assert _auction.auction_id == auction_id, "!auctionId"
-    assert block.timestamp < _auction.end_time, "expired"
-    assert total_bid >= self.reserve_price, "!reservePrice"
-    assert total_bid >= self._minimum_total_bid(auction_id), "!increment"
-
+def _collect_payment(auction_id: uint256, total_bid: uint256, bidder: address):
     tokens_needed: uint256 = total_bid
     pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
     if pending_amount > 0:
@@ -300,6 +294,15 @@ def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
         assert extcall self.payment_token.transferFrom(
             bidder, self, tokens_needed, default_return_value=True
         ), "!transfer"
+
+
+@internal
+def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
+    _auction: Auction = self.auction_list[auction_id]
+    assert _auction.auction_id == auction_id, "!auctionId"
+    assert block.timestamp < _auction.end_time, "expired"
+    assert total_bid >= self.reserve_price, "!reservePrice"
+    assert total_bid >= self._minimum_total_bid(auction_id), "!increment"
 
     last_bidder: address = _auction.bidder
     if last_bidder != empty(address):
@@ -484,6 +487,7 @@ def create_bid(
     @dev Create a bid using the primary payment token
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    self._collect_payment(auction_id, bid_amount, on_behalf_of)
     self._create_bid(auction_id, bid_amount, on_behalf_of)
 
 
@@ -491,21 +495,32 @@ def create_bid(
 @nonreentrant
 def create_bid_with_token(
     auction_id: uint256,
-    bid_amount: uint256,
+    token_amount: uint256,
     token: IERC20,
     min_dy: uint256,
     on_behalf_of: address = msg.sender,
 ):
     """
-    @dev Create a bid using an alternative token
+    @notice Create a bid using an alternative token
+    @dev Must have approved the token for use with this contract
+    @param auction_id An active auction
+    @param token_amount Amount of the alternative token
+    @param token Address of the token
+    @param min_dy To protect against slippage, min amount of payment token to receive
+    @param on_behalf_of User to bid on behalf of
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
     trader: TokenTrader = self.additional_tokens[token]
     assert trader.address != empty(address), "!trader"
-    value_traded: uint256 = extcall trader.exchange(
-        bid_amount, min_dy, on_behalf_of
-    )
+
+    # Transfer token to contract, or revert
+    extcall token.transferFrom(on_behalf_of, self, token_amount)
+
+    # Exchange, or revert
+    value_traded: uint256 = extcall trader.exchange(token_amount, min_dy, self)
+
+    # Bid
     self._create_bid(auction_id, value_traded, on_behalf_of)
 
 
