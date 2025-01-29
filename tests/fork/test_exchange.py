@@ -7,7 +7,7 @@ pytestmark = pytest.mark.fork_only
 def test_pool_exists(trading_pool, auction_house, pool_indices, payment_token):
     weth_index = pool_indices[0]
     squid_index = pool_indices[1]
-    reserve = auction_house.reserve_price()
+    reserve = auction_house.default_reserve_price()
 
     assert trading_pool.totalSupply() > 0
     assert trading_pool.coins(squid_index) == payment_token.address
@@ -18,12 +18,12 @@ def test_pool_exists(trading_pool, auction_house, pool_indices, payment_token):
 
 
 def test_weth_trader_fetches_rate(auction_house, weth_trader):
-    reserve = auction_house.reserve_price()
+    reserve = auction_house.default_reserve_price()
     assert weth_trader.get_dy(reserve) > reserve
 
 
 def test_exchange(auction_house, weth_trader, weth, payment_token, alice):
-    reserve = auction_house.reserve_price()
+    reserve = auction_house.default_reserve_price()
     expected = weth_trader.get_dy(reserve)
 
     init_weth = weth.balanceOf(alice)
