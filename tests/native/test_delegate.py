@@ -102,13 +102,13 @@ def test_delegated_bid_with_pending_returns(
         house.create_bid(auction_id, default_reserve_price)
 
     next_bid = default_reserve_price + (
-        default_reserve_price * house.min_bid_increment_percentage() // 100
+        default_reserve_price * house.default_min_bid_increment_percentage() // 100
     )
     with boa.env.prank(bob):
         payment_token.approve(house.address, next_bid * 2)
         house.create_bid(auction_id, next_bid)
 
-    final_bid = next_bid + (next_bid * house.min_bid_increment_percentage() // 100)
+    final_bid = next_bid + (next_bid * house.default_min_bid_increment_percentage() // 100)
     with boa.env.prank(admin):
         house.create_bid(auction_id, final_bid, alice)
 

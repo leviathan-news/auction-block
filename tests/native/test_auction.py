@@ -15,10 +15,10 @@ def test_initial_state(
 ):
     """Test the initial state of the auction house after deployment"""
     assert auction_house.owner() == deployer
-    assert auction_house.time_buffer() == default_time_buffer
-    assert auction_house.reserve_price() == default_reserve_price
-    assert auction_house.min_bid_increment_percentage() == default_min_bid_increment
-    assert auction_house.duration() == default_duration
+    assert auction_house.default_time_buffer() == default_time_buffer
+    assert auction_house.default_reserve_price() == default_reserve_price
+    assert auction_house.default_min_bid_increment_percentage() == default_min_bid_increment
+    assert auction_house.default_duration() == default_duration
     assert auction_house.paused() == False
     assert auction_house.fee_receiver() == fee_receiver
     assert auction_house.fee() == default_fee
@@ -39,7 +39,7 @@ def test_create_auction(auction_house, deployer):
     assert auction[0] == 1  # auction_id
     assert auction[1] == 0  # amount
     assert auction[2] > 0  # start_time
-    assert auction[3] == auction[2] + auction_house.duration()  # end_time
+    assert auction[3] == auction[2] + auction_house.default_duration()  # end_time
     assert auction[4] == "0x0000000000000000000000000000000000000000"  # bidder
     assert auction[5] == False  # settled
 
@@ -96,7 +96,7 @@ def test_outbid(auction_house_with_auction, alice, bob, payment_token, default_r
 
     # Calculate minimum next bid
     min_next_bid = default_reserve_price + (
-        default_reserve_price * house.min_bid_increment_percentage() // 100
+        default_reserve_price * house.default_min_bid_increment_percentage() // 100
     )
     print(f"Minimum next bid required: {min_next_bid}")
 

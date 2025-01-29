@@ -22,79 +22,79 @@ def test_set_owner_zero_address(auction_house, deployer):
         auction_house.transfer_ownership("0x0000000000000000000000000000000000000000")
 
 
-def test_set_time_buffer(auction_house, deployer):
+def test_set_default_time_buffer(auction_house, deployer):
     """Test time buffer can be updated by owner"""
     with boa.env.prank(deployer):
-        auction_house.set_time_buffer(200)
-    assert auction_house.time_buffer() == 200
+        auction_house.set_default_time_buffer(200)
+    assert auction_house.default_time_buffer() == 200
 
 
-def test_set_reserve_price(auction_house, deployer):
+def test_set_default_reserve_price(auction_house, deployer):
     """Test reserve price can be updated by owner"""
     with boa.env.prank(deployer):
-        auction_house.set_reserve_price(200)
-    assert auction_house.reserve_price() == 200
+        auction_house.set_default_reserve_price(200)
+    assert auction_house.default_reserve_price() == 200
 
 
-def test_set_min_bid_increment_percentage(auction_house, deployer, default_min_bid_increment):
+def test_set_default_min_bid_increment_percentage(auction_house, deployer, default_min_bid_increment):
     """Test minimum bid increment can be updated by owner within valid range"""
     with boa.env.prank(deployer):
-        auction_house.set_min_bid_increment_percentage(10)
-    assert auction_house.min_bid_increment_percentage() == 10
+        auction_house.set_default_min_bid_increment_percentage(10)
+    assert auction_house.default_min_bid_increment_percentage() == 10
 
 
-def test_set_min_bid_increment_percentage_too_high(
+def test_set_default_min_bid_increment_percentage_too_high(
     auction_house, deployer, default_min_bid_increment
 ):
     """Test minimum bid increment cannot be set above maximum"""
     with boa.env.prank(deployer), boa.reverts("!percentage"):
-        auction_house.set_min_bid_increment_percentage(16)
-    assert auction_house.min_bid_increment_percentage() == default_min_bid_increment
+        auction_house.set_default_min_bid_increment_percentage(16)
+    assert auction_house.default_min_bid_increment_percentage() == default_min_bid_increment
 
 
-def test_set_min_bid_increment_percentage_too_low(
+def test_set_default_min_bid_increment_percentage_too_low(
     auction_house, deployer, default_min_bid_increment
 ):
     """Test minimum bid increment cannot be set below minimum"""
     with boa.env.prank(deployer), boa.reverts("!percentage"):
-        auction_house.set_min_bid_increment_percentage(1)
-    assert auction_house.min_bid_increment_percentage() == default_min_bid_increment
+        auction_house.set_default_min_bid_increment_percentage(1)
+    assert auction_house.default_min_bid_increment_percentage() == default_min_bid_increment
 
 
-def test_set_duration(auction_house, deployer):
+def test_set_default_duration(auction_house, deployer):
     """Test duration can be updated by owner within valid range"""
     with boa.env.prank(deployer):
-        auction_house.set_duration(7200)  # 2 hours
-    assert auction_house.duration() == 7200
+        auction_house.set_default_duration(7200)  # 2 hours
+    assert auction_house.default_duration() == 7200
 
 
-def test_set_duration_too_short(auction_house, deployer):
+def test_set_default_duration_too_short(auction_house, deployer):
     """Test duration cannot be set below minimum"""
     with boa.env.prank(deployer), boa.reverts("!duration"):
-        auction_house.set_duration(3599)  # Just under 1 hour
-    assert auction_house.duration() == 3600
+        auction_house.set_default_duration(3599)  # Just under 1 hour
+    assert auction_house.default_duration() == 3600
 
 
-def test_set_duration_too_long(auction_house, deployer):
+def test_set_default_duration_too_long(auction_house, deployer):
     """Test duration cannot be set above maximum"""
     with boa.env.prank(deployer), boa.reverts("!duration"):
-        auction_house.set_duration(259201)  # Just over max
-    assert auction_house.duration() == 3600
+        auction_house.set_default_duration(259201)  # Just over max
+    assert auction_house.default_duration() == 3600
 
 
-def test_non_owner_cannot_set_parameters(auction_house, alice):
+def test_non_owner_cannot_set_default_parameters(auction_house, alice):
     """Test non-owner cannot update parameters"""
     with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_time_buffer(200)
+        auction_house.set_default_time_buffer(200)
 
     with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_reserve_price(200)
+        auction_house.set_default_reserve_price(200)
 
     with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_min_bid_increment_percentage(10)
+        auction_house.set_default_min_bid_increment_percentage(10)
 
     with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_duration(7200)
+        auction_house.set_default_duration(7200)
 
     with boa.env.prank(alice), boa.reverts("!owner"):
         auction_house.transfer_ownership(alice)  # Uses 2-step ownership transfer

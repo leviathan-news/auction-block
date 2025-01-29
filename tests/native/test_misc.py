@@ -22,7 +22,7 @@ def test_auction_extension_near_end(
     boa.env.time_travel(seconds=int(time_to_end))
 
     # Calculate next bid
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     next_bid = bid_amount + (bid_amount * min_increment) // 100
 
     # New bid should extend
@@ -54,7 +54,7 @@ def test_auction_extension_not_near_end(
     boa.env.time_travel(seconds=int(time_to_move))
 
     # Calculate next bid
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     next_bid = bid_amount + (bid_amount * min_increment) // 100
 
     # New bid should not extend
@@ -128,7 +128,7 @@ def test_bid_increment_validation(
             auction_house_with_auction.create_bid(auction_id, insufficient_increment)
 
     # Calculate minimum valid next bid
-    min_increment = (bid_amount * auction_house_with_auction.min_bid_increment_percentage()) // 100
+    min_increment = (bid_amount * auction_house_with_auction.default_min_bid_increment_percentage()) // 100
     min_next_bid = bid_amount + min_increment
 
     # Valid bid at minimum increment

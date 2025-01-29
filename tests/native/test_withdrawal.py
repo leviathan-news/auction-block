@@ -25,7 +25,7 @@ def test_withdraw_stale(
         auction_house_with_auction.create_bid(auction_id, default_reserve_price)
 
     # Bob outbids
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     next_bid = default_reserve_price + (default_reserve_price * min_increment) // 100
     with boa.env.prank(bob):
         payment_token.approve(auction_house_with_auction.address, next_bid)
@@ -76,13 +76,13 @@ def test_withdraw_stale_multiple_users(
     }
 
     # Bob bids first
-    first_bid = auction_house_with_auction.reserve_price()
+    first_bid = auction_house_with_auction.default_reserve_price()
     with boa.env.prank(bob):
         payment_token.approve(auction_house_with_auction.address, first_bid)
         auction_house_with_auction.create_bid(auction_id, first_bid)
 
     # Charlie wins with higher bid
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     second_bid = first_bid + (first_bid * min_increment) // 100
     with boa.env.prank(charlie):
         payment_token.approve(auction_house_with_auction.address, second_bid)
@@ -119,7 +119,7 @@ def test_create_bid_with_pending_returns(
 ):
     """Test using pending returns for a new bid"""
     auction_id = auction_house_with_auction.auction_id()
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
 
     # Calculate bid amounts
     initial_bid = default_reserve_price
@@ -156,7 +156,7 @@ def test_create_bid_insufficient_pending_returns(
 ):
     """Test bid fails when pending returns aren't enough"""
     auction_id = auction_house_with_auction.auction_id()
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
 
     # Calculate bid amounts
     initial_bid = default_reserve_price

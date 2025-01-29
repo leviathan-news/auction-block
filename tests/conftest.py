@@ -235,6 +235,16 @@ def pool_indices():
     # WETH -> SQUID
     return [0, 1]
 
+# For testing aspects related to trading tokens outside fork mode
+@pytest.fixture(scope="session")
+def inert_weth_trader():
+    return TEST_POOL_ADDR
+
+# A token, but not WETH compatible (ie deposit)
+@pytest.fixture(scope="session")
+def inert_weth():
+    token = boa.load_partial("contracts/test/ERC20.vy")
+    return token.deploy("Inert Wrapped Ether", "WETH", 18)
 
 @pytest.fixture(scope="session")
 def weth_trader(payment_token, weth, trading_pool, pool_indices):

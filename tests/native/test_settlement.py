@@ -18,7 +18,7 @@ def test_withdraw_after_outbid(
 
     # Calculate bids
     first_bid = default_reserve_price
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     second_bid = first_bid + (first_bid * min_increment) // 100
 
     with boa.env.prank(alice):
@@ -109,7 +109,7 @@ def test_settle_multiple_bids(
 
     # Place bids
     first_bid = default_reserve_price
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     second_bid = first_bid + (first_bid * min_increment) // 100
 
     with boa.env.prank(alice):
@@ -151,7 +151,7 @@ def test_auction_extension(
 
     # Calculate bid amounts
     first_bid = default_reserve_price
-    min_increment = auction_house_with_auction.min_bid_increment_percentage()
+    min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
     second_bid = first_bid + (first_bid * min_increment) // 100
 
     # Place initial bid

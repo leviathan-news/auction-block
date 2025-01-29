@@ -57,6 +57,14 @@ struct Auction:
     bidder: address
     settled: bool
     ipfs_hash: String[46]
+    params: AuctionParams
+
+
+struct AuctionParams:
+    time_buffer: uint256
+    reserve_price: uint256
+    min_bid_increment_percentage: uint256
+    duration: uint256
 
 
 flag ApprovalStatus:
@@ -83,20 +91,20 @@ event AuctionExtended:
     end_time: uint256
 
 
-event AuctionTimeBufferUpdated:
-    time_buffer: uint256
+event DefaultAuctionTimeBufferUpdated:
+    default_time_buffer: uint256
 
 
-event AuctionReservePriceUpdated:
-    reserve_price: uint256
+event DefaultAuctionReservePriceUpdated:
+    default_reserve_price: uint256
 
 
-event AuctionMinBidIncrementPercentageUpdated:
-    min_bid_increment_percentage: uint256
+event DefaultAuctionMinBidIncrementPercentageUpdated:
+    default_min_bid_increment_percentage: uint256
 
 
-event AuctionDurationUpdated:
-    duration: uint256
+event DefaultAuctionDurationUpdated:
+    default_duration: uint256
 
 
 event AuctionCreated:
@@ -148,6 +156,7 @@ event FeeUpdated:
 
 PRECISION: constant(uint256) = 100
 MAX_WITHDRAWALS: constant(uint256) = 100
+MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 100
 MIN_DURATION: constant(uint256) = 3600  # 1 hour
 MAX_DURATION: constant(uint256) = 259200  # 3 days
@@ -161,10 +170,10 @@ MAX_FEE: constant(uint256) = 100  # 10%
 # ============================================================================================
 
 # Auction
-time_buffer: public(uint256)
-reserve_price: public(uint256)
-min_bid_increment_percentage: public(uint256)
-duration: public(uint256)
+default_time_buffer: public(uint256)
+default_reserve_price: public(uint256)
+default_min_bid_increment_percentage: public(uint256)
+default_duration: public(uint256)
 auction_id: public(uint256)
 
 auction_pending_returns: public(HashMap[uint256, HashMap[address, uint256]])
@@ -173,9 +182,10 @@ auction_list: public(HashMap[uint256, Auction])
 # User settings
 approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 
-# Payment tokens
+# Payment tokensr
 payment_token: public(IERC20)
 additional_tokens: public(HashMap[IERC20, TokenTrader])
+supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
 
 # Fee configuration
 fee_receiver: public(address)
@@ -208,10 +218,13 @@ def __init__(
     ownable.__init__()
     pausable.__init__()
 
-    self.time_buffer = time_buffer
-    self.reserve_price = reserve_price
-    self.min_bid_increment_percentage = min_bid_increment_percentage
-    self.duration = duration
+    # Defaults
+    self.default_time_buffer = time_buffer
+    self.default_reserve_price = reserve_price
+    self.default_min_bid_increment_percentage = min_bid_increment_percentage
+    self.default_duration = duration
+
+    # Money
     self.payment_token = IERC20(payment_token)
     self.fee_receiver = fee_receiver
     self.fee = fee
@@ -259,6 +272,7 @@ def _settle_auction(auction_id: uint256):
         bidder=_auction.bidder,
         settled=True,
         ipfs_hash=_auction.ipfs_hash,
+        params=_auction.params,
     )
 
     if _auction.amount > 0:
@@ -299,30 +313,38 @@ def _collect_payment(auction_id: uint256, total_bid: uint256, bidder: address):
 @internal
 def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     _auction: Auction = self.auction_list[auction_id]
+    _time_buffer: uint256 = _auction.params.time_buffer
+    _reserve_price: uint256 = _auction.params.reserve_price
+
     assert _auction.auction_id == auction_id, "!auctionId"
     assert block.timestamp < _auction.end_time, "expired"
-    assert total_bid >= self.reserve_price, "!reservePrice"
+    assert total_bid >= _reserve_price, "!reservePrice"
     assert total_bid >= self._minimum_total_bid(auction_id), "!increment"
 
     last_bidder: address = _auction.bidder
     if last_bidder != empty(address):
         self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
+   
+    # Exctend the auction?
+    _end_time: uint256 = _auction.end_time
 
-    extended: bool = _auction.end_time - block.timestamp < self.time_buffer
+    _extended: bool = _auction.end_time - block.timestamp < _time_buffer
+    if _extended:
+        _end_time = block.timestamp + _time_buffer
+
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=total_bid,
         start_time=_auction.start_time,
-        end_time=_auction.end_time
-        if not extended
-        else block.timestamp + self.time_buffer,
+        end_time = _end_time,
         bidder=bidder,
         settled=_auction.settled,
         ipfs_hash=_auction.ipfs_hash,
+        params=_auction.params,
     )
 
-    log AuctionBid(_auction.auction_id, bidder, msg.sender, total_bid, extended)
-    if extended:
+    log AuctionBid(_auction.auction_id, bidder, msg.sender, total_bid, _extended)
+    if _extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
 
 
@@ -333,9 +355,9 @@ def _minimum_total_bid(auction_id: uint256) -> uint256:
     assert _auction.start_time != 0, "!auctionId"
     assert not _auction.settled, "settled"
     if _auction.amount == 0:
-        return self.reserve_price
+        return _auction.params.reserve_price
 
-    _min_pct: uint256 = self.min_bid_increment_percentage
+    _min_pct: uint256 = _auction.params.min_bid_increment_percentage
     return _auction.amount + ((_auction.amount * _min_pct) // PRECISION)
 
 
@@ -451,7 +473,36 @@ def create_new_auction(ipfs_hash: String[46] = "") -> uint256:
     """
     pausable._check_unpaused()
     ownable._check_owner()
-    return self._create_auction(ipfs_hash)
+    return self._create_auction(ipfs_hash, self._default_auction_params())
+
+
+@external
+@nonreentrant
+def create_custom_auction(
+    time_buffer: uint256,
+    reserve_price: uint256,
+    min_bid_increment_percentage: uint256,
+    duration: uint256,
+    ipfs_hash: String[46] = ""
+) -> uint256:
+    """
+    @dev Create a new auction with custom parameters instead of defaults
+    @param ipfs_hash The IPFS hash of the auction metadata
+    @return New auction id
+    """
+    assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
+
+    pausable._check_unpaused()
+    ownable._check_owner()
+    return self._create_auction(
+        ipfs_hash,
+        AuctionParams(
+            time_buffer=time_buffer,
+            reserve_price=reserve_price,
+            min_bid_increment_percentage=min_bid_increment_percentage,
+            duration=duration,
+        ),
+    )
 
 
 @external
@@ -473,7 +524,7 @@ def settle_and_create_auction(auction_id: uint256, ipfs_hash: String[46] = ""):
     """
     pausable._check_paused()
     self._settle_auction(auction_id)
-    self._create_auction(ipfs_hash)
+    self._create_auction(ipfs_hash, self._default_auction_params())
 
 
 @external
@@ -618,16 +669,23 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 # ============================================================================================
 
 @external
-def add_token_support(token_addr: IERC20, trader_addr: TokenTrader):
+def add_token_support(token: IERC20, trader: TokenTrader):
     """
     @notice Add support for an alternative payment token
+    @dev Must be connected with a contract that supports token trading
+    @param token The address of the ERC20 compatible token
+    @param trader Address of a compatible trading contract
     """
+
     ownable._check_owner()
-    assert token_addr.address != empty(address), "!token"
-    assert trader_addr.address != empty(address), "!trader"
-    self.additional_tokens[token_addr] = trader_addr
-    extcall token_addr.approve(trader_addr.address, max_value(uint256))
-    log TokenSupportAdded(token_addr.address, trader_addr.address)
+    assert token.address != empty(address), "!token"
+    assert trader.address != empty(address), "!trader"
+    assert token != self.payment_token, "!payment_token"
+
+    self.additional_tokens[token] = trader
+    self.supported_tokens.append(token)
+    extcall token.approve(trader.address, max_value(uint256))
+    log TokenSupportAdded(token.address, trader.address)
 
 
 @external
@@ -641,40 +699,53 @@ def revoke_token_support(token_addr: IERC20):
         address
     ), "!supported"
     self.additional_tokens[token_addr] = empty(TokenTrader)
+
+    # Remove the token from supported_tokens
+    for i: uint256 in range(MAX_TOKENS):
+        if i >= len(self.supported_tokens):
+            break
+
+        if self.supported_tokens[i] == token_addr:
+            # Swap with the last element and pop
+            self.supported_tokens[i] = self.supported_tokens[
+                len(self.supported_tokens) - 1
+            ]
+            self.supported_tokens.pop()
+            break
     log TokenSupportRemoved(token_addr.address)
 
 
 @external
-def set_time_buffer(_time_buffer: uint256):
+def set_default_time_buffer(_time_buffer: uint256):
     ownable._check_owner()
-    self.time_buffer = _time_buffer
-    log AuctionTimeBufferUpdated(_time_buffer)
+    self.default_time_buffer = _time_buffer
+    log DefaultAuctionTimeBufferUpdated(_time_buffer)
 
 
 @external
-def set_reserve_price(_reserve_price: uint256):
+def set_default_reserve_price(_reserve_price: uint256):
     ownable._check_owner()
-    self.reserve_price = _reserve_price
-    log AuctionReservePriceUpdated(_reserve_price)
+    self.default_reserve_price = _reserve_price
+    log DefaultAuctionReservePriceUpdated(_reserve_price)
 
 
 @external
-def set_min_bid_increment_percentage(_percentage: uint256):
+def set_default_min_bid_increment_percentage(_percentage: uint256):
     ownable._check_owner()
     assert (
         _percentage >= MIN_BID_INCREMENT_PERCENTAGE_
         and _percentage <= MAX_BID_INCREMENT_PERCENTAGE
     ), "!percentage"
-    self.min_bid_increment_percentage = _percentage
-    log AuctionMinBidIncrementPercentageUpdated(_percentage)
+    self.default_min_bid_increment_percentage = _percentage
+    log DefaultAuctionMinBidIncrementPercentageUpdated(_percentage)
 
 
 @external
-def set_duration(_duration: uint256):
+def set_default_duration(_duration: uint256):
     ownable._check_owner()
     assert _duration >= MIN_DURATION and _duration <= MAX_DURATION, "!duration"
-    self.duration = _duration
-    log AuctionDurationUpdated(_duration)
+    self.default_duration = _duration
+    log DefaultAuctionDurationUpdated(_duration)
 
 
 @external
@@ -698,9 +769,22 @@ def set_fee(_fee: uint256):
 # ============================================================================================
 
 @internal
-def _create_auction(ipfs_hash: String[46]) -> uint256:
+def _default_auction_params() -> AuctionParams:
+    return AuctionParams(
+        time_buffer=self.default_time_buffer,
+        reserve_price=self.default_reserve_price,
+        min_bid_increment_percentage=self.default_min_bid_increment_percentage,
+        duration=self.default_duration,
+    )
+
+
+@internal
+def _create_auction(
+    ipfs_hash: String[46], params: AuctionParams
+) -> uint256:
+
     _start_time: uint256 = block.timestamp
-    _end_time: uint256 = _start_time + self.duration
+    _end_time: uint256 = _start_time + params.duration
     _auction_id: uint256 = self.auction_id + 1
 
     self.auction_id = _auction_id
@@ -712,6 +796,7 @@ def _create_auction(ipfs_hash: String[46]) -> uint256:
         bidder=empty(address),
         settled=False,
         ipfs_hash=ipfs_hash,
+        params=params,
     )
 
     log AuctionCreated(_auction_id, _start_time, _end_time, ipfs_hash)

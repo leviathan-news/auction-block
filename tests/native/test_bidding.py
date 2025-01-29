@@ -10,7 +10,7 @@ def test_minimum_total_bid_no_bids(auction_house_with_auction):
     # Should return reserve price when there are no bids
     min_bid = house.minimum_total_bid(auction_id)
     assert (
-        min_bid == house.reserve_price()
+        min_bid == house.default_reserve_price()
     ), "Minimum bid should equal reserve price when no bids exist"
 
 
@@ -22,7 +22,7 @@ def test_minimum_additional_bid_no_bids(auction_house_with_auction, alice):
     # For a new bidder with no pending returns, should equal reserve price
     min_additional = house.minimum_additional_bid_for_user(auction_id, alice)
     assert (
-        min_additional == house.reserve_price()
+        min_additional == house.default_reserve_price()
     ), "Minimum additional bid should equal reserve price for new bidder"
 
 
@@ -32,13 +32,13 @@ def test_minimum_total_bid_with_active_bid(auction_house_with_auction, alice, pa
     auction_id = house.auction_id()
 
     # Place initial bid at reserve price
-    initial_bid = house.reserve_price()
+    initial_bid = house.default_reserve_price()
     with boa.env.prank(alice):
         payment_token.approve(house.address, initial_bid)
         house.create_bid(auction_id, initial_bid)
 
     # Calculate expected minimum next bid
-    increment_percentage = house.min_bid_increment_percentage()
+    increment_percentage = house.default_min_bid_increment_percentage()
     expected_min = initial_bid + (initial_bid * increment_percentage // 100)
 
     min_bid = house.minimum_total_bid(auction_id)
@@ -53,13 +53,13 @@ def test_minimum_additional_bid_with_pending_returns(
     auction_id = house.auction_id()
 
     # Alice places initial bid
-    initial_bid = house.reserve_price()
+    initial_bid = house.default_reserve_price()
     with boa.env.prank(alice):
         payment_token.approve(house.address, initial_bid)
         house.create_bid(auction_id, initial_bid)
 
     # Bob outbids Alice
-    increment_percentage = house.min_bid_increment_percentage()
+    increment_percentage = house.default_min_bid_increment_percentage()
     bob_bid = initial_bid + (initial_bid * increment_percentage // 100)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
