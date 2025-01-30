@@ -257,6 +257,31 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
     return active_auctions
 
 
+@external
+@view
+def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
+    """
+    @notice Get the total amount a user has bid on a specific auction
+    @dev Returns the sum of current winning bid (if they're the winner) plus any pending returns
+    @param auction_id The auction to check
+    @param user The address to check bids for
+    @return Total amount bid by user on this auction
+    """
+    auction: Auction = self.auction_list[auction_id]
+    assert auction.start_time != 0, "!auction"
+    
+    total_bid: uint256 = 0
+    
+    # Add pending returns from previous outbid amounts
+    total_bid += self.auction_pending_returns[auction_id][user]
+    
+    # Add current winning bid amount if they are the current winner
+    if auction.bidder == user:
+        total_bid += auction.amount
+        
+    return total_bid
+
+
 @internal
 def _settle_auction(auction_id: uint256):
     _auction: Auction = self.auction_list[auction_id]
