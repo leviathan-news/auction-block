@@ -102,7 +102,7 @@ def test_min_bid_increment_percentage_constraints(auction_house):
                 3600,  # duration
                 ""  # ipfs_hash
             )
-        assert "!bid_increment_percentage" in str(excinfo.value)
+        assert "!percentage" in str(excinfo.value)
     
     # Test upper bound
     with boa.env.prank(owner):
@@ -114,7 +114,7 @@ def test_min_bid_increment_percentage_constraints(auction_house):
                 3600,  # duration
                 ""  # ipfs_hash
             )
-        assert "!bid_increment_percentage" in str(excinfo.value)
+        assert "!percentage" in str(excinfo.value)
 
 @given(
     time_buffer=st.integers(min_value=0, max_value=2**256-1),

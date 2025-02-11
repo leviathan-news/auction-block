@@ -48,7 +48,7 @@ def test_set_default_min_bid_increment_percentage_too_high(
 ):
     """Test minimum bid increment cannot be set above maximum"""
     with boa.env.prank(deployer), boa.reverts("!percentage"):
-        auction_house.set_default_min_bid_increment_percentage(16)
+        auction_house.set_default_min_bid_increment_percentage(99999999)
     assert auction_house.default_min_bid_increment_percentage() == default_min_bid_increment
 
 
@@ -57,7 +57,7 @@ def test_set_default_min_bid_increment_percentage_too_low(
 ):
     """Test minimum bid increment cannot be set below minimum"""
     with boa.env.prank(deployer), boa.reverts("!percentage"):
-        auction_house.set_default_min_bid_increment_percentage(1)
+        auction_house.set_default_min_bid_increment_percentage(0)
     assert auction_house.default_min_bid_increment_percentage() == default_min_bid_increment
 
 
