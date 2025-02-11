@@ -107,10 +107,11 @@ def test_minimum_bids_settled_auction(auction_house_with_auction, deployer):
     with boa.reverts():
         house.minimum_additional_bid_for_user(auction_id, boa.env.generate_address())
 
+
 def test_auction_bid_by_user_no_bids(auction_house_with_auction, alice):
     """Test auction_bid_by_user when user hasn't bid"""
     auction_id = auction_house_with_auction.auction_id()
-    
+
     total_bid = auction_house_with_auction.auction_bid_by_user(auction_id, alice)
     assert total_bid == 0, "Should return 0 when user hasn't bid"
 
@@ -148,7 +149,7 @@ def test_auction_bid_by_user_outbid(
     min_next_bid = default_reserve_price + (
         default_reserve_price * house.default_min_bid_increment_percentage() // 100
     )
-    
+
     with boa.env.prank(bob):
         payment_token.approve(house.address, min_next_bid)
         house.create_bid(auction_id, min_next_bid)
@@ -156,7 +157,7 @@ def test_auction_bid_by_user_outbid(
     # Check bid tracking for both users
     alice_total = house.auction_bid_by_user(auction_id, alice)
     assert alice_total == default_reserve_price, "Should track Alice's outbid amount"
-    
+
     bob_total = house.auction_bid_by_user(auction_id, bob)
     assert bob_total == min_next_bid, "Should track Bob's winning bid"
 
@@ -170,40 +171,46 @@ def test_auction_bid_by_user_multiple_bids(
 
     # Alice's first bid
     with boa.env.prank(alice):
-        payment_token.approve(house.address, default_reserve_price * 10)  # Approve enough for multiple bids
+        payment_token.approve(
+            house.address, default_reserve_price * 10
+        )  # Approve enough for multiple bids
         house.create_bid(auction_id, default_reserve_price)
 
     # Track increasing bids
     current_bid = default_reserve_price
     alice_expected_total = current_bid
-    
+
     # Series of back-and-forth bids
     for _ in range(3):
         # Bob outbids
-        min_next_bid = current_bid + (current_bid * house.default_min_bid_increment_percentage() // 100)
+        min_next_bid = current_bid + (
+            current_bid * house.default_min_bid_increment_percentage() // 100
+        )
         with boa.env.prank(bob):
             payment_token.approve(house.address, min_next_bid)
             house.create_bid(auction_id, min_next_bid)
         current_bid = min_next_bid
-        
+
         # Verify amounts
         alice_total = house.auction_bid_by_user(auction_id, alice)
         assert alice_total == alice_expected_total, "Should track Alice's total bids"
-        
+
         bob_total = house.auction_bid_by_user(auction_id, bob)
         assert bob_total == current_bid, "Should track Bob's current winning bid"
-        
+
         # Alice bids again
-        min_next_bid = current_bid + (current_bid * house.default_min_bid_increment_percentage() // 100)
+        min_next_bid = current_bid + (
+            current_bid * house.default_min_bid_increment_percentage() // 100
+        )
         with boa.env.prank(alice):
             house.create_bid(auction_id, min_next_bid)
         current_bid = min_next_bid
         alice_expected_total = current_bid
-        
+
         # Verify updated amounts
         alice_total = house.auction_bid_by_user(auction_id, alice)
         assert alice_total == alice_expected_total, "Should track Alice's new total"
-        
+
         bob_total = house.auction_bid_by_user(auction_id, bob)
         assert bob_total == bob_total, "Should track Bob's outbid amount"
 
@@ -211,7 +218,7 @@ def test_auction_bid_by_user_multiple_bids(
 def test_auction_bid_by_user_invalid_auction(auction_house_with_auction, alice):
     """Test auction_bid_by_user with invalid auction ID"""
     invalid_id = auction_house_with_auction.auction_id() + 1
-    
+
     with pytest.raises(Exception):
         auction_house_with_auction.auction_bid_by_user(invalid_id, alice)
 
@@ -250,5 +257,7 @@ def test_auction_bid_by_user_after_settlement(
     alice_total_after = house.auction_bid_by_user(auction_id, alice)
     bob_total_after = house.auction_bid_by_user(auction_id, bob)
 
-    assert alice_total_after == alice_total_before, "Settlement shouldn't affect bid tracking for Alice"
+    assert (
+        alice_total_after == alice_total_before
+    ), "Settlement shouldn't affect bid tracking for Alice"
     assert bob_total_after == bob_total_before, "Settlement shouldn't affect bid tracking for Bob"

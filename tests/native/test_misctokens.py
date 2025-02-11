@@ -1,8 +1,10 @@
 import boa
 import pytest
 
+
 def empty_address():
     return "0x0000000000000000000000000000000000000000"
+
 
 def load_supported_tokens(house):
     ret_arr = []
@@ -13,6 +15,7 @@ def load_supported_tokens(house):
             print(f"Error {e} on {i}")
     print(ret_arr)
     return ret_arr
+
 
 def test_add_token_support(auction_house, deployer, payment_token, inert_weth, inert_weth_trader):
     weth = inert_weth
@@ -25,9 +28,9 @@ def test_add_token_support(auction_house, deployer, payment_token, inert_weth, i
 
         # Add first token (WETH)
         auction_house.add_token_support(weth, weth_trader)
-        
+
         # Check supported tokens after first addition
-        tokens_after_first = load_supported_tokens(auction_house) 
+        tokens_after_first = load_supported_tokens(auction_house)
         assert len(tokens_after_first) == 1
         assert tokens_after_first[0] == weth.address
 
@@ -44,13 +47,16 @@ def test_add_token_support(auction_house, deployer, payment_token, inert_weth, i
         assert tokens_after_second[0] == weth.address
         assert tokens_after_second[1] == test_token.address
 
+
 def test_cannot_add_payment_token(auction_house, payment_token, deployer):
-    
+
     with boa.env.prank(deployer), boa.reverts("!payment_token"):
         auction_house.add_token_support(payment_token, boa.env.generate_address())
 
 
-def test_revoke_token_support(auction_house, deployer, payment_token, inert_weth, inert_weth_trader):
+def test_revoke_token_support(
+    auction_house, deployer, payment_token, inert_weth, inert_weth_trader
+):
     weth_token = boa.load_partial("contracts/test/ERC20.vy").deploy("Wrapped ETH", "WETH", 18)
     weth_trader = boa.env.generate_address()
 

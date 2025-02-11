@@ -3,10 +3,11 @@ import pytest
 
 pytestmark = pytest.mark.fork_only
 
+
 def test_specific_bid_scenario_proper_fail(auction_house, weth_trader, weth, payment_token, alice):
     # Get the reserve price as our target output amount
     reserve_price = auction_house.default_reserve_price()
-    
+
     owner = auction_house.owner()
     with boa.env.prank(owner):
         auction_house.pause()
@@ -18,7 +19,6 @@ def test_specific_bid_scenario_proper_fail(auction_house, weth_trader, weth, pay
     bid_amount = auction_house.safe_get_dx(weth, reserve_price)
     # Add 1% buffer to ensure we exceed minimum
     min_dy = reserve_price * 99 // 100  # Allow 1% slippage
-
 
     # Record initial balances
     print(f"\nInitial balances:")
@@ -32,7 +32,6 @@ def test_specific_bid_scenario_proper_fail(auction_house, weth_trader, weth, pay
         # ONLY approve WETH, not payment token
         weth.approve(auction_house, 2**256 - 1)
         auction_house.create_bid_with_token(auction_id, bid_amount, weth, min_dy)
-
 
 
 def test_various_approval_scenarios(auction_house, weth_trader, weth, payment_token, alice):
@@ -128,7 +127,9 @@ def test_bid_with_specific_amounts(auction_house, weth_trader, weth, payment_tok
                 except:
                     try:
                         with boa.reverts("!increment"):
-                            auction_house.create_bid_with_token(auction_id, bid_amount, weth, min_dy)
+                            auction_house.create_bid_with_token(
+                                auction_id, bid_amount, weth, min_dy
+                            )
                         print("Failed: Below minimum increment")
                     except:
                         print("Different revert reason than expected")

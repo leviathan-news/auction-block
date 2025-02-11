@@ -36,7 +36,9 @@ def test_set_default_reserve_price(auction_house, deployer):
     assert auction_house.default_reserve_price() == 200
 
 
-def test_set_default_min_bid_increment_percentage(auction_house, deployer, default_min_bid_increment):
+def test_set_default_min_bid_increment_percentage(
+    auction_house, deployer, default_min_bid_increment
+):
     """Test minimum bid increment can be updated by owner within valid range"""
     with boa.env.prank(deployer):
         auction_house.set_default_min_bid_increment_percentage(10)

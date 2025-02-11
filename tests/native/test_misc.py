@@ -128,7 +128,9 @@ def test_bid_increment_validation(
             auction_house_with_auction.create_bid(auction_id, insufficient_increment)
 
     # Calculate minimum valid next bid
-    min_increment = (bid_amount * auction_house_with_auction.default_min_bid_increment_percentage()) // 100
+    min_increment = (
+        bid_amount * auction_house_with_auction.default_min_bid_increment_percentage()
+    ) // 100
     min_next_bid = bid_amount + min_increment
 
     # Valid bid at minimum increment

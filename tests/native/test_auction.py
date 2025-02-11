@@ -101,7 +101,7 @@ def test_outbid(auction_house_with_auction, alice, bob, payment_token, default_r
     print(f"Minimum next bid required: {min_next_bid}")
 
     # Try insufficient bid
-    insufficient_bid = min_next_bid - 1 
+    insufficient_bid = min_next_bid - 1
     with boa.env.prank(bob):
         payment_token.approve(house.address, insufficient_bid)
         with boa.reverts():
