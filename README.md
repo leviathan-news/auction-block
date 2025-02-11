@@ -51,3 +51,21 @@ black <path_to_file>
 ## License
 
 This project is licensed under the [MIT license](LICENSE).
+
+
+### Tests
+Run standard tests
+```
+pytest
+```
+
+Tests for fork mode
+```
+pytest tests/fork --fork
+pytest tests/hypothesis --fork
+```
+
+```
+pytest --cov= --cov-branch tests/native
+coverage html
+```
