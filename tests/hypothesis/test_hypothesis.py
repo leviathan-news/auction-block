@@ -64,7 +64,7 @@ def test_hypothetical_bidding_scenarios(
         }
         
         # Get minimum required bid in SQUID
-        min_bid_squid = auction_house.minimum_total_bid(auction_id)
+        min_bid_squid = auction_house.default_minimum_total_bid(auction_id)
         
         try:
             # Try to get required WETH amount using safe_get_dx
