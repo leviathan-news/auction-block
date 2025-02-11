@@ -14,19 +14,20 @@ import pausable
 
 
 # ============================================================================================
-# Interfaces
+# 🧩 Interfaces
 # ============================================================================================
 
 interface TokenTrader:
     def exchange(
         _dx: uint256, _min_dy: uint256, _from: address = msg.sender
     ) -> uint256: nonpayable
+    def safe_get_dx(_dy: uint256) -> uint256: view
     def get_dx(_dy: uint256) -> uint256: view
     def get_dy(_dx: uint256) -> uint256: view
 
 
 # ============================================================================================
-# Modules
+# ⚙️ Modules
 # ============================================================================================
 
 initializes: ownable
@@ -46,7 +47,7 @@ exports: (
 
 
 # ============================================================================================
-# Structs
+# 🏢 Structs
 # ============================================================================================
 
 struct Auction:
@@ -75,7 +76,7 @@ flag ApprovalStatus:
 
 
 # ============================================================================================
-# Events
+# 📣 Events
 # ============================================================================================
 
 event AuctionBid:
@@ -151,7 +152,7 @@ event FeeUpdated:
 
 
 # ============================================================================================
-# Constants
+# 📜 Constants
 # ============================================================================================
 
 PRECISION: constant(uint256) = 100
@@ -166,7 +167,7 @@ MAX_FEE: constant(uint256) = 100  # 10%
 
 
 # ============================================================================================
-# Storage
+# 💾 Storage
 # ============================================================================================
 
 # Auction
@@ -193,7 +194,7 @@ fee: public(uint256)
 
 
 # ============================================================================================
-# Constructor
+# 🚧 Constructor
 # ============================================================================================
 
 @deploy
@@ -231,7 +232,7 @@ def __init__(
 
 
 # ============================================================================================
-# View functions
+# 👀 View functions
 # ============================================================================================
 
 @external
@@ -269,148 +270,17 @@ def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
     """
     auction: Auction = self.auction_list[auction_id]
     assert auction.start_time != 0, "!auction"
-    
+
     total_bid: uint256 = 0
-    
+
     # Add pending returns from previous outbid amounts
     total_bid += self.auction_pending_returns[auction_id][user]
-    
+
     # Add current winning bid amount if they are the current winner
     if auction.bidder == user:
         total_bid += auction.amount
-        
+
     return total_bid
-
-
-@internal
-def _settle_auction(auction_id: uint256):
-    _auction: Auction = self.auction_list[auction_id]
-    assert _auction.start_time != 0, "!auction"
-    assert _auction.settled == False, "settled"
-    assert block.timestamp > _auction.end_time, "!completed"
-
-    self.auction_list[auction_id] = Auction(
-        auction_id=_auction.auction_id,
-        amount=_auction.amount,
-        start_time=_auction.start_time,
-        end_time=_auction.end_time,
-        bidder=_auction.bidder,
-        settled=True,
-        ipfs_hash=_auction.ipfs_hash,
-        params=_auction.params,
-    )
-
-    if _auction.amount > 0:
-        fee_amount: uint256 = _auction.amount * self.fee // PRECISION
-        remaining_amount: uint256 = _auction.amount - fee_amount
-
-        if fee_amount > 0:
-            assert extcall self.payment_token.transfer(
-                self.fee_receiver, fee_amount, default_return_value=True
-            ), "!fee transfer"
-
-        assert extcall self.payment_token.transfer(
-            ownable.owner, remaining_amount, default_return_value=True
-        ), "!owner transfer"
-
-    log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
-
-
-@internal
-def _collect_payment(auction_id: uint256, total_bid: uint256, bidder: address):
-    tokens_needed: uint256 = total_bid
-    pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
-    if pending_amount > 0:
-        if pending_amount >= total_bid:
-            self.auction_pending_returns[auction_id][bidder] = (
-                pending_amount - total_bid
-            )
-            tokens_needed = 0
-        else:
-            self.auction_pending_returns[auction_id][bidder] = 0
-            tokens_needed = total_bid - pending_amount
-    if tokens_needed > 0:
-        assert extcall self.payment_token.transferFrom(
-            bidder, self, tokens_needed, default_return_value=True
-        ), "!transfer"
-
-
-@internal
-def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
-    _auction: Auction = self.auction_list[auction_id]
-    _time_buffer: uint256 = _auction.params.time_buffer
-    _reserve_price: uint256 = _auction.params.reserve_price
-
-    assert _auction.auction_id == auction_id, "!auctionId"
-    assert block.timestamp < _auction.end_time, "expired"
-    assert total_bid >= _reserve_price, "!reservePrice"
-    assert total_bid >= self._minimum_total_bid(auction_id), "!increment"
-
-    last_bidder: address = _auction.bidder
-    if last_bidder != empty(address):
-        self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
-   
-    # Exctend the auction?
-    _end_time: uint256 = _auction.end_time
-
-    _extended: bool = _auction.end_time - block.timestamp < _time_buffer
-    if _extended:
-        _end_time = block.timestamp + _time_buffer
-
-    self.auction_list[auction_id] = Auction(
-        auction_id=_auction.auction_id,
-        amount=total_bid,
-        start_time=_auction.start_time,
-        end_time = _end_time,
-        bidder=bidder,
-        settled=_auction.settled,
-        ipfs_hash=_auction.ipfs_hash,
-        params=_auction.params,
-    )
-
-    log AuctionBid(_auction.auction_id, bidder, msg.sender, total_bid, _extended)
-    if _extended:
-        log AuctionExtended(_auction.auction_id, _auction.end_time)
-
-
-@internal
-@view
-def _minimum_total_bid(auction_id: uint256) -> uint256:
-    _auction: Auction = self.auction_list[auction_id]
-    assert _auction.start_time != 0, "!auctionId"
-    assert not _auction.settled, "settled"
-    if _auction.amount == 0:
-        return _auction.params.reserve_price
-
-    _min_pct: uint256 = _auction.params.min_bid_increment_percentage
-    return _auction.amount + ((_auction.amount * _min_pct) // PRECISION)
-
-
-@internal
-@view
-def _minimum_additional_bid(
-    auction_id: uint256, bidder: address = empty(address)
-) -> uint256:
-    _total_min: uint256 = self._minimum_total_bid(auction_id)
-    if bidder == empty(address):
-        return _total_min
-
-    pending: uint256 = self.auction_pending_returns[auction_id][bidder]
-    if pending >= _total_min:
-        return 0
-    return _total_min - pending
-
-
-@internal
-@view
-def _check_caller(
-    _account: address, _caller: address, _req_status: ApprovalStatus
-):
-    if _account != _caller:
-        _status: ApprovalStatus = self.approved_caller[_account][_caller]
-        if _status == ApprovalStatus.BidAndWithdraw:
-            return
-        assert (_status == _req_status), "!caller"
 
 
 @external
@@ -432,17 +302,7 @@ def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
     @dev A gas fuzzling function, recommend not to use in smart contracts
     @return A safe dx above the minimum required to guarantee dy
     """
-
-    _actual_dy: uint256 = 0
-    _dx: uint256 = staticcall self.additional_tokens[_token_addr].get_dx(_dy)
-    for _i: uint256 in range(10):
-        _actual_dy = staticcall self.additional_tokens[_token_addr].get_dy(_dx)
-        if _actual_dy >= _dy:
-            break
-        else:
-            _dx = _dx * 10000000001 // 10000000000
-    assert _actual_dy >= _dy
-    return _dx
+    return staticcall self.additional_tokens[_token_addr].safe_get_dx(_dy)
 
 
 @external
@@ -485,7 +345,7 @@ def pending_returns(user: address) -> uint256:
 
 
 # ============================================================================================
-# External functions
+# ✍️ Write functions
 # ============================================================================================
 
 @external
@@ -508,7 +368,7 @@ def create_custom_auction(
     reserve_price: uint256,
     min_bid_increment_percentage: uint256,
     duration: uint256,
-    ipfs_hash: String[46] = ""
+    ipfs_hash: String[46] = "",
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -516,8 +376,12 @@ def create_custom_auction(
     @return New auction id
     """
     assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
-    assert min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE, "!percentage"
-    assert min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE, "!percentage"
+    assert (
+        min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
+    ), "!percentage"
+    assert (
+        min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
+    ), "!percentage"
 
     pausable._check_unpaused()
     ownable._check_owner()
@@ -565,8 +429,10 @@ def create_bid(
     @dev Create a bid using the primary payment token
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    self._collect_payment(auction_id, bid_amount, on_behalf_of)
-    self._create_bid(auction_id, bid_amount, on_behalf_of)
+    payment_amount: uint256 = self._collect_payment(
+        auction_id, bid_amount, on_behalf_of
+    )
+    self._create_bid(auction_id, payment_amount, on_behalf_of)
 
 
 @external
@@ -588,18 +454,11 @@ def create_bid_with_token(
     @param on_behalf_of User to bid on behalf of
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    payment_amount: uint256 = self._collect_payment(
+        auction_id, min_dy, on_behalf_of, token, token_amount
+    )
 
-    trader: TokenTrader = self.additional_tokens[token]
-    assert trader.address != empty(address), "!trader"
-
-    # Transfer token to contract, or revert
-    extcall token.transferFrom(on_behalf_of, self, token_amount)
-
-    # Exchange, or revert
-    value_traded: uint256 = extcall trader.exchange(token_amount, min_dy, self)
-
-    # Bid
-    self._create_bid(auction_id, value_traded, on_behalf_of)
+    self._create_bid(auction_id, payment_amount, on_behalf_of)
 
 
 @external
@@ -692,7 +551,7 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 
 
 # ============================================================================================
-# Owner functions
+# 👑 Owner functions
 # ============================================================================================
 
 @external
@@ -792,7 +651,7 @@ def set_fee(_fee: uint256):
 
 
 # ============================================================================================
-# Internal functions
+# 🏠 Internal functions
 # ============================================================================================
 
 @internal
@@ -806,10 +665,7 @@ def _default_auction_params() -> AuctionParams:
 
 
 @internal
-def _create_auction(
-    ipfs_hash: String[46], params: AuctionParams
-) -> uint256:
-
+def _create_auction(ipfs_hash: String[46], params: AuctionParams) -> uint256:
     _start_time: uint256 = block.timestamp
     _end_time: uint256 = _start_time + params.duration
     _auction_id: uint256 = self.auction_id + 1
@@ -828,3 +684,180 @@ def _create_auction(
 
     log AuctionCreated(_auction_id, _start_time, _end_time, ipfs_hash)
     return _auction_id
+
+
+@internal
+def _settle_auction(auction_id: uint256):
+    _auction: Auction = self.auction_list[auction_id]
+    assert _auction.start_time != 0, "!auction"
+    assert _auction.settled == False, "settled"
+    assert block.timestamp > _auction.end_time, "!completed"
+
+    self.auction_list[auction_id] = Auction(
+        auction_id=_auction.auction_id,
+        amount=_auction.amount,
+        start_time=_auction.start_time,
+        end_time=_auction.end_time,
+        bidder=_auction.bidder,
+        settled=True,
+        ipfs_hash=_auction.ipfs_hash,
+        params=_auction.params,
+    )
+
+    if _auction.amount > 0:
+        fee_amount: uint256 = _auction.amount * self.fee // PRECISION
+        remaining_amount: uint256 = _auction.amount - fee_amount
+
+        if fee_amount > 0:
+            assert extcall self.payment_token.transfer(
+                self.fee_receiver, fee_amount, default_return_value=True
+            ), "!fee transfer"
+
+        assert extcall self.payment_token.transfer(
+            ownable.owner, remaining_amount, default_return_value=True
+        ), "!owner transfer"
+
+    log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
+
+
+@internal
+def _trade_token(
+    from_addr: address,
+    token: IERC20,
+    dx: uint256,
+    min_dy: uint256,
+) -> uint256:
+    """
+    @dev Helper to trade an alternative token for the required SQUID amount
+    @return Amount of SQUID received from trade
+    """
+    trader: TokenTrader = self.additional_tokens[token]
+    assert trader.address != empty(address), "!trader"
+
+    # Calculate required token amount and trade
+    actual_dy: uint256 = staticcall trader.get_dy(dx)
+    assert actual_dy >= min_dy, "!token_amount"
+
+    # Transfer token to contract, or revert
+    extcall token.transferFrom(from_addr, self, dx)
+
+    # Exchange, or revert
+    return extcall trader.exchange(dx, min_dy, self)
+
+
+@internal
+def _collect_payment(
+    auction_id: uint256,
+    total_bid: uint256,
+    bidder: address,
+    token: IERC20 = empty(IERC20),  # Optional token param
+    token_amount: uint256 = 0,  # Amount of alternate token provided
+) -> uint256:
+    """
+    @dev Collect payment either in payment or alternate token
+    @return Final amount of payment token collected (including any pending returns used)
+    """
+    tokens_needed: uint256 = total_bid
+    pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
+
+    if pending_amount > 0:
+        if pending_amount >= total_bid:
+            self.auction_pending_returns[auction_id][bidder] = (
+                pending_amount - total_bid
+            )
+            tokens_needed = 0
+        else:
+            self.auction_pending_returns[auction_id][bidder] = 0
+            tokens_needed = total_bid - pending_amount
+    if tokens_needed > 0:
+        if token == empty(IERC20):
+            # Standard payment
+            assert extcall self.payment_token.transferFrom(
+                bidder, self, tokens_needed, default_return_value=True
+            ), "!transfer"
+        else:
+            # Run through a trading contract
+            amount_received: uint256 = self._trade_token(
+                bidder, token, token_amount, tokens_needed
+            )
+            total_bid = amount_received + pending_amount
+    return total_bid
+
+
+@internal
+def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
+    _auction: Auction = self.auction_list[auction_id]
+    _time_buffer: uint256 = _auction.params.time_buffer
+    _reserve_price: uint256 = _auction.params.reserve_price
+
+    assert _auction.auction_id == auction_id, "!auctionId"
+    assert block.timestamp < _auction.end_time, "expired"
+    assert total_bid >= _reserve_price, "!reservePrice"
+    assert total_bid >= self._minimum_total_bid(auction_id), "!increment"
+
+    last_bidder: address = _auction.bidder
+    if last_bidder != empty(address):
+        self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
+
+    _end_time: uint256 = _auction.end_time
+
+    _extended: bool = _auction.end_time - block.timestamp < _time_buffer
+    if _extended:
+        _end_time = block.timestamp + _time_buffer
+
+    self.auction_list[auction_id] = Auction(
+        auction_id=_auction.auction_id,
+        amount=total_bid,
+        start_time=_auction.start_time,
+        end_time=_end_time,
+        bidder=bidder,
+        settled=_auction.settled,
+        ipfs_hash=_auction.ipfs_hash,
+        params=_auction.params,
+    )
+
+    log AuctionBid(
+        _auction.auction_id, bidder, msg.sender, total_bid, _extended
+    )
+    if _extended:
+        log AuctionExtended(_auction.auction_id, _auction.end_time)
+
+
+@internal
+@view
+def _minimum_total_bid(auction_id: uint256) -> uint256:
+    _auction: Auction = self.auction_list[auction_id]
+    assert _auction.start_time != 0, "!auctionId"
+    assert not _auction.settled, "settled"
+    if _auction.amount == 0:
+        return _auction.params.reserve_price
+
+    _min_pct: uint256 = _auction.params.min_bid_increment_percentage
+    return _auction.amount + ((_auction.amount * _min_pct) // PRECISION)
+
+
+@internal
+@view
+def _minimum_additional_bid(
+    auction_id: uint256, bidder: address = empty(address)
+) -> uint256:
+    _total_min: uint256 = self._minimum_total_bid(auction_id)
+    if bidder == empty(address):
+        return _total_min
+
+    pending: uint256 = self.auction_pending_returns[auction_id][bidder]
+    if pending >= _total_min:
+        return 0
+    return _total_min - pending
+
+
+@internal
+@view
+def _check_caller(
+    _account: address, _caller: address, _req_status: ApprovalStatus
+):
+    if _account != _caller:
+        _status: ApprovalStatus = self.approved_caller[_account][_caller]
+        if _status == ApprovalStatus.BidAndWithdraw:
+            return
+        assert (_status == _req_status), "!caller"

@@ -74,6 +74,25 @@ def get_dy(_dx: uint256) -> uint256:
     return self._get_dy(_dx)
 
 
+@external
+@view
+def safe_get_dx(_dy: uint256) -> uint256:
+    """
+    @dev A gas fuzzling function, recommend not to use in smart contracts
+    @return A safe dx above the minimum required to guarantee dy
+    """
+    _actual_dy: uint256 = 0
+    _dx: uint256 = self._get_dx(_dy)
+    for _i: uint256 in range(10):
+        _actual_dy = self._get_dy(_dx)
+        if _actual_dy >= _dy:
+            break
+        else:
+            _dx = _dx * 100000001 // 100000000
+    assert _actual_dy >= _dy
+    return _dx
+
+
 @internal
 @view
 def _get_dx(_dy: uint256) -> uint256:
