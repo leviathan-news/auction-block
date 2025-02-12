@@ -279,3 +279,27 @@ def ApprovalStatus():
 @pytest.fixture(scope="session")
 def BidFlag():
     return 1  # BidOnly in contract ApprovalStatus flag
+
+@pytest.fixture(scope="session")
+def nft_contract():
+    return boa.load_partial("contracts/erc721.vy")
+
+@pytest.fixture(scope="session")
+def base_uri_prefix():
+    return "https://leviathannews.xyz/api/v1/image/"
+
+@pytest.fixture(scope="session")
+def base_nft(nft_contract, deployer, base_uri_prefix):
+    with boa.env.prank(deployer):
+        return nft_contract.deploy("Name", "NFT", base_uri_prefix,  "name_eip", "version_eip")
+
+@pytest.fixture
+def nft(base_nft, deployer, auction_house):
+    """Return the session-scoped contract for each test"""
+    with boa.env.prank(deployer):
+        base_nft.set_minter(auction_house, True)
+    return base_nft 
+
+@pytest.fixture
+def zero_address():
+    return '0x0000000000000000000000000000000000000000'

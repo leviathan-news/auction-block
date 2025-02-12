@@ -26,6 +26,9 @@ interface TokenTrader:
     def get_dy(_dx: uint256) -> uint256: view
 
 
+interface NFT:
+    def safe_mint(owner: address, auction_id: uint256): nonpayable
+
 # ============================================================================================
 # ⚙️ Modules
 # ============================================================================================
@@ -184,10 +187,11 @@ auction_list: public(HashMap[uint256, Auction])
 # User settings
 approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 
-# Payment tokensr
+# Payment tokens
 payment_token: public(IERC20)
 additional_tokens: public(HashMap[IERC20, TokenTrader])
 supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
+nft: public(NFT)
 
 # Fee configuration
 fee_receiver: public(address)
@@ -258,6 +262,17 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
 @view
 def is_auction_live(auction_id: uint256) -> bool:
     return self._is_auction_live(auction_id)
+
+
+@external
+@view
+def auction_remaining_time(auction_id: uint256) -> uint256:
+    end_time: uint256 = self.auction_list[auction_id].end_time 
+    remaining_time: uint256 = 0
+    if end_time > block.timestamp:
+        remaining_time = end_time - block.timestamp
+    return remaining_time
+
 
 
 @external
@@ -561,6 +576,11 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 # ============================================================================================
 
 @external
+def set_nft(nft_addr: address):
+    ownable._check_owner()
+    self.nft = NFT(nft_addr)
+  
+@external
 def add_token_support(token: IERC20, trader: TokenTrader):
     """
     @notice Add support for an alternative payment token
@@ -722,6 +742,9 @@ def _settle_auction(auction_id: uint256):
         assert extcall self.payment_token.transfer(
             ownable.owner, remaining_amount, default_return_value=True
         ), "!owner transfer"
+
+    if self.nft.address != empty(address):
+        extcall self.nft.safe_mint(_auction.bidder, auction_id)
 
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
