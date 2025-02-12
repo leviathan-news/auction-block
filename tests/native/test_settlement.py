@@ -31,6 +31,7 @@ def test_withdraw_after_outbid(
         auction_house_with_auction.create_bid(auction_id, second_bid)
 
     # Alice withdraws
+    boa.env.time_travel(seconds=4000)
     with boa.env.prank(alice):
         auction_house_with_auction.withdraw(auction_id)
 

@@ -158,12 +158,13 @@ event FeeUpdated:
 PRECISION: constant(uint256) = 100
 MAX_WITHDRAWALS: constant(uint256) = 100
 MAX_TOKENS: constant(uint256) = 100
-MAX_AUCTIONS: constant(uint256) = 100
+MAX_AUCTIONS: constant(uint256) = 1000
+
 MIN_DURATION: constant(uint256) = 3600  # 1 hour
 MAX_DURATION: constant(uint256) = 259200  # 3 days
 MIN_BID_INCREMENT_PERCENTAGE: constant(uint256) = 1  # 0%
 MAX_BID_INCREMENT_PERCENTAGE: constant(uint256) = 500  # 15%
-MAX_FEE: constant(uint256) = 100  # 10%
+MAX_FEE: constant(uint256) = 100  # 100%
 
 
 # ============================================================================================
@@ -248,12 +249,7 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
         if i + 1 > self.auction_id:
             break
 
-        auction: Auction = self.auction_list[i + 1]
-        if (
-            auction.start_time <= block.timestamp
-            and block.timestamp <= auction.end_time
-            and not auction.settled
-        ):
+        if self._is_auction_live(i + 1):
             active_auctions.append(i + 1)
     return active_auctions
 
@@ -470,6 +466,7 @@ def withdraw(auction_id: uint256, on_behalf_of: address = msg.sender):
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     pending: uint256 = self.auction_pending_returns[auction_id][on_behalf_of]
     assert pending > 0, "!pending"
+    assert self._is_auction_live(auction_id) == False, "!inactive"
     self.auction_pending_returns[auction_id][on_behalf_of] = 0
     assert extcall self.payment_token.transfer(
         on_behalf_of, pending, default_return_value=True
@@ -489,6 +486,9 @@ def withdraw_multiple(
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     total_pending: uint256 = 0
     for auction_id: uint256 in auction_ids:
+        if self._is_auction_live(auction_id) == True:
+            continue
+
         pending: uint256 = self.auction_pending_returns[auction_id][
             on_behalf_of
         ]
@@ -861,3 +861,18 @@ def _check_caller(
         if _status == ApprovalStatus.BidAndWithdraw:
             return
         assert (_status == _req_status), "!caller"
+
+
+@internal
+@view
+def _is_auction_live(auction_id: uint256) -> bool:
+    _is_live: bool = False
+    _auction: Auction = self.auction_list[auction_id]
+    if (
+        _auction.start_time <= block.timestamp
+        and block.timestamp <= _auction.end_time
+        and not _auction.settled
+    ):
+        _is_live = True
+
+    return _is_live

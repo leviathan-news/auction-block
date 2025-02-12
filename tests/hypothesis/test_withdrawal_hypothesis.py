@@ -17,9 +17,28 @@ withdrawal_sequences = st.lists(st.tuples(auction_ids, bid_amounts), min_size=1,
 
 
 def setup_auction_with_outbid(
-    auction_house, payment_token, bidder, outbidder, bid_amount, outbid_amount
+    auction_house, 
+    payment_token, 
+    bidder, 
+    outbidder, 
+    bid_amount, 
+    outbid_amount,
+    advance_time: bool = True
 ) -> Tuple[int, int]:
-    """Helper to setup an auction with an outbid scenario"""
+    """Helper to setup an auction with an outbid scenario
+    
+    Args:
+        auction_house: The auction house contract
+        payment_token: The payment token contract
+        bidder: Address of initial bidder
+        outbidder: Address of the outbidding user
+        bid_amount: Amount of initial bid
+        outbid_amount: Amount of outbid
+        advance_time: If True, advances time past auction end
+    
+    Returns:
+        Tuple of (auction_id, bid_amount)
+    """
     owner = auction_house.owner()
 
     # Create auction
@@ -35,9 +54,14 @@ def setup_auction_with_outbid(
     with boa.env.prank(outbidder):
         payment_token.approve(auction_house, outbid_amount)
         auction_house.create_bid(auction_id, outbid_amount)
+        
+    if advance_time:
+        # Move past auction end
+        auction = auction_house.auction_list(auction_id)
+        time_to_advance = auction[3] - auction[2] + 100  # end_time - start_time + buffer
+        boa.env.time_travel(seconds=time_to_advance)
 
     return auction_id, bid_amount
-
 
 # ============================================================================================
 # 1. Withdrawal Timing Attack Tests
@@ -122,7 +146,8 @@ def test_multiple_withdrawal_stress(auction_house, payment_token, alice, bob, nu
         outbid_amount = bid_amount * 2
 
         auction_id, amount = setup_auction_with_outbid(
-            auction_house, payment_token, alice, bob, bid_amount, outbid_amount
+            auction_house, payment_token, alice, bob, bid_amount, outbid_amount,
+            advance_time=True  # Make sure auction is inactive
         )
         auction_ids.append(auction_id)
         total_pending += bid_amount
@@ -170,9 +195,7 @@ def test_cross_auction_withdrawal_independence(auction_house, payment_token, ali
 
 
 @given(st.lists(auction_ids, min_size=2, max_size=5, unique=True))
-@settings(
-    suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=10
-)
+@settings(suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=10)
 def test_withdrawal_sequence_invariants(
     auction_house, payment_token, alice, bob, auction_id_sequence
 ):
@@ -199,6 +222,11 @@ def test_withdrawal_sequence_invariants(
                     payment_token.approve(auction_house, outbid_amount)
                     auction_house.create_bid(auction_id, outbid_amount)
                 total_pending += bid_amount
+                
+                # Advance time for this auction
+                auction = auction_house.auction_list(auction_id)
+                time_to_advance = auction[3] - auction[2] + 100
+                boa.env.time_travel(seconds=time_to_advance)
 
     if valid_ids:
         # Try different withdrawal sequences
@@ -218,7 +246,6 @@ def test_withdrawal_sequence_invariants(
             # Check remaining pending returns
             for auction_id in remaining_ids:
                 assert auction_house.auction_pending_returns(auction_id, alice) > 0
-
 
 # ============================================================================================
 # 4. Withdrawal Permission/Delegation Tests
