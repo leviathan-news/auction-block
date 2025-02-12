@@ -256,6 +256,12 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
 
 @external
 @view
+def is_auction_live(auction_id: uint256) -> bool:
+    return self._is_auction_live(auction_id)
+
+
+@external
+@view
 def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
     """
     @notice Get the total amount a user has bid on a specific auction
