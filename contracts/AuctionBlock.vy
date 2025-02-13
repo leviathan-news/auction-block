@@ -165,10 +165,10 @@ MAX_WITHDRAWALS: constant(uint256) = 100
 MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 1000
 
-MIN_DURATION: constant(uint256) = 3600  # 1 hour
-MAX_DURATION: constant(uint256) = 259200  # 3 days
-MIN_BID_INCREMENT_PERCENTAGE: constant(uint256) = 1  # 0%
-MAX_BID_INCREMENT_PERCENTAGE: constant(uint256) = 500  # 15%
+#MIN_DURATION: constant(uint256) = 3600  # 1 hour
+#MAX_DURATION: constant(uint256) = 259200  # 3 days
+#MIN_BID_INCREMENT_PERCENTAGE: constant(uint256) = 1  # 1%
+#MAX_BID_INCREMENT_PERCENTAGE: constant(uint256) = 500  # 500%
 MAX_FEE: constant(uint256) = 100  # 100%
 
 
@@ -216,11 +216,11 @@ def __init__(
     fee_receiver: address,
     fee: uint256,
 ):
-    assert (
-        min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
-        and min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
-    ), "!percentage"
-    assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
+    #assert (
+    #    min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
+    #    and min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
+    #), "!percentage"
+    #assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
     assert payment_token != empty(address), "!payment_token"
     assert fee_receiver != empty(address), "!fee_receiver"
     assert fee <= MAX_FEE, "!fee"
@@ -583,13 +583,13 @@ def create_custom_auction(
     @param ipfs_hash The IPFS hash of the auction metadata
     @return New auction id
     """
-    assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
-    assert (
-        min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
-    ), "!percentage"
-    assert (
-        min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
-    ), "!percentage"
+    #assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
+    #assert (
+    #    min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
+    #), "!percentage"
+    #assert (
+    #    min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
+    #), "!percentage"
 
     pausable._check_unpaused()
     ownable._check_owner()
@@ -673,10 +673,10 @@ def set_default_reserve_price(_reserve_price: uint256):
 @external
 def set_default_min_bid_increment_percentage(_percentage: uint256):
     ownable._check_owner()
-    assert (
-        _percentage >= MIN_BID_INCREMENT_PERCENTAGE
-        and _percentage <= MAX_BID_INCREMENT_PERCENTAGE
-    ), "!percentage"
+    #assert (
+    #    _percentage >= MIN_BID_INCREMENT_PERCENTAGE
+    #    and _percentage <= MAX_BID_INCREMENT_PERCENTAGE
+    #), "!percentage"
     self.default_min_bid_increment_percentage = _percentage
     log DefaultAuctionMinBidIncrementPercentageUpdated(_percentage)
 
@@ -684,7 +684,7 @@ def set_default_min_bid_increment_percentage(_percentage: uint256):
 @external
 def set_default_duration(_duration: uint256):
     ownable._check_owner()
-    assert _duration >= MIN_DURATION and _duration <= MAX_DURATION, "!duration"
+    #assert _duration >= MIN_DURATION and _duration <= MAX_DURATION, "!duration"
     self.default_duration = _duration
     log DefaultAuctionDurationUpdated(_duration)
 

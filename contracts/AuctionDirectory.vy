@@ -1,7 +1,7 @@
 # @version 0.4.0
 
 """
-@title Leviathan Directory
+@title Auction Directory
 @license MIT
 @author Leviathan
 @notice Registry to list permutations of auction contracts
@@ -184,6 +184,11 @@ def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
     """
     return staticcall self.additional_tokens[_token_addr].safe_get_dx(_dy)
 
+
+@external
+@view
+def num_contracts() -> uint256:
+    return len(self.registered_contracts)
 
 # ============================================================================================
 # ✍️ Write functions

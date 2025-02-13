@@ -52,7 +52,7 @@ def test_active_auctions(directory, mock_auction_contract_1, mock_auction_contra
     assert len(active_auctions) == 7
     assert active_auctions[0][0] == mock_auction_contract_1.address
     assert active_auctions[1][1] == 1
-
+    assert directory.num_contracts() == 3
     print("✅ Test passed: active_auctions() correctly returns contract mappings")
 
 
