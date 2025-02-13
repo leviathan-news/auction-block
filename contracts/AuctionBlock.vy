@@ -4,7 +4,7 @@
 @title Auction Block
 @license MIT
 @author Leviathan
-@notice Auction block facilitates creating, bidding on, and settling auctions with multiple token support
+@notice Auction block for standard single-price auctions
 """
 
 from ethereum.ercs import IERC20
@@ -153,6 +153,8 @@ event FeeReceiverUpdated:
 event FeeUpdated:
     fee: uint256
 
+event DirectorySet:
+    directory_address: address
 
 # ============================================================================================
 # 📜 Constants
@@ -183,6 +185,7 @@ auction_id: public(uint256)
 
 auction_pending_returns: public(HashMap[uint256, HashMap[address, uint256]])
 auction_list: public(HashMap[uint256, Auction])
+auction_metadata: public(HashMap[uint256, HashMap[address, String[46]]]) # auction_id -> user -> ipfs 
 
 # User settings
 approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
@@ -192,6 +195,7 @@ payment_token: public(IERC20)
 additional_tokens: public(HashMap[IERC20, TokenTrader])
 supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
 nft: public(NFT)
+authorized_directory: public(address)
 
 # Fee configuration
 fee_receiver: public(address)
@@ -365,53 +369,6 @@ def pending_returns(user: address) -> uint256:
 # ✍️ Write functions
 # ============================================================================================
 
-@external
-@nonreentrant
-def create_new_auction(ipfs_hash: String[46] = "") -> uint256:
-    """
-    @dev Create a new auction
-    @param ipfs_hash The IPFS hash of the auction metadata
-    @return New auction id
-    """
-    pausable._check_unpaused()
-    ownable._check_owner()
-    return self._create_auction(ipfs_hash, self._default_auction_params())
-
-
-@external
-@nonreentrant
-def create_custom_auction(
-    time_buffer: uint256,
-    reserve_price: uint256,
-    min_bid_increment_percentage: uint256,
-    duration: uint256,
-    ipfs_hash: String[46] = "",
-) -> uint256:
-    """
-    @dev Create a new auction with custom parameters instead of defaults
-    @param ipfs_hash The IPFS hash of the auction metadata
-    @return New auction id
-    """
-    assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
-    assert (
-        min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
-    ), "!percentage"
-    assert (
-        min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
-    ), "!percentage"
-
-    pausable._check_unpaused()
-    ownable._check_owner()
-    return self._create_auction(
-        ipfs_hash,
-        AuctionParams(
-            time_buffer=time_buffer,
-            reserve_price=reserve_price,
-            min_bid_increment_percentage=min_bid_increment_percentage,
-            duration=duration,
-        ),
-    )
-
 
 @external
 @nonreentrant
@@ -440,16 +397,21 @@ def settle_and_create_auction(auction_id: uint256, ipfs_hash: String[46] = ""):
 def create_bid(
     auction_id: uint256,
     bid_amount: uint256,
+    ipfs_hash: String[46] = '',
     on_behalf_of: address = msg.sender,
 ):
     """
     @dev Create a bid using the primary payment token
     """
-    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    if msg.sender != self.authorized_directory:
+        self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+
     payment_amount: uint256 = self._collect_payment(
         auction_id, bid_amount, on_behalf_of
     )
     self._create_bid(auction_id, payment_amount, on_behalf_of)
+    if ipfs_hash != '':
+       self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash 
 
 
 @external
@@ -459,7 +421,9 @@ def create_bid_with_token(
     token_amount: uint256,
     token: IERC20,
     min_dy: uint256,
+    ipfs_hash: String[46] = '',
     on_behalf_of: address = msg.sender,
+
 ):
     """
     @notice Create a bid using an alternative token
@@ -470,12 +434,29 @@ def create_bid_with_token(
     @param min_dy To protect against slippage, min amount of payment token to receive
     @param on_behalf_of User to bid on behalf of
     """
-    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    if msg.sender != self.authorized_directory:
+        self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
     payment_amount: uint256 = self._collect_payment(
         auction_id, min_dy, on_behalf_of, token, token_amount
     )
 
     self._create_bid(auction_id, payment_amount, on_behalf_of)
+    if ipfs_hash != '':
+       self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash 
+
+
+@external
+@nonreentrant
+def update_bid_metadata(
+    auction_id: uint256,
+    ipfs_hash: String[46],
+    on_behalf_of: address = msg.sender,
+):
+    """
+    @dev Update metadata
+    """
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash 
 
 
 @external
@@ -576,6 +557,54 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 # ============================================================================================
 
 @external
+@nonreentrant
+def create_new_auction(ipfs_hash: String[46] = "") -> uint256:
+    """
+    @dev Create a new auction
+    @param ipfs_hash The IPFS hash of the auction metadata
+    @return New auction id
+    """
+    pausable._check_unpaused()
+    ownable._check_owner()
+    return self._create_auction(ipfs_hash, self._default_auction_params())
+
+
+@external
+@nonreentrant
+def create_custom_auction(
+    time_buffer: uint256,
+    reserve_price: uint256,
+    min_bid_increment_percentage: uint256,
+    duration: uint256,
+    ipfs_hash: String[46] = "",
+) -> uint256:
+    """
+    @dev Create a new auction with custom parameters instead of defaults
+    @param ipfs_hash The IPFS hash of the auction metadata
+    @return New auction id
+    """
+    assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
+    assert (
+        min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
+    ), "!percentage"
+    assert (
+        min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
+    ), "!percentage"
+
+    pausable._check_unpaused()
+    ownable._check_owner()
+    return self._create_auction(
+        ipfs_hash,
+        AuctionParams(
+            time_buffer=time_buffer,
+            reserve_price=reserve_price,
+            min_bid_increment_percentage=min_bid_increment_percentage,
+            duration=duration,
+        ),
+    )
+
+
+@external
 def set_nft(nft_addr: address):
     ownable._check_owner()
     self.nft = NFT(nft_addr)
@@ -674,6 +703,16 @@ def set_fee(_fee: uint256):
     assert _fee <= MAX_FEE, "!fee"
     self.fee = _fee
     log FeeUpdated(_fee)
+
+
+@external
+def set_approved_directory(directory_address: address):
+    """
+    @dev Authorized directory contract with permissions
+    """
+    ownable._check_owner()
+    self.authorized_directory = directory_address
+    log DirectorySet(directory_address)
 
 
 # ============================================================================================

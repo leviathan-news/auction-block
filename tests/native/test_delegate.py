@@ -39,7 +39,7 @@ def test_delegated_bid_after_revocation(
         payment_token.approve(house.address, default_reserve_price * 2)
 
     with boa.env.prank(admin), boa.reverts("!caller"):
-        house.create_bid(auction_id, default_reserve_price, alice)
+        house.create_bid(auction_id, default_reserve_price, '', alice)
 
 
 def test_unauthorized_delegated_bid(
@@ -53,7 +53,7 @@ def test_unauthorized_delegated_bid(
         payment_token.approve(house.address, default_reserve_price * 2)
 
     with boa.env.prank(bob), boa.reverts("!caller"):
-        house.create_bid(auction_id, default_reserve_price, alice)
+        house.create_bid(auction_id, default_reserve_price, '', alice)
 
 
 def test_delegated_bid(
@@ -68,7 +68,7 @@ def test_delegated_bid(
         payment_token.approve(house.address, default_reserve_price * 2)
 
     with boa.env.prank(admin):
-        house.create_bid(auction_id, default_reserve_price, alice)
+        house.create_bid(auction_id, default_reserve_price, '', alice)
 
 
 def test_delegated_bid_chaining(
@@ -86,7 +86,7 @@ def test_delegated_bid_chaining(
         payment_token.approve(house.address, default_reserve_price * 3)
 
     with boa.env.prank(admin):
-        house.create_bid(auction_id, default_reserve_price, alice)
+        house.create_bid(auction_id, default_reserve_price, '', alice)
 
 
 def test_delegated_bid_with_pending_returns(
@@ -110,7 +110,7 @@ def test_delegated_bid_with_pending_returns(
 
     final_bid = next_bid + (next_bid * house.default_min_bid_increment_percentage() // 100)
     with boa.env.prank(admin):
-        house.create_bid(auction_id, final_bid, alice)
+        house.create_bid(auction_id, final_bid, '', alice)
 
 
 def test_delegated_bid_withdrawal(

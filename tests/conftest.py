@@ -303,3 +303,19 @@ def nft(base_nft, deployer, auction_house):
 @pytest.fixture
 def zero_address():
     return '0x0000000000000000000000000000000000000000'
+
+
+#@pytest.fixture(scope="session")
+@pytest.fixture
+def directory(payment_token, auction_house, deployer, BidFlag):
+    """
+    Deploy the Auction Directory contract.
+    """
+    contract = boa.load_partial("contracts/AuctionDirectory.vy")
+    deployed = contract.deploy(payment_token)
+    with boa.env.prank(deployer):
+        deployed.register_auction_contract(auction_house)
+        auction_house.set_approved_directory(deployed)
+    return deployed
+
+
