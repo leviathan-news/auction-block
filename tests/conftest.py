@@ -129,13 +129,18 @@ def trading_pool(env, fork_mode):
 
 
 @pytest.fixture(scope="session")
-def make_user(payment_token, env, fork_mode, weth):
+def user_mint_amount():
+    return 1_000 * 10**18
+
+
+@pytest.fixture(scope="session")
+def make_user(payment_token, env, fork_mode, weth, user_mint_amount):
     def _make_user_with_weth(eth_amount: int = 10 * 10**18):  # Default 10 ETH
         addr = boa.env.generate_address()
         boa.env.set_balance(addr, eth_amount)
         with boa.env.prank(addr):
             weth.deposit(value=eth_amount)
-        payment_token._mint_for_testing(addr, 1_000 * 10**18)
+        payment_token._mint_for_testing(addr, user_mint_amount)
         return addr
 
     def _make_user():
@@ -266,48 +271,48 @@ def auction_house_with_weth(auction_house_with_auction, weth_trader):
 
 
 @pytest.fixture(scope="session")
-def ApprovalStatus():
+def approval_flags():
     class ApprovalFlags:
-        Nothing = 0
-        BidOnly = 1
-        WithdrawOnly = 2
-        BidAndWithdraw = 3
+        Nothing = 1
+        BidOnly = 2
+        WithdrawOnly = 4
+        BidAndWithdraw = 8
 
     return ApprovalFlags
 
 
 @pytest.fixture(scope="session")
-def BidFlag():
-    return 1  # BidOnly in contract ApprovalStatus flag
-
-@pytest.fixture(scope="session")
 def nft_contract():
     return boa.load_partial("contracts/erc721.vy")
+
 
 @pytest.fixture(scope="session")
 def base_uri_prefix():
     return "https://leviathannews.xyz/api/v1/image/"
 
+
 @pytest.fixture(scope="session")
 def base_nft(nft_contract, deployer, base_uri_prefix):
     with boa.env.prank(deployer):
-        return nft_contract.deploy("Name", "NFT", base_uri_prefix,  "name_eip", "version_eip")
+        return nft_contract.deploy("Name", "NFT", base_uri_prefix, "name_eip", "version_eip")
+
 
 @pytest.fixture
 def nft(base_nft, deployer, auction_house):
     """Return the session-scoped contract for each test"""
     with boa.env.prank(deployer):
         base_nft.set_minter(auction_house, True)
-    return base_nft 
+    return base_nft
+
 
 @pytest.fixture
 def zero_address():
-    return '0x0000000000000000000000000000000000000000'
+    return "0x0000000000000000000000000000000000000000"
 
 
-#@pytest.fixture(scope="session")
+# @pytest.fixture(scope="session")
 @pytest.fixture
-def directory(payment_token, auction_house, deployer, BidFlag):
+def directory(payment_token, auction_house, deployer):
     """
     Deploy the Auction Directory contract.
     """
@@ -319,3 +324,25 @@ def directory(payment_token, auction_house, deployer, BidFlag):
     return deployed
 
 
+@pytest.fixture
+def auction_house_dual_bid(
+    auction_house_with_auction, payment_token, alice, bob, default_reserve_price
+):
+    """
+    Deploy the Auction Directory contract.
+    """
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+
+    with boa.env.prank(alice):
+        payment_token.approve(house, 2**256 - 1)
+        house.create_bid(auction_id, default_reserve_price)
+
+    min_increment = house.default_min_bid_increment_percentage()
+    bob_bid = default_reserve_price + (default_reserve_price * min_increment // 100)
+
+    with boa.env.prank(bob):
+        payment_token.approve(house, 2**256 - 1)
+        house.create_bid(auction_id, bob_bid)
+
+    return house

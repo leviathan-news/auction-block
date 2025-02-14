@@ -44,6 +44,7 @@ def test_set_default_min_bid_increment_percentage(
         auction_house.set_default_min_bid_increment_percentage(10)
     assert auction_house.default_min_bid_increment_percentage() == 10
 
+
 @pytest.mark.skip()
 def test_set_default_min_bid_increment_percentage_too_high(
     auction_house, deployer, default_min_bid_increment
@@ -69,6 +70,7 @@ def test_set_default_duration(auction_house, deployer):
     with boa.env.prank(deployer):
         auction_house.set_default_duration(7200)  # 2 hours
     assert auction_house.default_duration() == 7200
+
 
 @pytest.mark.skip()
 def test_set_default_duration_too_short(auction_house, deployer):

@@ -10,6 +10,7 @@ reserve_price_strategy = st.integers(min_value=0, max_value=2**256 - 1)
 min_bid_increment_percentage_strategy = st.integers(min_value=0, max_value=100)
 duration_strategy = st.integers(min_value=0, max_value=2**256 - 1)
 
+
 @pytest.mark.skip()
 def test_custom_auction_min_duration_constraint(auction_house):
     """
@@ -27,6 +28,7 @@ def test_custom_auction_min_duration_constraint(auction_house):
                 "",  # ipfs_hash
             )
         assert "!duration" in str(excinfo.value)
+
 
 @pytest.mark.skip()
 def test_custom_auction_max_duration_constraint(auction_house):
@@ -79,6 +81,7 @@ def test_custom_auction_parameter_generation(
         assert auction[7][1] == reserve_price
         assert auction[7][2] == min_bid_increment
         assert auction[7][3] == duration
+
 
 @pytest.mark.skip()
 def test_min_bid_increment_percentage_constraints(auction_house):

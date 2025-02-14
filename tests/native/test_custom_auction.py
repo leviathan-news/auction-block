@@ -52,6 +52,7 @@ def test_create_custom_auction(
     ), "Min bid increment percentage should match custom value"
     assert auction_params[3] == custom_duration, "Duration should match custom value"
 
+
 @pytest.mark.skip()
 def test_create_custom_auction_invalid_duration(
     auction_house, deployer, default_time_buffer, default_reserve_price, default_min_bid_increment

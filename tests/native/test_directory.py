@@ -2,7 +2,6 @@ import boa
 import pytest
 
 
-
 @pytest.fixture
 def mock_auction_contract_1():
     """
@@ -56,10 +55,11 @@ def test_active_auctions(directory, mock_auction_contract_1, mock_auction_contra
     print("✅ Test passed: active_auctions() correctly returns contract mappings")
 
 
-
-def test_bid_through_directory(deployer, alice, directory, auction_house, payment_token, default_reserve_price):
-    #house_contract = boa.load_partial("contracts/AuctionBlock.vy")
-    #house = house_contract.at(
+def test_bid_through_directory(
+    deployer, alice, directory, auction_house, payment_token, default_reserve_price
+):
+    # house_contract = boa.load_partial("contracts/AuctionBlock.vy")
+    # house = house_contract.at(
     house = auction_house
     with boa.env.prank(deployer):
         house.create_new_auction()
@@ -70,7 +70,7 @@ def test_bid_through_directory(deployer, alice, directory, auction_house, paymen
     with boa.env.prank(alice):
         payment_token.approve(house, default_reserve_price)
         directory.create_bid(house.address, auction_id, default_reserve_price)
-    
+
     assert house.auction_list(auction_id)[4] == alice
     pass
 

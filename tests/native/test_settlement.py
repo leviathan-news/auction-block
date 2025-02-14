@@ -5,6 +5,8 @@ import pytest
 def test_withdraw_zero_pending(auction_house_with_auction, alice, payment_token):
     """Test withdrawing with no pending returns"""
     auction_id = auction_house_with_auction.auction_id()
+    boa.env.time_travel(auction_house_with_auction.auction_remaining_time(auction_id) + 1)
+    auction_house_with_auction.settle_auction(auction_id)
     with boa.env.prank(alice), boa.reverts("!pending"):
         auction_house_with_auction.withdraw(auction_id)
 
@@ -32,6 +34,7 @@ def test_withdraw_after_outbid(
 
     # Alice withdraws
     boa.env.time_travel(seconds=4000)
+    auction_house_with_auction.settle_auction(auction_id)
     with boa.env.prank(alice):
         auction_house_with_auction.withdraw(auction_id)
 
@@ -57,8 +60,8 @@ def test_settle_auction_with_single_bid(
     boa.env.time_travel(seconds=4000)
 
     with boa.env.prank(deployer):
-        auction_house_with_auction.pause()
-        auction_house_with_auction.settle_and_create_auction(auction_id)
+        # auction_house_with_auction.pause()
+        auction_house_with_auction.settle_auction(auction_id)
 
     # Fee is 5% to fee_receiver
     fee = bid_amount * 5 // 100
@@ -80,8 +83,9 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
     boa.env.time_travel(seconds=4000)
 
     with boa.env.prank(deployer):
-        auction_house_with_auction.pause()
-        auction_house_with_auction.settle_and_create_auction(auction_id)
+        # auction_house_with_auction.pause()
+        auction_house_with_auction.settle_auction(auction_id)
+        auction_house_with_auction.create_new_auction()
 
     # Get final state
     final_auction = auction_house_with_auction.auction_list(auction_id)
@@ -124,8 +128,8 @@ def test_settle_multiple_bids(
     boa.env.time_travel(seconds=4000)
 
     with boa.env.prank(deployer):
-        auction_house_with_auction.pause()
-        auction_house_with_auction.settle_and_create_auction(auction_id)
+        # auction_house_with_auction.pause()
+        auction_house_with_auction.settle_auction(auction_id)
 
     alice_balance_mid = payment_token.balanceOf(alice)
     assert alice_balance_mid == alice_balance_before - first_bid
@@ -140,8 +144,8 @@ def test_settle_auction_not_ended(auction_house_with_auction, deployer):
     auction_id = auction_house_with_auction.auction_id()
 
     with boa.env.prank(deployer), boa.reverts("!completed"):
-        auction_house_with_auction.pause()
-        auction_house_with_auction.settle_and_create_auction(auction_id)
+        # auction_house_with_auction.pause()
+        auction_house_with_auction.settle_auction(auction_id)
 
 
 def test_auction_extension(
