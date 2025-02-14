@@ -1,4 +1,5 @@
-# @version 0.4.0 
+# @version 0.4.0
+
 """
 @title Modern and Gas-Efficient ERC-721 + EIP-4494 Implementation
 @custom:contract-name erc721
@@ -49,12 +50,14 @@
 # @dev We import and implement the `IERC165` interface,
 # which is a built-in interface of the Vyper compiler.
 from ethereum.ercs import IERC165
+
 implements: IERC165
 
 
 # @dev We import and implement the `IERC721` interface,
 # which is a built-in interface of the Vyper compiler.
 from ethereum.ercs import IERC721
+
 implements: IERC721
 
 
@@ -62,6 +65,7 @@ implements: IERC721
 # interface, which is written using standard Vyper
 # syntax.
 from .interfaces import IERC721Metadata
+
 implements: IERC721Metadata
 
 
@@ -69,6 +73,7 @@ implements: IERC721Metadata
 # interface, which is written using standard Vyper
 # syntax.
 from .interfaces import IERC721Enumerable
+
 implements: IERC721Enumerable
 
 
@@ -76,18 +81,21 @@ implements: IERC721Enumerable
 # interface, which is written using standard Vyper
 # syntax.
 from .interfaces import IERC721Permit
+
 implements: IERC721Permit
 
 
 # @dev We import and implement the `IERC4906` interface,
 # which is written using standard Vyper syntax.
 from .interfaces import IERC4906
+
 implements: IERC4906
 
 
 # @dev We import and implement the `IERC5267` interface,
 # which is written using standard Vyper syntax.
 from .interfaces import IERC5267
+
 implements: IERC5267
 
 
@@ -98,6 +106,7 @@ from .interfaces import IERC721Receiver
 
 # @dev We import and use the `ownable` module.
 from .imports import ownable
+
 initializes: ownable
 
 
@@ -110,6 +119,7 @@ from .imports import ecdsa
 
 # @dev We import and initialise the `eip712_domain_separator` module.
 from .imports import eip712_domain_separator
+
 initializes: eip712_domain_separator
 
 
@@ -141,12 +151,12 @@ exports: (
 # this contract, please ensure you exclude the unused
 # ERC-165 interface identifiers in the main contract.
 _SUPPORTED_INTERFACES: constant(bytes4[6]) = [
-    0x01FFC9A7, # The ERC-165 identifier for ERC-165.
-    0x80AC58CD, # The ERC-165 identifier for ERC-721.
-    0x5B5E139F, # The ERC-165 identifier for the ERC-721 metadata extension.
-    0x780E9D63, # The ERC-165 identifier for the ERC-721 enumeration extension.
-    0x589C5CE2, # The ERC-165 identifier for ERC-4494.
-    0x49064906, # The ERC-165 identifier for ERC-4906.
+    0x01FFC9A7,  # The ERC-165 identifier for ERC-165.
+    0x80AC58CD,  # The ERC-165 identifier for ERC-721.
+    0x5B5E139F,  # The ERC-165 identifier for the ERC-721 metadata extension.
+    0x780E9D63,  # The ERC-165 identifier for the ERC-721 enumeration extension.
+    0x589C5CE2,  # The ERC-165 identifier for ERC-4494.
+    0x49064906,  # The ERC-165 identifier for ERC-4906.
 ]
 
 
@@ -237,11 +247,14 @@ event RoleMinterChanged:
     status: bool
 
 
-
 @deploy
 @payable
 def __init__(
-    name_: String[25], symbol_: String[5], base_uri_: String[80], name_eip712_: String[50], version_eip712_: String[20]
+    name_: String[25],
+    symbol_: String[5],
+    base_uri_: String[80],
+    name_eip712_: String[50],
+    version_eip712_: String[20],
 ):
     """
     @dev To omit the opcodes for checking the `msg.value`
@@ -265,7 +278,7 @@ def __init__(
            from different versions are not compatible.
     """
     self._counter = empty(uint256)
-    ownable.__init__() 
+    ownable.__init__()
     name = name_
     symbol = symbol_
     self.base_uri = base_uri_
@@ -398,13 +411,17 @@ def transferFrom(owner: address, to: address, token_id: uint256):
     @param to The 20-byte receiver address.
     @param token_id The 32-byte identifier of the token.
     """
-    assert self._is_approved_or_owner(msg.sender, token_id), "erc721: caller is not token owner or approved"
+    assert self._is_approved_or_owner(
+        msg.sender, token_id
+    ), "erc721: caller is not token owner or approved"
     self._transfer(owner, to, token_id)
 
 
 @external
 @payable
-def safeTransferFrom(owner: address, to: address, token_id: uint256, data: Bytes[1_024] = b""):
+def safeTransferFrom(
+    owner: address, to: address, token_id: uint256, data: Bytes[1_024] = b""
+):
     """
     @dev Safely transfers `token_id` token from `owner`
          to `to`.
@@ -445,7 +462,9 @@ def safeTransferFrom(owner: address, to: address, token_id: uint256, data: Bytes
            with no specified format that is sent
            to `to`.
     """
-    assert self._is_approved_or_owner(msg.sender, token_id), "erc721: caller is not token owner or approved"
+    assert self._is_approved_or_owner(
+        msg.sender, token_id
+    ), "erc721: caller is not token owner or approved"
     self._safe_transfer(owner, to, token_id, data)
 
 
@@ -465,7 +484,6 @@ def tokenURI(token_id: uint256) -> String[512]:
     # If both are set, concatenate the base URI
     # and token URI.
     return concat(self.base_uri, uint2str(token_id))
-
 
 
 @external
@@ -521,12 +539,16 @@ def burn(token_id: uint256):
             or be an approved operator.
     @param token_id The 32-byte identifier of the token.
     """
-    assert self._is_approved_or_owner(msg.sender, token_id), "erc721: caller is not token owner or approved"
+    assert self._is_approved_or_owner(
+        msg.sender, token_id
+    ), "erc721: caller is not token owner or approved"
     self._burn(token_id)
 
 
 @external
-def safe_mint(owner: address, contract_address: address, auction_id: uint256) -> int256:
+def safe_mint(
+    owner: address, contract_address: address, auction_id: uint256
+) -> int256:
     """
     @dev Safely mints `token_id` and transfers it to `owner`.
     @notice Only authorised minters can access this function.
@@ -534,7 +556,7 @@ def safe_mint(owner: address, contract_address: address, auction_id: uint256) ->
             Also, new tokens will be automatically assigned
             an incremental ID.
     @param owner The 20-byte owner address.
-    @param auction_id External auction ID 
+    @param auction_id External auction ID
     @return -1 on fail or NFT ID
     """
     assert self.is_minter[msg.sender], "erc721: access is denied"
@@ -553,18 +575,11 @@ def safe_mint(owner: address, contract_address: address, auction_id: uint256) ->
     log IERC4906.MetadataUpdate(token_id)
     return convert(token_id, int256)
 
+
 @external
 def set_base_uri(new_uri: String[80]):
     ownable._check_owner()
     self.base_uri = new_uri
-
-
-
-
-
-
-
-
 
 
 @external
@@ -589,7 +604,14 @@ def set_minter(minter: address, status: bool):
 
 
 @external
-def permit(spender: address, token_id: uint256, deadline: uint256, v: uint8, r: bytes32, s: bytes32):
+def permit(
+    spender: address,
+    token_id: uint256,
+    deadline: uint256,
+    v: uint8,
+    r: bytes32,
+    s: bytes32,
+):
     """
     @dev Sets permission to `spender` to transfer `token_id`
          token to another account, given `owner`'s signed
@@ -613,10 +635,16 @@ def permit(spender: address, token_id: uint256, deadline: uint256, v: uint8, r: 
     current_nonce: uint256 = self.nonces[token_id]
     self.nonces[token_id] = unsafe_add(current_nonce, 1)
 
-    struct_hash: bytes32 = keccak256(abi_encode(_PERMIT_TYPE_HASH, spender, token_id, current_nonce, deadline))
+    struct_hash: bytes32 = keccak256(
+        abi_encode(
+            _PERMIT_TYPE_HASH, spender, token_id, current_nonce, deadline
+        )
+    )
     hash: bytes32 = eip712_domain_separator._hash_typed_data_v4(struct_hash)
 
-    signer: address = ecdsa._recover_vrs(hash, convert(v, uint256), convert(r, uint256), convert(s, uint256))
+    signer: address = ecdsa._recover_vrs(
+        hash, convert(v, uint256), convert(r, uint256), convert(s, uint256)
+    )
     assert signer == self._owner_of(token_id), "erc721: invalid signature"
 
     self._approve(spender, token_id)
@@ -691,7 +719,9 @@ def _balance_of(owner: address) -> uint256:
     @return uint256 The 32-byte token amount owned
             by `owner`.
     """
-    assert owner != empty(address), "erc721: the zero address is not a valid owner"
+    assert owner != empty(
+        address
+    ), "erc721: the zero address is not a valid owner"
     return self._balances[owner]
 
 
@@ -785,7 +815,11 @@ def _is_approved_or_owner(spender: address, token_id: uint256) -> bool:
     @param token_id The 32-byte identifier of the token.
     """
     owner: address = self._owner_of(token_id)
-    return ((spender == owner) or (self.isApprovedForAll[owner][spender]) or (self._get_approved(token_id) == spender))
+    return (
+        (spender == owner)
+        or (self.isApprovedForAll[owner][spender])
+        or (self._get_approved(token_id) == spender)
+    )
 
 
 @internal
@@ -849,7 +883,9 @@ def _mint(owner: address, token_id: uint256):
 
 
 @internal
-def _safe_transfer(owner: address, to: address, token_id: uint256, data: Bytes[1_024]):
+def _safe_transfer(
+    owner: address, to: address, token_id: uint256, data: Bytes[1_024]
+):
     """
     @dev Safely transfers `token_id` token from
          `owner` to `to`, checking first that contract
@@ -899,13 +935,17 @@ def _transfer(owner: address, to: address, token_id: uint256):
     @param to The 20-byte receiver address.
     @param token_id The 32-byte identifier of the token.
     """
-    assert self._owner_of(token_id) == owner, "erc721: transfer from incorrect owner"
+    assert (
+        self._owner_of(token_id) == owner
+    ), "erc721: transfer from incorrect owner"
     assert to != empty(address), "erc721: transfer to the zero address"
 
     self._before_token_transfer(owner, to, token_id)
     # Checks that the `token_id` was not transferred by the
     # `_before_token_transfer` hook.
-    assert self._owner_of(token_id) == owner, "erc721: transfer from incorrect owner"
+    assert (
+        self._owner_of(token_id) == owner
+    ), "erc721: transfer from incorrect owner"
 
     self._token_approvals[token_id] = empty(address)
     # See comment why an overflow is not possible in the
@@ -916,7 +956,6 @@ def _transfer(owner: address, to: address, token_id: uint256):
     log IERC721.Transfer(owner, to, token_id)
 
     self._after_token_transfer(owner, to, token_id)
-
 
 
 @internal
@@ -959,7 +998,9 @@ def _burn(token_id: uint256):
 
 
 @internal
-def _check_on_erc721_received(owner: address, to: address, token_id: uint256, data: Bytes[1_024]) -> bool:
+def _check_on_erc721_received(
+    owner: address, to: address, token_id: uint256, data: Bytes[1_024]
+) -> bool:
     """
     @dev An `internal` function that invokes {IERC721Receiver-onERC721Received}
          on a target address. The call is not executed
@@ -975,11 +1016,15 @@ def _check_on_erc721_received(owner: address, to: address, token_id: uint256, da
     """
     # Contract case.
     if to.is_contract:
-        return_value: bytes4 = extcall IERC721Receiver(to).onERC721Received(msg.sender, owner, token_id, data)
+        return_value: bytes4 = extcall IERC721Receiver(to).onERC721Received(
+            msg.sender, owner, token_id, data
+        )
         assert return_value == method_id(
-            "onERC721Received(address,address,uint256,bytes)", output_type=bytes4
+            "onERC721Received(address,address,uint256,bytes)",
+            output_type=bytes4,
         ), "erc721: transfer to non-IERC721Receiver implementer"
         return True
+
 
     # EOA case.
     return True
@@ -1086,6 +1131,7 @@ def _remove_token_from_owner_enumeration(owner: address, token_id: uint256):
         self._owned_tokens[owner][token_index] = last_token_id
         # Updates the moved token's index.
         self._owned_tokens_index[last_token_id] = token_index
+
 
     # This also deletes the contents at the
     # last position of the array.

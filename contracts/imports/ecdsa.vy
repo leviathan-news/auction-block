@@ -1,4 +1,5 @@
 # @version 0.4.0
+
 """
 @title Elliptic Curve Digital Signature Algorithm (ECDSA) Secp256k1-Based Functions
 @custom:contract-name ecdsa
@@ -113,7 +114,9 @@ def _try_recover_r_vs(hash: bytes32, r: uint256, vs: uint256) -> address:
 
 @internal
 @pure
-def _try_recover_vrs(hash: bytes32, v: uint256, r: uint256, s: uint256) -> address:
+def _try_recover_vrs(
+    hash: bytes32, v: uint256, r: uint256, s: uint256
+) -> address:
     """
     @dev Recovers the signer address from a message digest `hash`
          and the secp256k1 signature parameters `v`, `r`, and `s`.

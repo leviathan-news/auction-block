@@ -19,8 +19,20 @@ import pausable
 
 interface AuctionContract:
     def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]: view
-    def create_bid(auction_id: uint256, bid_amount: uint256, ipfs_hash: String[46], on_behalf_of: address): nonpayable
-    def create_bid_with_token(auction_id: uint256, token_amount: uint256, token: IERC20, min_dy: uint256, ipfs_hash: String[46], on_behalf_of: address): nonpayable
+    def create_bid(
+        auction_id: uint256,
+        bid_amount: uint256,
+        ipfs_hash: String[46],
+        on_behalf_of: address,
+    ): nonpayable
+    def create_bid_with_token(
+        auction_id: uint256,
+        token_amount: uint256,
+        token: IERC20,
+        min_dy: uint256,
+        ipfs_hash: String[46],
+        on_behalf_of: address,
+    ): nonpayable
 
 
 interface TokenTrader:
@@ -33,7 +45,9 @@ interface TokenTrader:
 
 
 interface NFT:
-    def safe_mint(owner: address, contract_address: address, auction_id: uint256) -> int256: nonpayable
+    def safe_mint(
+        owner: address, contract_address: address, auction_id: uint256
+    ) -> int256: nonpayable
 
 
 # ============================================================================================
@@ -155,11 +169,16 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
     auction_list: DynArray[AuctionInfo, MAX_AUCTIONS] = []
 
     for _contract: AuctionContract in self.registered_contracts:
-        _current_auctions: DynArray[uint256, MAX_AUCTIONS] = staticcall _contract.current_auctions()
+        _current_auctions: DynArray[
+            uint256, MAX_AUCTIONS
+        ] = staticcall _contract.current_auctions()
 
         for _auction_id: uint256 in _current_auctions:
-            auction_list.append(AuctionInfo(contract_address=_contract.address, auction_id=_auction_id))  
-
+            auction_list.append(
+                AuctionInfo(
+                    contract_address=_contract.address, auction_id=_auction_id
+                )
+            )
     return auction_list
 
 
@@ -190,6 +209,7 @@ def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
 def num_contracts() -> uint256:
     return len(self.registered_contracts)
 
+
 # ============================================================================================
 # ✍️ Write functions
 # ============================================================================================
@@ -201,7 +221,7 @@ def create_bid(
     auction_contract: AuctionContract,
     auction_id: uint256,
     bid_amount: uint256,
-    ipfs_hash: String[46] = '',
+    ipfs_hash: String[46] = "",
     on_behalf_of: address = msg.sender,
 ):
     """
@@ -211,8 +231,10 @@ def create_bid(
     assert auction_contract in self.registered_contracts, "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
-    extcall auction_contract.create_bid(auction_id, bid_amount, ipfs_hash, on_behalf_of)
-    
+    extcall auction_contract.create_bid(
+        auction_id, bid_amount, ipfs_hash, on_behalf_of
+    )
+
 
 @external
 @nonreentrant
@@ -222,8 +244,8 @@ def create_bid_with_token(
     token_amount: uint256,
     token: IERC20,
     min_dy: uint256,
-    ipfs_hash: String[46] = '',
-    on_behalf_of: address = msg.sender
+    ipfs_hash: String[46] = "",
+    on_behalf_of: address = msg.sender,
 ):
     """
     @notice Create a bid using an alternative token
@@ -237,7 +259,9 @@ def create_bid_with_token(
     pausable._check_unpaused()
     assert auction_contract in self.registered_contracts, "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    extcall auction_contract.create_bid_with_token(auction_id, token_amount, token, min_dy, ipfs_hash, on_behalf_of)
+    extcall auction_contract.create_bid_with_token(
+        auction_id, token_amount, token, min_dy, ipfs_hash, on_behalf_of
+    )
 
 
 @external
@@ -250,18 +274,23 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 
 
 @external
-def mint_nft(target: address, auction_id: uint256, contract_addr: address = msg.sender) -> int256:
+def mint_nft(
+    target: address, auction_id: uint256, contract_addr: address = msg.sender
+) -> int256:
     """
     @notice Mint NFT or fail gracefully
     @param target Address to mint the NFT to
     @param auction_id Auction ID that won the NFT
     @return -1 on fail or NFT id
     """
-    #assert self._is_registered_contract(msg.sender), "!registered"
+    # assert self._is_registered_contract(msg.sender), "!registered"
     token_id: int256 = -1
-    if self._is_registered_contract(contract_addr) and self.nft.address != empty(address):
+    if self._is_registered_contract(
+        contract_addr
+    ) and self.nft.address != empty(address):
         token_id = extcall self.nft.safe_mint(target, contract_addr, auction_id)
     return token_id
+
 
 # ============================================================================================
 # 👑 Owner functions

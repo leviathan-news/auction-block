@@ -1,4 +1,5 @@
 # @version 0.4.0
+
 """
 @title EIP-4494 Interface Definition
 @custom:contract-name IERC721Permit
@@ -31,6 +32,7 @@
 # @dev We import and implement the `IERC165` interface,
 # which is a built-in interface of the Vyper compiler.
 from ethereum.ercs import IERC165
+
 implements: IERC165
 
 
@@ -51,7 +53,14 @@ def supportsInterface(interfaceId: bytes4) -> bool:
 
 
 @external
-def permit(spender: address, tokenId: uint256, deadline: uint256, v: uint8, r: bytes32, s: bytes32):
+def permit(
+    spender: address,
+    tokenId: uint256,
+    deadline: uint256,
+    v: uint8,
+    r: bytes32,
+    s: bytes32,
+):
     """
     @dev Sets permission to `spender` to transfer `tokenId`
          token to another account, given `owner`'s signed

@@ -335,8 +335,6 @@ def _transfer_in(
 
         return dx
 
-
-    # ----------------------------------------------- ERC20 transferFrom flow.
     assert ERC20(coins[_coin_idx]).transferFrom(
         sender, self, _dx, default_return_value=True
     )
@@ -775,10 +773,6 @@ def _exchange(
         self.D = MATH.newton_D(A_gamma[0], A_gamma[1], xp, 0)  # |
         xp[i] = x1  # <-------------------------------------- ... and restore.
 
-
-    # ----------------------- Calculate dy and fees --------------------------
-
-
     D: uint256 = self.D
     y_out: uint256[2] = MATH.get_y(A_gamma[0], A_gamma[1], xp, D, j)
     dy = xp[j] - y_out[0]
@@ -874,18 +868,9 @@ def tweak_price(
         self.cached_price_oracle = price_oracle
         self.last_timestamp = block.timestamp
 
-
-    #  `price_oracle` is used further on to calculate its vector distance from
-    # price_scale. This distance is used to calculate the amount of adjustment
-    # to be done to the price_scale.
-    # ------------------------------------------------------------------------
     D_unadjusted: uint256 = new_D
     if new_D == 0:  #  <--------------------------- _exchange sets new_D to 0.
         D_unadjusted = MATH.newton_D(A_gamma[0], A_gamma[1], _xp, K0_prev)
-
-
-    # ----------------------- Calculate last_prices --------------------------
-
 
     self.last_prices = unsafe_div(
         MATH.get_p(_xp, D_unadjusted, A_gamma) * price_scale, 10**18
@@ -980,6 +965,7 @@ def tweak_price(
                 return p_new
 
         # --------- price_scale was not adjusted. Update the profit counter and D.
+
     self.D = D_unadjusted
     self.virtual_price = virtual_price
 
@@ -1023,10 +1009,6 @@ def _claim_admin_fees():
     if xcp_profit <= xcp_profit_a or current_lp_token_supply < 10**18:
         return
 
-
-    # ---------- Conditions met to claim admin fees: compute state. ----------
-
-
     A_gamma: uint256[2] = self._A_gamma()
     D: uint256 = self.D
     vprice: uint256 = self.virtual_price
@@ -1063,8 +1045,6 @@ def _claim_admin_fees():
         # ------ Subtract fees from profits that will be used for rebalancing.
         xcp_profit -= fees * 2
 
-
-    # ------------------- Recalculate virtual_price following admin fee claim.
     total_supply_including_admin_share: uint256 = (
         current_lp_token_supply + admin_share
     )
@@ -1078,8 +1058,6 @@ def _claim_admin_fees():
     if vprice < 10**18:
         return
 
-
-    # ---------------------------- Update State ------------------------------
     self.admin_lp_virtual_balance = 0
 
     self.xcp_profit = xcp_profit
@@ -1093,10 +1071,6 @@ def _claim_admin_fees():
 
     if xcp_profit > xcp_profit_a:
         self.xcp_profit_a = xcp_profit  # <-------- Cache last claimed profit.
-
-
-    # --------------------------- Handle Transfers ---------------------------
-
 
     admin_tokens: uint256[N_COINS] = empty(uint256[N_COINS])
     if admin_share > 0:

@@ -1,4 +1,5 @@
 # @version 0.4.0
+
 """
 @title EIP-712 Domain Separator
 @custom:contract-name eip712_domain_separator
@@ -18,6 +19,7 @@
 # @dev We import and implement the `IERC5267` interface,
 # which is written using standard Vyper syntax.
 from ..interfaces import IERC5267
+
 implements: IERC5267
 
 
@@ -86,7 +88,15 @@ def __init__(name_: String[50], version_: String[20]):
 
 @external
 @view
-def eip712Domain() -> (bytes1, String[50], String[20], uint256, address, bytes32, DynArray[uint256, 32]):
+def eip712Domain() -> (
+    bytes1,
+    String[50],
+    String[20],
+    uint256,
+    address,
+    bytes32,
+    DynArray[uint256, 32],
+):
     """
     @dev Returns the fields and values that describe the domain
          separator used by this contract for EIP-712 signatures.
@@ -107,7 +117,15 @@ def eip712Domain() -> (bytes1, String[50], String[20], uint256, address, bytes32
     @return DynArray The 32-byte array of EIP-712 extensions.
     """
     # Note that `0x0f` equals `01111`.
-    return (0x0f, _NAME, _VERSION, chain.id, self, empty(bytes32), empty(DynArray[uint256, 32]))
+    return (
+        0x0f,
+        _NAME,
+        _VERSION,
+        chain.id,
+        self,
+        empty(bytes32),
+        empty(DynArray[uint256, 32]),
+    )
 
 
 @internal
@@ -130,7 +148,9 @@ def _build_domain_separator() -> bytes32:
     @dev Builds the domain separator for the current chain.
     @return bytes32 The 32-byte domain separator.
     """
-    return keccak256(abi_encode(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION, chain.id, self))
+    return keccak256(
+        abi_encode(_TYPE_HASH, _HASHED_NAME, _HASHED_VERSION, chain.id, self)
+    )
 
 
 @internal
@@ -145,4 +165,6 @@ def _hash_typed_data_v4(struct_hash: bytes32) -> bytes32:
     @return bytes32 The 32-byte fully encoded EIP712
             message hash for this domain.
     """
-    return message_hash_utils._to_typed_data_hash(self._domain_separator_v4(), struct_hash)
+    return message_hash_utils._to_typed_data_hash(
+        self._domain_separator_v4(), struct_hash
+    )

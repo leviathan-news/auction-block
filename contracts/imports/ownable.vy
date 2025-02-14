@@ -1,4 +1,5 @@
 # @version 0.4.0
+
 """
 @title Owner-Based Access Control Functions
 @custom:contract-name ownable

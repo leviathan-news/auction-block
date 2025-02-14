@@ -1,4 +1,5 @@
 # @version 0.4.0
+
 """
 @title Signature Message Hash Utility Functions
 @custom:contract-name message_hash_utils
@@ -58,7 +59,9 @@ def _to_data_with_intended_validator_hash_self(data: Bytes[1_024]) -> bytes32:
 
 @internal
 @pure
-def _to_data_with_intended_validator_hash(validator: address, data: Bytes[1_024]) -> bytes32:
+def _to_data_with_intended_validator_hash(
+    validator: address, data: Bytes[1_024]
+) -> bytes32:
     """
     @dev Returns an Ethereum signed data with `validator` as
          the intended validator and a maximum 1,024-byte payload
@@ -75,7 +78,9 @@ def _to_data_with_intended_validator_hash(validator: address, data: Bytes[1_024]
 
 @internal
 @pure
-def _to_typed_data_hash(domain_separator: bytes32, struct_hash: bytes32) -> bytes32:
+def _to_typed_data_hash(
+    domain_separator: bytes32, struct_hash: bytes32
+) -> bytes32:
     """
     @dev Returns an Ethereum signed typed data from a 32-byte
          `domain_separator` and a 32-byte `struct_hash`.

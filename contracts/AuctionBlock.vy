@@ -30,6 +30,7 @@ interface AuctionDirectory:
     def mint_nft(owner: address, auction_id: uint256): nonpayable
     def nft() -> address: view
 
+
 # ============================================================================================
 # ⚙️ Modules
 # ============================================================================================
@@ -368,6 +369,7 @@ def pending_returns(user: address) -> uint256:
 def nft() -> address:
     return staticcall self.authorized_directory.nft()
 
+
 # ============================================================================================
 # ✍️ Write functions
 # ============================================================================================
@@ -623,7 +625,7 @@ def nullify_auction(auction_id: uint256):
         ipfs_hash=_auction.ipfs_hash,
         params=_auction.params,
     )
-   
+
     self.auction_pending_returns[auction_id][_winner] = _win_bid
 
     log AuctionNullified(auction_id)
