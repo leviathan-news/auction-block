@@ -298,10 +298,10 @@ def base_nft(nft_contract, deployer, base_uri_prefix):
 
 
 @pytest.fixture
-def nft(base_nft, deployer, auction_house):
+def nft(base_nft, deployer, directory):
     """Return the session-scoped contract for each test"""
     with boa.env.prank(deployer):
-        base_nft.set_minter(auction_house, True)
+        base_nft.set_minter(directory, True)
     return base_nft
 
 
@@ -317,8 +317,8 @@ def directory(payment_token, auction_house, deployer):
     Deploy the Auction Directory contract.
     """
     contract = boa.load_partial("contracts/AuctionDirectory.vy")
-    deployed = contract.deploy(payment_token)
     with boa.env.prank(deployer):
+        deployed = contract.deploy(payment_token)
         deployed.register_auction_contract(auction_house)
         auction_house.set_approved_directory(deployed)
     return deployed

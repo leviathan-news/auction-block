@@ -6,12 +6,19 @@ def test_nft_deployed(nft):
     assert nft.name() == "Name"
 
 
-def test_nft_minter(nft, auction_house):
-    assert nft.is_minter(auction_house) is True
+def test_nft_minter(nft, directory):
+    assert nft.is_minter(directory) is True
 
 
 def test_nft_deployed(nft, deployer):
     assert nft.name() == "Name"
+
+
+def test_nft_direct_mint(nft, deployer, zero_address):
+    init_supply = nft.totalSupply()
+    with boa.env.prank(deployer):
+        nft.safe_mint(deployer, zero_address, 1)
+    assert nft.totalSupply() == init_supply + 1
 
 
 def test_mint_works_without_nft(
@@ -47,12 +54,14 @@ def test_nft_mints_on_complete_auction(
     default_reserve_price,
     deployer,
     nft,
+    directory,
     payment_token,
     base_uri_prefix,
 ):
     house = auction_house_with_auction
     with boa.env.prank(deployer):
-        house.set_nft(nft)
+        directory.set_nft(nft)
+        nft.set_minter(directory, True)
     auction_id = house.auction_id()
     with boa.env.prank(alice):
         payment_token.approve(house, default_reserve_price)
@@ -73,11 +82,17 @@ def test_nft_mints_on_complete_auction(
 
 
 def test_nft_id_matches_auction_id(
-    auction_house_with_auction, alice, default_reserve_price, deployer, nft, payment_token
+    auction_house_with_auction,
+    alice,
+    default_reserve_price,
+    deployer,
+    nft,
+    payment_token,
+    directory,
 ):
     house = auction_house_with_auction
     with boa.env.prank(deployer):
-        house.set_nft(nft)
+        directory.set_nft(nft)
     auction_id = house.auction_id()
     with boa.env.prank(alice):
         payment_token.approve(house, default_reserve_price)

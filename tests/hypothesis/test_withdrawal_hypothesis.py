@@ -5,9 +5,6 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-pytestmark = pytest.mark.fork_only
-
-
 # Helper strategy to generate auction IDs and bid amounts
 auction_ids = st.integers(min_value=1, max_value=10)
 bid_amounts = st.integers(min_value=10**17, max_value=10**19)  # 0.1 to 10 tokens
@@ -105,6 +102,7 @@ def test_withdrawal_after_auction_end(auction_house, payment_token, alice, bob):
     # Withdrawal should still work after auction ends
     initial_balance = payment_token.balanceOf(alice)
     with boa.env.prank(alice):
+        auction_house.settle_auction(auction_id)
         auction_house.withdraw(auction_id)
 
     assert payment_token.balanceOf(alice) == initial_balance + bid_amount
@@ -126,6 +124,7 @@ def test_double_withdrawal_prevention(auction_house, payment_token, alice, bob):
 
     # First withdrawal
     with boa.env.prank(alice):
+        auction_house.settle_auction(auction_id)
         auction_house.withdraw(auction_id)
 
     # Second withdrawal attempt should fail
@@ -156,6 +155,7 @@ def test_multiple_withdrawal_stress(auction_house, payment_token, alice, bob, nu
             advance_time=True,  # Make sure auction is inactive
         )
         auction_ids.append(auction_id)
+        auction_house.settle_auction(auction_id)
         total_pending += bid_amount
 
     # Try withdrawing from all auctions
@@ -194,6 +194,7 @@ def test_cross_auction_withdrawal_independence(auction_house, payment_token, ali
 
     # Withdraw from first auction
     with boa.env.prank(alice):
+        auction_house.settle_auction(auction_id1)
         auction_house.withdraw(auction_id1)
 
     # Verify second auction's pending returns unaffected
@@ -244,6 +245,7 @@ def test_withdrawal_sequence_invariants(
         while remaining_ids:
             withdraw_id = remaining_ids.pop(0)
             with boa.env.prank(alice):
+                auction_house.settle_auction(withdraw_id)
                 auction_house.withdraw(withdraw_id)
 
             # Verify invariants after each withdrawal
@@ -343,6 +345,7 @@ def test_max_withdrawals_limit(auction_house, payment_token, alice, bob):
             auction_house, payment_token, alice, bob, bid_amount, outbid_amount
         )
         auction_ids.append(auction_id)
+        auction_house.settle_auction(auction_id)
 
     # Attempt to withdraw from more than MAX_WITHDRAWALS auctions
     with boa.env.prank(alice):
