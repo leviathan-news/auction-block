@@ -33,7 +33,7 @@ interface TokenTrader:
 
 
 interface NFT:
-    def safe_mint(owner: address, auction_id: uint256): nonpayable
+    def safe_mint(owner: address, contract_address: address, auction_id: uint256) -> int256: nonpayable
 
 
 # ============================================================================================
@@ -249,6 +249,20 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
     log ApprovedCallerSet(msg.sender, caller, status)
 
 
+@external
+def mint_nft(target: address, auction_id: uint256, contract_addr: address = msg.sender) -> int256:
+    """
+    @notice Mint NFT or fail gracefully
+    @param target Address to mint the NFT to
+    @param auction_id Auction ID that won the NFT
+    @return -1 on fail or NFT id
+    """
+    #assert self._is_registered_contract(msg.sender), "!registered"
+    token_id: int256 = -1
+    if self._is_registered_contract(contract_addr) and self.nft.address != empty(address):
+        token_id = extcall self.nft.safe_mint(target, contract_addr, auction_id)
+    return token_id
+
 # ============================================================================================
 # 👑 Owner functions
 # ============================================================================================
@@ -335,3 +349,13 @@ def _check_caller(
         if _status == ApprovalStatus.BidAndWithdraw:
             return
         assert (_status == _req_status), "!caller"
+
+
+@internal
+@view
+def _is_registered_contract(contract_address: address) -> bool:
+    _found_contract: bool = False
+    for _contract: AuctionContract in self.registered_contracts:
+        if contract_address == _contract.address:
+            _found_contract = True
+    return _found_contract

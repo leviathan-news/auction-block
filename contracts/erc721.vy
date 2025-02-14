@@ -221,10 +221,8 @@ _all_tokens: DynArray[uint256, max_value(uint64)]
 _all_tokens_index: HashMap[uint256, uint256]
 
 
-# @dev Mapping from auction to token ID.
-# We hope we're good enough to keep this
-# 1:1 but stuff happens
-auction_to_token: public(HashMap[uint256, uint256])
+# @dev Mapping from address to auction ID to token ID.
+auction_to_token: public(HashMap[address, HashMap[uint256, uint256]])
 
 
 # @dev An `uint256` counter variable that sets
@@ -528,7 +526,7 @@ def burn(token_id: uint256):
 
 
 @external
-def safe_mint(owner: address, auction_id: uint256):
+def safe_mint(owner: address, contract_address: address, auction_id: uint256) -> int256:
     """
     @dev Safely mints `token_id` and transfers it to `owner`.
     @notice Only authorised minters can access this function.
@@ -537,6 +535,7 @@ def safe_mint(owner: address, auction_id: uint256):
             an incremental ID.
     @param owner The 20-byte owner address.
     @param auction_id External auction ID 
+    @return -1 on fail or NFT ID
     """
     assert self.is_minter[msg.sender], "erc721: access is denied"
     # New tokens will be automatically assigned an incremental ID.
@@ -550,9 +549,9 @@ def safe_mint(owner: address, auction_id: uint256):
     # increments above are checked for an overflow, this is
     # no longer even theoretically possible.
     self._safe_mint(owner, token_id, b"")
-    self.auction_to_token[auction_id] = token_id
+    self.auction_to_token[contract_address][auction_id] = token_id
     log IERC4906.MetadataUpdate(token_id)
-
+    return convert(token_id, int256)
 
 @external
 def set_base_uri(new_uri: String[80]):

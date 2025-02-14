@@ -26,9 +26,9 @@ interface TokenTrader:
     def get_dy(_dx: uint256) -> uint256: view
 
 
-interface NFT:
-    def safe_mint(owner: address, auction_id: uint256): nonpayable
-
+interface AuctionDirectory:
+    def mint_nft(owner: address, auction_id: uint256): nonpayable
+    def nft() -> address: view
 
 # ============================================================================================
 # ⚙️ Modules
@@ -125,6 +125,10 @@ event AuctionSettled:
     amount: uint256
 
 
+event AuctionNullified:
+    auction_id: indexed(uint256)
+
+
 event Withdraw:
     auction_id: indexed(uint256)
     on_behalf_of: indexed(address)
@@ -195,8 +199,7 @@ approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 payment_token: public(IERC20)
 additional_tokens: public(HashMap[IERC20, TokenTrader])
 supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
-nft: public(NFT)
-authorized_directory: public(address)
+authorized_directory: public(AuctionDirectory)
 
 # Fee configuration
 fee_receiver: public(address)
@@ -217,11 +220,6 @@ def __init__(
     fee_receiver: address,
     fee: uint256,
 ):
-    # assert (
-    #    min_bid_increment_percentage >= MIN_BID_INCREMENT_PERCENTAGE
-    #    and min_bid_increment_percentage <= MAX_BID_INCREMENT_PERCENTAGE
-    #), "!percentage"
-    # assert duration >= MIN_DURATION and duration <= MAX_DURATION, "!duration"
     assert payment_token != empty(address), "!payment_token"
     assert fee_receiver != empty(address), "!fee_receiver"
     assert fee <= MAX_FEE, "!fee"
@@ -365,6 +363,11 @@ def pending_returns(user: address) -> uint256:
     return total_pending
 
 
+@external
+@view
+def nft() -> address:
+    return staticcall self.authorized_directory.nft()
+
 # ============================================================================================
 # ✍️ Write functions
 # ============================================================================================
@@ -391,7 +394,7 @@ def create_bid(
     """
     @dev Create a bid using the primary payment token
     """
-    if msg.sender != self.authorized_directory:
+    if msg.sender != self.authorized_directory.address:
         self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
     payment_amount: uint256 = self._collect_payment(
@@ -421,7 +424,7 @@ def create_bid_with_token(
     @param min_dy To protect against slippage, min amount of payment token to receive
     @param on_behalf_of User to bid on behalf of
     """
-    if msg.sender != self.authorized_directory:
+    if msg.sender != self.authorized_directory.address:
         self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
     payment_amount: uint256 = self._collect_payment(
         auction_id, min_dy, on_behalf_of, token, token_amount
@@ -603,13 +606,27 @@ def nullify_auction(auction_id: uint256):
     """
     @dev In the event of an emergency, pause all functions except allowing auction nullification
     """
-    pass
-
-
-@external
-def set_nft(nft_addr: address):
     ownable._check_owner()
-    self.nft = NFT(nft_addr)
+    assert self._is_auction_settled(auction_id) == False, "settled"
+
+    _auction: Auction = self.auction_list[auction_id]
+    _winner: address = _auction.bidder
+    _win_bid: uint256 = _auction.amount
+
+    self.auction_list[auction_id] = Auction(
+        auction_id=_auction.auction_id,
+        amount=0,
+        start_time=_auction.start_time,
+        end_time=block.timestamp - 1,
+        bidder=empty(address),
+        settled=True,
+        ipfs_hash=_auction.ipfs_hash,
+        params=_auction.params,
+    )
+   
+    self.auction_pending_returns[auction_id][_winner] = _win_bid
+
+    log AuctionNullified(auction_id)
 
 
 @external
@@ -714,7 +731,7 @@ def set_approved_directory(directory_address: address):
     @dev Authorized directory contract with permissions
     """
     ownable._check_owner()
-    self.authorized_directory = directory_address
+    self.authorized_directory = AuctionDirectory(directory_address)
     log DirectorySet(directory_address)
 
 
@@ -786,8 +803,8 @@ def _settle_auction(auction_id: uint256):
             ownable.owner, remaining_amount, default_return_value=True
         ), "!owner transfer"
 
-    if self.nft.address != empty(address):
-        extcall self.nft.safe_mint(_auction.bidder, auction_id)
+    if self.authorized_directory.address != empty(address):
+        extcall self.authorized_directory.mint_nft(_auction.bidder, auction_id)
 
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
