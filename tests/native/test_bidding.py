@@ -261,3 +261,26 @@ def test_auction_bid_by_user_after_settlement(
         alice_total_after == alice_total_before
     ), "Settlement shouldn't affect bid tracking for Alice"
     assert bob_total_after == bob_total_before, "Settlement shouldn't affect bid tracking for Bob"
+
+
+def test_bid_with_metadata(auction_house_with_auction, alice, payment_token, ipfs_hash):
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+    bid = house.default_reserve_price()
+    with boa.env.prank(alice):
+        payment_token.approve(house, bid)
+        house.create_bid(auction_id, bid, ipfs_hash)
+    assert house.auction_metadata(auction_id, alice) == ipfs_hash
+
+
+def test_overwrite_bid_metadata(auction_house_with_auction, alice, payment_token, ipfs_hash):
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+    bid = house.default_reserve_price()
+    with boa.env.prank(alice):
+        payment_token.approve(house, bid)
+        house.create_bid(auction_id, bid)
+        assert house.auction_metadata(auction_id, alice) == ""
+        house.update_bid_metadata(auction_id, ipfs_hash)
+
+    assert house.auction_metadata(auction_id, alice) == ipfs_hash

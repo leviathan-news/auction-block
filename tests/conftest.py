@@ -116,7 +116,8 @@ def weth(env, fork_mode):
         weth_contract = boa.load_partial("contracts/test/IWETH.vy")
         return weth_contract.at(WETH_ADDR)
     else:
-        return None
+        token = boa.load_partial("contracts/test/ERC20.vy")
+        return token.deploy("Test WETH", "WETH", 18)
 
 
 @pytest.fixture(scope="session")
@@ -146,6 +147,7 @@ def make_user(payment_token, env, fork_mode, weth, user_mint_amount):
     def _make_user():
         addr = boa.env.generate_address()
         payment_token._mint_for_testing(addr, 1_000 * 10**18)
+        weth._mint_for_testing(addr, 1_000 * 10**18)
         return addr
 
     if fork_mode:
