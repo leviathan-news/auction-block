@@ -57,10 +57,6 @@ pip install -r requirements.txt
 cp example.env .env
 ```
 
-Edit `.env` to include:
-- `ALCHEMY_KEY`: Your Alchemy API key
-- Additional network-specific configurations
-
 ### Code Quality
 
 1. Lint Vyper files:
