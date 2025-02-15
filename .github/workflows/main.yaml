@@ -60,4 +60,4 @@ jobs:
         touch .env
         echo "WEB3_INFURA_PROJECT_ID=${{ env.WEB3_INFURA_PROJECT_ID }}" >> .env
         echo "ETHERSCAN_TOKEN=${{ env.ETHERSCAN_TOKEN }}" >> .env
-        brownie test
+        pytest
