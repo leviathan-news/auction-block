@@ -285,7 +285,7 @@ def approval_flags():
 
 @pytest.fixture(scope="session")
 def nft_contract():
-    return boa.load_partial("contracts/erc721.vy")
+    return boa.load_partial("contracts/AuctionNFT.vy")
 
 
 @pytest.fixture(scope="session")

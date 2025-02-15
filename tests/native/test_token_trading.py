@@ -4,7 +4,7 @@ import pytest
 
 @pytest.fixture
 def mock_pool_contract():
-    return boa.load_partial("contracts/test/mock_pool.vy")
+    return boa.load_partial("contracts/test/MockPool.vy")
 
 
 @pytest.fixture

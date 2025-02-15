@@ -9,8 +9,8 @@
 
 from ethereum.ercs import IERC20
 
-import ownable_2step as ownable
-import pausable
+from .imports import ownable_2step as ownable
+from .imports import pausable
 
 
 # ============================================================================================

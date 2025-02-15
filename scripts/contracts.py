@@ -40,8 +40,8 @@ CONTRACTS = {
         state_getters=["owner", "paused"],
     ),
     "nft": ContractDefinition(
-        name="erc721",
-        file_path="contracts/erc721.vy",
+        name="AuctionNFT",
+        file_path="contracts/AuctionNFT.vy",
         constructor_types=["string"] * 5,
         deployment_order=3,
     ),

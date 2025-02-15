@@ -9,8 +9,8 @@
 
 from ethereum.ercs import IERC20
 
-import ownable_2step as ownable
-import pausable
+from .imports import ownable_2step as ownable
+from .imports import pausable
 
 
 # ============================================================================================
@@ -185,10 +185,11 @@ default_reserve_price: public(uint256)
 default_min_bid_increment_percentage: public(uint256)
 default_duration: public(uint256)
 
-# Auction metadata:
-# auction_id -> user -> ipfs
+# Auction metadata: auction_id -> user -> ipfs
+# Can append ad text or other data via IPFS
 auction_metadata: public(HashMap[uint256, HashMap[address, String[46]]])
-# auction_id -> user -> returns
+
+# Aution pending returns due to users: auction_id -> user -> returns
 auction_pending_returns: public(HashMap[uint256, HashMap[address, uint256]])
 auction_list: public(HashMap[uint256, Auction])
 auction_id: public(uint256)
@@ -695,10 +696,6 @@ def set_default_reserve_price(_reserve_price: uint256):
 @external
 def set_default_min_bid_increment_percentage(_percentage: uint256):
     ownable._check_owner()
-    # assert (
-    #    _percentage >= MIN_BID_INCREMENT_PERCENTAGE
-    #    and _percentage <= MAX_BID_INCREMENT_PERCENTAGE
-    #), "!percentage"
     self.default_min_bid_increment_percentage = _percentage
     log DefaultAuctionMinBidIncrementPercentageUpdated(_percentage)
 

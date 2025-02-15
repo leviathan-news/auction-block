@@ -1025,8 +1025,6 @@ def _check_on_erc721_received(
         ), "erc721: transfer to non-IERC721Receiver implementer"
         return True
 
-
-    # EOA case.
     return True
 
 
@@ -1132,9 +1130,6 @@ def _remove_token_from_owner_enumeration(owner: address, token_id: uint256):
         # Updates the moved token's index.
         self._owned_tokens_index[last_token_id] = token_index
 
-
-    # This also deletes the contents at the
-    # last position of the array.
     self._owned_tokens_index[token_id] = empty(uint256)
     self._owned_tokens[owner][last_token_index] = empty(uint256)
 

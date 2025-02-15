@@ -966,6 +966,7 @@ def tweak_price(
 
         # --------- price_scale was not adjusted. Update the profit counter and D.
 
+
     self.D = D_unadjusted
     self.virtual_price = virtual_price
 
