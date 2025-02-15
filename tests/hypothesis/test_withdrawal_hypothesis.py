@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Tuple
 
 import boa
 import pytest
@@ -136,7 +136,6 @@ def test_double_withdrawal_prevention(auction_house, payment_token, alice, bob):
 @pytest.mark.parametrize("num_withdrawals", [1, 5, 10])
 def test_multiple_withdrawal_stress(auction_house, payment_token, alice, bob, num_withdrawals):
     """Stress test multiple withdrawal attempts"""
-    owner = auction_house.owner()
     total_pending = 0
     auction_ids = []
 

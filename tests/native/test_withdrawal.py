@@ -1,6 +1,4 @@
 import boa
-import pytest
-from eth_utils import to_wei
 
 
 def test_withdraw_stale(
@@ -476,12 +474,9 @@ def test_cannot_withdraw_twice(
     auction_house_dual_bid, alice, bob, payment_token, deployer, approval_flags
 ):
     house = auction_house_dual_bid
-
     auction_id = house.auction_id()
-    auction_data = house.auction_list(auction_id)
 
     boa.env.time_travel(house.auction_remaining_time(auction_id) + 1)
-
     house.settle_auction(auction_id)
 
     init_alice = payment_token.balanceOf(alice)
@@ -539,6 +534,8 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     fee_receiver,
     user_mint_amount,
 ):
+
+    # Audit initial state
     house = auction_house_dual_bid
     first_auction = house.auction_id()
     first_auction_bid_alice = house.auction_pending_returns(first_auction, alice)
@@ -549,7 +546,10 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     init_house = payment_token.balanceOf(house)
     init_owner = payment_token.balanceOf(deployer)
     init_fee_receiver = payment_token.balanceOf(fee_receiver)
+    assert init_bob == user_mint_amount - first_auction_bid_bob
+    assert init_house == first_auction_bid_alice + first_auction_bid_bob
 
+    # Audit state after second auction
     with boa.env.prank(deployer):
         house.create_new_auction()
     second_auction = house.auction_id()
@@ -582,8 +582,6 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     assert house.auction_list(second_auction)[5] is True
 
     # Settle auctions and confirm pending
-    first_settled = house.auction_list(first_auction)
-    second_settled = house.auction_list(second_auction)
     alice_pending = house.auction_pending_returns(
         first_auction, alice
     ) + house.auction_pending_returns(second_auction, alice)
@@ -594,9 +592,9 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     assert bob_pending == second_auction_bid_bob
 
     with boa.env.prank(alice):
-        withdrawal_1 = house.withdraw(first_auction)
+        house.withdraw(first_auction)
     with boa.env.prank(bob):
-        withdrawal_2 = house.withdraw(second_auction)
+        house.withdraw(second_auction)
 
     alice_total_payment = house.auction_list(second_auction)[1]
     bob_total_payment = house.auction_list(first_auction)[1]
@@ -645,7 +643,6 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
-    init_house = payment_token.balanceOf(house)
     init_owner = payment_token.balanceOf(deployer)
     init_fee_receiver = payment_token.balanceOf(fee_receiver)
 
@@ -681,8 +678,6 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     assert house.auction_list(second_auction)[5] is True
 
     # Settle auctions
-    first_settled = house.auction_list(first_auction)
-    second_settled = house.auction_list(second_auction)
     alice_pending = house.auction_pending_returns(
         first_auction, alice
     ) + house.auction_pending_returns(second_auction, alice)
@@ -693,9 +688,9 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     assert bob_pending == second_auction_bid_bob
 
     with boa.env.prank(alice):
-        withdrawal_1 = house.withdraw_multiple([first_auction, second_auction])
+        house.withdraw_multiple([first_auction, second_auction])
     with boa.env.prank(bob):
-        withdrawal_2 = house.withdraw_multiple([first_auction, second_auction])
+        house.withdraw_multiple([first_auction, second_auction])
 
     alice_total_payment = house.auction_list(second_auction)[1]
     bob_total_payment = house.auction_list(first_auction)[1]
@@ -742,11 +737,9 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     house = auction_house_dual_bid
     first_auction = house.auction_id()
     first_auction_bid_alice = house.auction_pending_returns(first_auction, alice)
-    first_auction_bid_bob = house.auction_list(first_auction)[1]
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
-    init_house = payment_token.balanceOf(house)
     init_owner = payment_token.balanceOf(deployer)
     init_fee_receiver = payment_token.balanceOf(fee_receiver)
 
@@ -782,10 +775,6 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     assert house.auction_list(second_auction)[4] == bob
     assert house.auction_list(first_auction)[5] is True
     assert house.auction_list(second_auction)[5] is True
-
-    # Settle auctions
-    first_settled = house.auction_list(first_auction)
-    second_settled = house.auction_list(second_auction)
 
     # Confirm pending
     alice_pending = house.auction_pending_returns(
@@ -850,7 +839,6 @@ def test_no_withdraw_regular_without_settlement(
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
-    init_house = payment_token.balanceOf(house)
     init_owner = payment_token.balanceOf(deployer)
     init_fee_receiver = payment_token.balanceOf(fee_receiver)
 
@@ -884,8 +872,6 @@ def test_no_withdraw_regular_without_settlement(
     assert house.auction_list(second_auction)[5] is False
 
     # Confirm pending
-    first_settled = house.auction_list(first_auction)
-    second_settled = house.auction_list(second_auction)
     alice_pending = house.auction_pending_returns(
         first_auction, alice
     ) + house.auction_pending_returns(second_auction, alice)
@@ -903,16 +889,7 @@ def test_no_withdraw_regular_without_settlement(
         with boa.reverts("!settled"):
             house.withdraw(second_auction)
 
-    alice_total_payment = house.auction_list(second_auction)[1]
-    bob_total_payment = house.auction_list(first_auction)[1]
-
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // 100
-    alice_nonfee_amount = alice_total_payment - alice_fee_amount
-
-    bob_fee_amount = bob_total_payment * house.fee() // 100
-    bob_nonfee_amount = bob_total_payment - bob_fee_amount
-
     final_alice = payment_token.balanceOf(alice)
     final_bob = payment_token.balanceOf(bob)
     final_house = payment_token.balanceOf(house)
@@ -956,7 +933,6 @@ def test_no_withdraw_multiple_without_settlement(
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
-    init_house = payment_token.balanceOf(house)
     init_owner = payment_token.balanceOf(deployer)
     init_fee_receiver = payment_token.balanceOf(fee_receiver)
 
@@ -990,8 +966,6 @@ def test_no_withdraw_multiple_without_settlement(
     assert house.auction_list(second_auction)[5] is False
 
     # Settle auctions
-    first_settled = house.auction_list(first_auction)
-    second_settled = house.auction_list(second_auction)
     alice_pending = house.auction_pending_returns(
         first_auction, alice
     ) + house.auction_pending_returns(second_auction, alice)
@@ -1009,16 +983,7 @@ def test_no_withdraw_multiple_without_settlement(
         with boa.reverts("!settled"):
             house.withdraw_multiple([first_auction, second_auction])
 
-    alice_total_payment = house.auction_list(second_auction)[1]
-    bob_total_payment = house.auction_list(first_auction)[1]
-
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // 100
-    alice_nonfee_amount = alice_total_payment - alice_fee_amount
-
-    bob_fee_amount = bob_total_payment * house.fee() // 100
-    bob_nonfee_amount = bob_total_payment - bob_fee_amount
-
     final_alice = payment_token.balanceOf(alice)
     final_bob = payment_token.balanceOf(bob)
     final_house = payment_token.balanceOf(house)

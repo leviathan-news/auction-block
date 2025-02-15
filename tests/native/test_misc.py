@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_auction_extension_near_end(

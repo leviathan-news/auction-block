@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def empty_address():
@@ -117,19 +116,19 @@ def test_revoke_token_support_order_preservation(directory, deployer, payment_to
         assert tokens_after_removal[1] == test_token_2.address
 
 
-def test_add_token_support_error_handling(directory, deployer):
+def test_add_token_support_error_handling(directory, deployer, zero_address):
     with boa.env.prank(deployer):
         # Attempt to add empty address should revert
         with boa.reverts("!token"):
-            directory.add_token_support(empty_address(), boa.env.generate_address())
+            directory.add_token_support(zero_address, boa.env.generate_address())
 
         # Attempt to add token without trader should revert
         test_token = boa.load_partial("contracts/test/ERC20.vy").deploy("Test", "TEST", 18)
         with boa.reverts("!trader"):
-            directory.add_token_support(test_token, empty_address())
+            directory.add_token_support(test_token, zero_address)
 
 
-def test_revoke_token_support_error_handling(directory, deployer):
+def test_revoke_token_support_error_handling(directory, deployer, zero_address):
     # Attempt to revoke unsupported token should revert
     test_token = boa.load_partial("contracts/test/ERC20.vy").deploy("Test", "TEST", 18)
 
@@ -140,4 +139,4 @@ def test_revoke_token_support_error_handling(directory, deployer):
 
         # Attempt to revoke with empty address should revert
         with boa.reverts("!token"):
-            directory.revoke_token_support(empty_address())
+            directory.revoke_token_support(zero_address)

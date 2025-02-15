@@ -28,7 +28,7 @@ def test_rebid_with_alternative_token(auction_house, weth_trader, weth, payment_
         auction_house.create_bid_with_token(auction_id, weth_amount, weth, min_bid)
         alice_first_spend = alice_init_weth - weth.balanceOf(alice)
 
-    print(f"\nAlice's first bid:")
+    print("\nAlice's first bid:")
     print(f"WETH spent: {alice_first_spend}")
     print(f"Min bid required: {min_bid}")
 
@@ -40,7 +40,7 @@ def test_rebid_with_alternative_token(auction_house, weth_trader, weth, payment_
         weth.approve(auction_house, 2**256 - 1)
         auction_house.create_bid_with_token(auction_id, weth_amount_bob, weth, min_bid_bob)
 
-    print(f"\nBob's outbid:")
+    print("\nBob's outbid:")
     print(f"Min bid required: {min_bid_bob}")
     print(f"Alice's pending returns: {auction_house.pending_returns(alice)}")
 
@@ -56,7 +56,7 @@ def test_rebid_with_alternative_token(auction_house, weth_trader, weth, payment_
         )
         alice_rebid_spend = weth_balance_before_rebid - weth.balanceOf(alice)
 
-    print(f"\nAlice's rebid:")
+    print("\nAlice's rebid:")
     print(f"WETH spent on rebid: {alice_rebid_spend}")
     print(f"Original WETH spent: {alice_first_spend}")
     print(f"Min bid required: {min_bid_alice_rebid}")

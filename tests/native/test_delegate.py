@@ -118,7 +118,6 @@ def test_delegated_bid_withdrawal(
 ):
     """Test withdrawing after delegated bids"""
     house = auction_house_with_auction
-    auction_id = house.auction_id()
 
     with boa.env.prank(alice):
         house.set_approved_caller(admin, bid_flag)

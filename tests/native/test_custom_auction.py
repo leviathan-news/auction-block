@@ -40,7 +40,7 @@ def test_create_custom_auction(
     assert (
         auction[4] == "0x0000000000000000000000000000000000000000"
     ), "Initial bidder should be empty"
-    assert auction[5] == False, "Auction should not be settled"
+    assert auction[5] is False, "Auction should not be settled"
     assert auction[6] == ipfs_hash, "IPFS hash should match"
 
     # Verify auction parameters struct

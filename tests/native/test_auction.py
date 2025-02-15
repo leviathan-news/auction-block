@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_initial_state(
@@ -19,7 +18,7 @@ def test_initial_state(
     assert auction_house.default_reserve_price() == default_reserve_price
     assert auction_house.default_min_bid_increment_percentage() == default_min_bid_increment
     assert auction_house.default_duration() == default_duration
-    assert auction_house.paused() == False
+    assert auction_house.paused() is False
     assert auction_house.fee_receiver() == fee_receiver
     assert auction_house.fee() == default_fee
     assert auction_house.auction_id() == 0
@@ -41,7 +40,7 @@ def test_create_auction(auction_house, deployer):
     assert auction[2] > 0  # start_time
     assert auction[3] == auction[2] + auction_house.default_duration()  # end_time
     assert auction[4] == "0x0000000000000000000000000000000000000000"  # bidder
-    assert auction[5] == False  # settled
+    assert auction[5] is False  # settled
 
 
 def test_create_bid(auction_house_with_auction, alice, payment_token, default_reserve_price):

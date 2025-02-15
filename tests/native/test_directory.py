@@ -80,5 +80,5 @@ def test_deprecate_directory(directory):
     addr = boa.env.generate_address()
     with boa.env.prank(directory.owner()):
         directory.deprecate_directory(addr)
-    assert directory.is_current() == False
+    assert directory.is_current() is False
     assert directory.upgrade_address() == addr

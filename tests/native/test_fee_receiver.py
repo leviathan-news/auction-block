@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_set_fee_receiver(auction_house, deployer):

@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_withdraw_zero_pending(auction_house_with_auction, alice, payment_token):
@@ -96,7 +95,7 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
 
     # Verify auction was settled and new one created
     assert auction_house_with_auction.auction_id() == auction_id + 1
-    assert final_auction[5] == True  # settled
+    assert final_auction[5] is True  # settled
     assert new_auction[0] == auction_id + 1  # new auction has correct ID
 
 

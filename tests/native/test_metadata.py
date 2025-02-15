@@ -11,7 +11,7 @@ def test_create_auction_without_ipfs(auction_house, deployer):
     print(f"Auction state: {auction}")
     assert auction[6] == ""  # ipfs_hash
     assert auction[0] == 1  # auction_id
-    assert auction[5] == False  # settled
+    assert auction[5] is False  # settled
 
 
 def test_create_auction_with_ipfs(auction_house, deployer):
@@ -82,7 +82,7 @@ def test_ipfs_hash_persists_after_settlement(
     auction = auction_house.auction_list(1)
     print(f"Post-settlement auction state: {auction}")
     assert auction[6] == test_hash  # ipfs_hash
-    assert auction[5] == True  # settled
+    assert auction[5] is True  # settled
     assert auction[4] == alice  # bidder
 
 

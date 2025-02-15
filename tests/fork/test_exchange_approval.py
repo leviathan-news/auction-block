@@ -21,7 +21,7 @@ def test_specific_bid_scenario_proper_fail(auction_house, weth_trader, weth, pay
     min_dy = reserve_price * 99 // 100  # Allow 1% slippage
 
     # Record initial balances
-    print(f"\nInitial balances:")
+    print("\nInitial balances:")
     print(f"WETH: {weth.balanceOf(alice)}")
     print(f"SQUID: {payment_token.balanceOf(alice)}")
     print(f"Required WETH input: {bid_amount}")
@@ -49,7 +49,7 @@ def test_various_approval_scenarios(auction_house, weth_trader, weth, payment_to
     min_dy = reserve_price  # Must at least meet reserve
 
     # Print initial state
-    print(f"\nInitial balances and setup:")
+    print("\nInitial balances and setup:")
     print(f"WETH balance: {weth.balanceOf(alice)}")
     print(f"Reserve price: {reserve_price}")
     print(f"Required bid amount: {bid_amount}")
@@ -65,7 +65,7 @@ def test_various_approval_scenarios(auction_house, weth_trader, weth, payment_to
         first_amount = bid_amount // 2  # Half of total (still > reserve)
         first_min_dy = reserve_price  # Must meet reserve
 
-        print(f"\nTrying first trade:")
+        print("\nTrying first trade:")
         print(f"Amount: {first_amount}")
         print(f"Min dy: {first_min_dy}")
         print(f"Expected output: {auction_house.get_dy(weth, first_amount)}")
@@ -78,7 +78,7 @@ def test_various_approval_scenarios(auction_house, weth_trader, weth, payment_to
         second_amount = bid_amount
         second_min_dy = auction_house.minimum_total_bid(auction_id)
 
-        print(f"\nTrying second trade:")
+        print("\nTrying second trade:")
         print(f"Amount: {second_amount}")
         print(f"Min dy: {second_min_dy}")
         print(f"Expected output: {auction_house.get_dy(weth, second_amount)}")
@@ -114,25 +114,28 @@ def test_bid_with_specific_amounts(auction_house, weth_trader, weth, payment_tok
             with boa.reverts("!trader"):
                 auction_house.create_bid_with_token(auction_id, bid_amount, weth, min_dy)
             print("Failed: Trader not found")
-        except:
+        except Exception as e:
+            print(f"Caught exception {e}")
             try:
                 with boa.reverts("Trading token transfer failed"):
                     auction_house.create_bid_with_token(auction_id, bid_amount, weth, min_dy)
                 print("Failed: WETH transfer failed")
-            except:
+            except Exception as e1:
+                print(f"Caught exception {e1}")
                 try:
                     with boa.reverts("!reservePrice"):
                         auction_house.create_bid_with_token(auction_id, bid_amount, weth, min_dy)
                     print("Failed: Below reserve price")
-                except:
+                except Exception as e2:
+                    print(f"Caught exception {e2}")
                     try:
                         with boa.reverts("!increment"):
                             auction_house.create_bid_with_token(
                                 auction_id, bid_amount, weth, min_dy
                             )
                         print("Failed: Below minimum increment")
-                    except:
-                        print("Different revert reason than expected")
+                    except Exception as e3:
+                        print(f"Different revert reason than expected {e3}")
 
 
 def test_approval_sequence_issue(auction_house, weth_trader, weth, payment_token, alice):
@@ -154,7 +157,6 @@ def test_approval_sequence_issue(auction_house, weth_trader, weth, payment_token
 
     with boa.env.prank(alice):
         weth_allowance = weth.allowance(alice, auction_house)
-        squid_allowance = payment_token.allowance(alice, auction_house)
 
         # Should fail with no weth approval
         assert weth_allowance < bid_amount

@@ -59,12 +59,11 @@ def test_bid_with_misc_token(auction_house, weth_trader, weth, payment_token, al
     # Place bid with WETH
     with boa.env.prank(alice):
         weth.approve(auction_house, 2**256 - 1)
-        # Not longer should require payment token approval
-        # payment_token.approve(auction_house, 2**256 - 1)
         auction_house.create_bid_with_token(auction_id, min_bid, weth, expected_payment)
 
     # Verify WETH was spent
     assert weth.balanceOf(alice) < init_weth
+    assert payment_token.balanceOf(alice) == init_squid
 
     # Verify bid was placed correctly
     auction = auction_house.auction_list(auction_id)

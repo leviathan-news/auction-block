@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_nft_deployed(nft):
@@ -8,10 +7,6 @@ def test_nft_deployed(nft):
 
 def test_nft_minter(nft, directory):
     assert nft.is_minter(directory) is True
-
-
-def test_nft_deployed(nft, deployer):
-    assert nft.name() == "Name"
 
 
 def test_nft_direct_mint(nft, deployer, zero_address):

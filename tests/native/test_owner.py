@@ -111,7 +111,7 @@ def test_can_nullify_active_auction(
     assert house.auction_remaining_time(auction_id) == 0
     assert auction[1] == 0
     assert auction[4] == zero_address
-    assert auction[5] == True
+    assert auction[5] is True
     assert house.auction_pending_returns(auction_id, alice) == bid
 
 
@@ -189,7 +189,7 @@ def test_can_nullify_when_paused(
     assert house.auction_remaining_time(auction_id) == 0
     assert auction[1] == 0
     assert auction[4] == zero_address
-    assert auction[5] == True
+    assert auction[5] is True
     assert house.auction_pending_returns(auction_id, alice) == bid
 
     with boa.env.prank(deployer):
