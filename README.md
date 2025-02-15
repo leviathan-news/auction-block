@@ -1,71 +1,148 @@
 # Leviathan Auction House
 
-**Please read this entire document carefully to ensure the proper setup of each component.**
+A robust smart contract system for conducting token auctions with multiple payment options and automated market making functionality.
 
-## Installation
+## Overview
 
-### Creating a Virtual Environment
+Leviathan Auction House is a decentralized auction platform that enables:
+- Single-price English auctions with configurable parameters
+- Upgradable directory to support future auction types
+- Multi-token support through integrated AMM trading
+- Automated auction extension to prevent sniping
+- Flexible bidding permissions and delegation
+- Comprehensive fee management
+- Safety features including pausability and emergency auction nullification
 
-It is **strongly recommended** use a virtual environment with this project. This ensures that dependencies are strictly contained within your project and will not alter or affect your other development environment.
+## Smart Contracts
 
-To create a new virtual environment and install the required dependencie:
+The system consists of three main contracts:
 
+- **AuctionBlock.vy**: The core auction implementation
+- **AuctionDirectory.vy**: Registry for managing multiple auction instances
+- **AuctionTrade.vy**: AMM integration for multi-token support
+
+### Key Features
+
+- Configurable auction parameters (reserve price, duration, bid increments)
+- Support for alternate payment tokens through AMM integration
+- Anti-sniping mechanism with automatic time extension
+- Delegated bidding capabilities
+- Fee distribution system
+- Emergency controls for auction management
+- Comprehensive test coverage
+
+## Development Setup
+
+### Prerequisites
+
+- Python 3.7+
+- [Vyper](https://docs.vyperlang.org/en/stable/installing-vyper.html) 0.4.0
+- Node.js and npm (for development tools)
+
+### Environment Setup
+
+1. Create and activate a virtual environment:
 ```bash
 python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements_complete.txt
+source venv/bin/activate  # On Windows use: .\venv\Scripts\activate
 ```
 
-In future sessions, activate the virtual environment with:
-
+2. Install dependencies:
 ```bash
-source venv/bin/activate
+pip install -r requirements.txt
 ```
 
-To learn more about `venv`, see the official [Python documentation](https://docs.python.org/3/library/venv.html).
-
-## Setting up your .env file
-
-The config requies a `.env` file to exist.
-Run `cp example.env .env` to create one and update.
-
+3. Configure environment variables:
 ```bash
-pytest
+cp example.env .env
 ```
 
-You can use the `--gas` flag to estimate gas usage
+Edit `.env` to include:
+- `ALCHEMY_KEY`: Your Alchemy API key
+- Additional network-specific configurations
 
-### Linting
-These same commands are run in our CI so make sure to run them locally before pushing or the checks might fail. 
+### Code Quality
 
-To lint Vyper files
+1. Lint Vyper files:
 ```bash
 mamushi
 ```
 
-To lint Python files
+2. Format Python files:
 ```bash
-black <path_to_file>
+black .
 ```
 
-## License
+## Architecture
 
-This project is licensed under the [MIT license](LICENSE).
+### Auction Flow
 
+1. Owner creates auction with parameters:
+   - Time buffer
+   - Reserve price
+   - Minimum bid increment
+   - Duration
+   - Payment token
+   - Fee configuration
 
-### Tests
-Run standard tests
-```
+2. Users can:
+   - Place bids in primary token
+   - Place bids in alternate tokens (auto-converted via AMM)
+   - Delegate bidding permissions
+   - Withdraw failed bids
+
+3. Auction completion:
+   - Automatic extension if bid near end
+   - Settlement transfers tokens to winner
+   - Fee distribution
+   - Optional NFT minting for winners
+
+### Security Features
+
+- Two-step ownership transfers
+- Pausable functionality
+- Emergency auction nullification
+- Slippage protection for token swaps
+- Comprehensive access controls
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit changes with tests
+4. Push to your branch
+5. Open a Pull Request
+
+## Testing Guide
+
+The project includes comprehensive test suites:
+
+1. Standard tests:
+```bash
 pytest
 ```
 
-Tests for fork mode
-```
+2. Fork-mode tests (requires Alchemy API key):
+```bash
 pytest tests/fork --fork
 pytest tests/hypothesis --fork
 ```
 
-```
-pytest --cov= --cov-branch tests/native
+3. Coverage reporting:
+```bash
+pytest --cov=contracts --cov-branch tests/
 coverage html
 ```
+
+View the report in `htmlcov/index.html`
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+Built with:
+- [Vyper](https://vyperlang.org/) - Smart contract language
+- [Boa](https://github.com/vyperlang/titanoboa) - Testing framework
+- [Hypothesis](https://hypothesis.works/) - Property-based testing
