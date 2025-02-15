@@ -1,4 +1,5 @@
 # Leviathan Auction House
+![image](https://github.com/user-attachments/assets/de0c8fbb-cf0f-4e82-97cf-7fee9917adc4)
 
 A robust smart contract system for conducting token auctions with multiple payment options and automated market making functionality.
 
