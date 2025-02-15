@@ -1,7 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Dict, Any, Optional, Callable
-import boa
-from web3 import Web3
+from typing import List, Callable
 
 
 @dataclass
