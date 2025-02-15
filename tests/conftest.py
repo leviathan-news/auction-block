@@ -122,7 +122,7 @@ def weth(env, fork_mode):
 
 @pytest.fixture(scope="session")
 def trading_pool(env, fork_mode):
-    pool_contract = boa.load_partial("contracts/test/CurveTwoCrypto.vy")
+    pool_contract = boa.load_abi("contracts/interfaces/CurveTwoCrypto.json")
     if fork_mode:
         return pool_contract.at(TEST_POOL_ADDR)
     else:
