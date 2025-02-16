@@ -344,12 +344,6 @@ def pending_returns(user: address) -> uint256:
     return total_pending
 
 
-@external
-@view
-def nft() -> address:
-    return staticcall self.authorized_directory.nft()
-
-
 # ============================================================================================
 # ✍️ Write functions
 # ============================================================================================
