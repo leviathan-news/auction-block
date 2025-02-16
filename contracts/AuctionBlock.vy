@@ -97,22 +97,6 @@ event AuctionExtended:
     end_time: uint256
 
 
-event DefaultAuctionTimeBufferUpdated:
-    default_time_buffer: uint256
-
-
-event DefaultAuctionReservePriceUpdated:
-    default_reserve_price: uint256
-
-
-event DefaultAuctionMinBidIncrementPercentageUpdated:
-    default_min_bid_increment_percentage: uint256
-
-
-event DefaultAuctionDurationUpdated:
-    default_duration: uint256
-
-
 event AuctionCreated:
     auction_id: indexed(uint256)
     start_time: uint256
@@ -671,34 +655,6 @@ def revoke_token_support(token_addr: IERC20):
             self.supported_tokens.pop()
             break
     log TokenSupportRemoved(token_addr.address)
-
-
-@external
-def set_default_time_buffer(_time_buffer: uint256):
-    ownable._check_owner()
-    self.default_time_buffer = _time_buffer
-    log DefaultAuctionTimeBufferUpdated(_time_buffer)
-
-
-@external
-def set_default_reserve_price(_reserve_price: uint256):
-    ownable._check_owner()
-    self.default_reserve_price = _reserve_price
-    log DefaultAuctionReservePriceUpdated(_reserve_price)
-
-
-@external
-def set_default_min_bid_increment_percentage(_percentage: uint256):
-    ownable._check_owner()
-    self.default_min_bid_increment_percentage = _percentage
-    log DefaultAuctionMinBidIncrementPercentageUpdated(_percentage)
-
-
-@external
-def set_default_duration(_duration: uint256):
-    ownable._check_owner()
-    self.default_duration = _duration
-    log DefaultAuctionDurationUpdated(_duration)
 
 
 @external

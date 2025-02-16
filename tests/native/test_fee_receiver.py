@@ -26,7 +26,7 @@ def test_set_fee(auction_house, deployer, precision):
     """Test setting new fee percentages"""
     # Only owner should be able to set fee
     with boa.env.prank(boa.env.generate_address()):
-        with boa.reverts('!owner'):  # Non-owner should fail
+        with boa.reverts("!owner"):  # Non-owner should fail
             auction_house.set_fee_percent(3 * precision // 100)
 
     # Test valid fee changes

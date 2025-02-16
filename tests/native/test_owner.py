@@ -22,52 +22,12 @@ def test_set_owner_zero_address(auction_house, deployer):
         auction_house.transfer_ownership("0x0000000000000000000000000000000000000000")
 
 
-def test_set_default_time_buffer(auction_house, deployer):
-    """Test time buffer can be updated by owner"""
-    with boa.env.prank(deployer):
-        auction_house.set_default_time_buffer(200)
-    assert auction_house.default_time_buffer() == 200
-
-
-def test_set_default_reserve_price(auction_house, deployer):
-    """Test reserve price can be updated by owner"""
-    with boa.env.prank(deployer):
-        auction_house.set_default_reserve_price(200)
-    assert auction_house.default_reserve_price() == 200
-
-
-def test_set_default_min_bid_increment_percentage(
-    auction_house, deployer, default_min_bid_increment
-):
-    """Test minimum bid increment can be updated by owner within valid range"""
-    with boa.env.prank(deployer):
-        auction_house.set_default_min_bid_increment_percentage(10)
-    assert auction_house.default_min_bid_increment_percentage() == 10
-
-
-def test_set_default_duration(auction_house, deployer):
-    """Test duration can be updated by owner within valid range"""
-    with boa.env.prank(deployer):
-        auction_house.set_default_duration(7200)  # 2 hours
-    assert auction_house.default_duration() == 7200
-
-
-def test_non_owner_cannot_set_default_parameters(auction_house, alice):
-    """Test non-owner cannot update parameters"""
-    with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_default_time_buffer(200)
-
-    with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_default_reserve_price(200)
-
-    with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_default_min_bid_increment_percentage(10)
-
-    with boa.env.prank(alice), boa.reverts("!owner"):
-        auction_house.set_default_duration(7200)
-
+def test_non_owner_cannot_transfer(auction_house, alice):
     with boa.env.prank(alice), boa.reverts("!owner"):
         auction_house.transfer_ownership(alice)  # Uses 2-step ownership transfer
+
+    with boa.env.prank(alice), boa.reverts("!owner"):
+        auction_house.pause()  # Uses 2-step ownership transfer
 
 
 def test_pause_unpause(auction_house_with_auction, deployer):
