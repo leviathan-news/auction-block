@@ -22,13 +22,12 @@ interface TokenTrader:
         _dx: uint256, _min_dy: uint256, _from: address = msg.sender
     ) -> uint256: nonpayable
     def safe_get_dx(_dy: uint256) -> uint256: view
-    def get_dx(_dy: uint256) -> uint256: view
     def get_dy(_dx: uint256) -> uint256: view
 
 
 interface AuctionDirectory:
     def mint_nft(owner: address, auction_id: uint256): nonpayable
-    def nft() -> address: view
+    def additional_tokens(token: IERC20) -> TokenTrader: view
 
 
 # ============================================================================================
@@ -121,15 +120,6 @@ event Withdraw:
     amount: uint256
 
 
-event TokenSupportAdded:
-    token: indexed(address)
-    trader: indexed(address)
-
-
-event TokenSupportRemoved:
-    token: indexed(address)
-
-
 event ApprovedCallerSet:
     account: address
     caller: address
@@ -154,8 +144,6 @@ event DirectorySet:
 
 PERCENT_PRECISION: constant(uint256) = 100 * 10**8
 MAX_WITHDRAWALS: constant(uint256) = 100
-# XXX
-MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 1000
 MAX_FEE_PERCENT: constant(uint256) = 100 * 10**8  # 100%
 
@@ -184,8 +172,6 @@ approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 
 # Tokens
 payment_token: public(IERC20)
-additional_tokens: public(HashMap[IERC20, TokenTrader])
-supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
 authorized_directory: public(AuctionDirectory)
 
 # Fee configuration
@@ -285,24 +271,15 @@ def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
 
 @external
 @view
-def get_dy(_token_addr: IERC20, _dx: uint256) -> uint256:
-    return staticcall self.additional_tokens[_token_addr].get_dy(_dx)
-
-
-@external
-@view
-def get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
-    return staticcall self.additional_tokens[_token_addr].get_dx(_dy)
-
-
-@external
-@view
 def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
     """
     @dev A gas fuzzling function, recommend not to use in smart contracts
     @return A safe dx above the minimum required to guarantee dy
     """
-    return staticcall self.additional_tokens[_token_addr].safe_get_dx(_dy)
+    _trader: TokenTrader = (
+        staticcall self.authorized_directory.additional_tokens(_token_addr)
+    )
+    return staticcall _trader.safe_get_dx(_dy)
 
 
 @external
@@ -598,53 +575,6 @@ def nullify_auction(auction_id: uint256):
 
 
 @external
-def add_token_support(token: IERC20, trader: TokenTrader):
-    """
-    @notice Add support for an alternative payment token
-    @dev Must be connected with a contract that supports token trading
-    @param token The address of the ERC20 compatible token
-    @param trader Address of a compatible trading contract
-    """
-
-    ownable._check_owner()
-    assert token.address != empty(address), "!token"
-    assert trader.address != empty(address), "!trader"
-    assert token != self.payment_token, "!payment_token"
-
-    self.additional_tokens[token] = trader
-    self.supported_tokens.append(token)
-    extcall token.approve(trader.address, max_value(uint256))
-    log TokenSupportAdded(token.address, trader.address)
-
-
-@external
-def revoke_token_support(token_addr: IERC20):
-    """
-    @notice Remove support for an alternative payment token
-    """
-    ownable._check_owner()
-    assert token_addr.address != empty(address), "!token"
-    assert self.additional_tokens[token_addr].address != empty(
-        address
-    ), "!supported"
-    self.additional_tokens[token_addr] = empty(TokenTrader)
-
-    # Remove the token from supported_tokens
-    for i: uint256 in range(MAX_TOKENS):
-        if i >= len(self.supported_tokens):
-            break
-
-        if self.supported_tokens[i] == token_addr:
-            # Swap with the last element and pop
-            self.supported_tokens[i] = self.supported_tokens[
-                len(self.supported_tokens) - 1
-            ]
-            self.supported_tokens.pop()
-            break
-    log TokenSupportRemoved(token_addr.address)
-
-
-@external
 def set_fee_receiver(_fee_receiver: address):
     ownable._check_owner()
     assert _fee_receiver != empty(address), "!fee_receiver"
@@ -790,7 +720,9 @@ def _trade_token(
     @dev Helper to trade an alternative token for the required SQUID amount
     @return Amount of SQUID received from trade
     """
-    trader: TokenTrader = self.additional_tokens[token]
+    trader: TokenTrader = (
+        staticcall self.authorized_directory.additional_tokens(token)
+    )
     assert trader.address != empty(address), "!trader"
 
     # Calculate required token amount and trade
@@ -799,6 +731,7 @@ def _trade_token(
 
     # Transfer token to contract, or revert
     extcall token.transferFrom(from_addr, self, dx)
+    extcall token.approve(trader.address, dx)
 
     # Exchange, or revert
     return extcall trader.exchange(dx, min_dy, self)

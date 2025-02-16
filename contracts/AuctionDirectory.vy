@@ -35,15 +35,6 @@ interface AuctionContract:
     ): nonpayable
 
 
-interface TokenTrader:
-    def exchange(
-        _dx: uint256, _min_dy: uint256, _from: address = msg.sender
-    ) -> uint256: nonpayable
-    def safe_get_dx(_dy: uint256) -> uint256: view
-    def get_dx(_dy: uint256) -> uint256: view
-    def get_dy(_dx: uint256) -> uint256: view
-
-
 interface NFT:
     def safe_mint(
         owner: address, contract_address: address, auction_id: uint256
@@ -133,12 +124,12 @@ upgrade_address: public(address)
 # Auction Contracts
 registered_contracts: public(DynArray[AuctionContract, MAX_AUCTION_CONTRACTS])
 
-# User settings
+# User settings: user -> caller -> status
 approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 
 # Payment tokens
 payment_token: public(IERC20)
-additional_tokens: public(HashMap[IERC20, TokenTrader])
+additional_tokens: public(HashMap[IERC20, address])
 supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
 nft: public(NFT)
 
@@ -184,30 +175,14 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
 
 @external
 @view
-def get_dy(_token_addr: IERC20, _dx: uint256) -> uint256:
-    return staticcall self.additional_tokens[_token_addr].get_dy(_dx)
-
-
-@external
-@view
-def get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
-    return staticcall self.additional_tokens[_token_addr].get_dx(_dy)
-
-
-@external
-@view
-def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
-    """
-    @dev A gas fuzzling function, recommend not to use in smart contracts
-    @return A safe dx above the minimum required to guarantee dy
-    """
-    return staticcall self.additional_tokens[_token_addr].safe_get_dx(_dy)
-
-
-@external
-@view
-def num_contracts() -> uint256:
+def num_auction_contracts() -> uint256:
     return len(self.registered_contracts)
+
+
+@external
+@view
+def num_supported_tokens() -> uint256:
+    return len(self.supported_tokens)
 
 
 # ============================================================================================
@@ -318,7 +293,7 @@ def set_nft(nft_addr: address):
 
 
 @external
-def add_token_support(token: IERC20, trader: TokenTrader):
+def add_token_support(token: IERC20, trader: address):
     """
     @notice Add support for an alternative payment token
     @dev Must be connected with a contract that supports token trading
@@ -328,13 +303,12 @@ def add_token_support(token: IERC20, trader: TokenTrader):
 
     ownable._check_owner()
     assert token.address != empty(address), "!token"
-    assert trader.address != empty(address), "!trader"
+    assert trader != empty(address), "!trader"
     assert token != self.payment_token, "!payment_token"
 
     self.additional_tokens[token] = trader
     self.supported_tokens.append(token)
-    extcall token.approve(trader.address, max_value(uint256))
-    log TokenSupportAdded(token.address, trader.address)
+    log TokenSupportAdded(token.address, trader)
 
 
 @external
@@ -344,10 +318,8 @@ def revoke_token_support(token_addr: IERC20):
     """
     ownable._check_owner()
     assert token_addr.address != empty(address), "!token"
-    assert self.additional_tokens[token_addr].address != empty(
-        address
-    ), "!supported"
-    self.additional_tokens[token_addr] = empty(TokenTrader)
+    assert self.additional_tokens[token_addr] != empty(address), "!supported"
+    self.additional_tokens[token_addr] = empty(address)
 
     # Remove the token from supported_tokens
     for i: uint256 in range(MAX_TOKENS):

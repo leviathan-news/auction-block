@@ -36,14 +36,12 @@ def mock_trader(payment_token, weth, mock_pool, pool_indices):
     return trader
 
 
-def test_trading_views(auction_house, payment_token, weth, mock_trader, mock_pool):
+def test_trading_views(auction_house, payment_token, weth, mock_trader, mock_pool, directory):
     owner = auction_house.owner()
     with boa.env.prank(owner):
-        auction_house.add_token_support(weth, mock_trader)
+        directory.add_token_support(weth, mock_trader)
     val = 10**18
     rate = mock_pool.rate() / 10**18
-    assert auction_house.get_dy(weth, val) == val * rate
-    assert auction_house.get_dx(weth, val) == val / rate
     assert auction_house.safe_get_dx(weth, val) == val / rate
 
 
@@ -82,13 +80,13 @@ def test_mock_trader_basic(auction_house, mock_trader, payment_token, alice, moc
     assert payment_token.balanceOf(alice) == init_balance + expected
 
 
-def test_mock_bid_with_token(auction_house, mock_trader, payment_token, alice, weth):
+def test_mock_bid_with_token(auction_house, mock_trader, payment_token, alice, weth, directory):
     """Test bidding using mock trader"""
     owner = auction_house.owner()
 
     # Setup auction
     with boa.env.prank(owner):
-        auction_house.add_token_support(weth, mock_trader)
+        directory.add_token_support(weth, mock_trader)
         auction_id = auction_house.create_new_auction()
 
     # Calculate bid amounts
@@ -106,12 +104,14 @@ def test_mock_bid_with_token(auction_house, mock_trader, payment_token, alice, w
     assert auction[1] == expected_payment  # amount
 
 
-def test_mock_bid_slippage_protection(auction_house, mock_trader, payment_token, alice, weth):
+def test_mock_bid_slippage_protection(
+    auction_house, mock_trader, payment_token, alice, weth, directory
+):
     """Test slippage protection with mock trader"""
     owner = auction_house.owner()
 
     with boa.env.prank(owner):
-        auction_house.add_token_support(weth, mock_trader)
+        directory.add_token_support(weth, mock_trader)
         auction_id = auction_house.create_new_auction()
 
     min_bid = auction_house.minimum_total_bid(auction_id)
@@ -153,9 +153,11 @@ def test_trading_views_in_directory(directory, payment_token, weth, mock_trader,
         directory.add_token_support(weth, mock_trader)
     val = 10**18
     rate = mock_pool.rate() / 10**18
-    assert directory.get_dy(weth, val) == val * rate
-    assert directory.get_dx(weth, val) == val / rate
-    assert directory.safe_get_dx(weth, val) == val / rate
+    trader_contract = boa.load_partial("contracts/AuctionTrade.vy")
+    trader = trader_contract.at(directory.additional_tokens(weth))
+    assert trader.get_dy(val) == val * rate
+    assert trader.get_dx(val) == val / rate
+    assert trader.safe_get_dx(val) == val / rate
 
 
 @pytest.mark.skip()
