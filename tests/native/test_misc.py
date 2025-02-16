@@ -1,4 +1,6 @@
 import boa
+import pytest
+from eth.exceptions import Revert
 
 
 def test_auction_extension_near_end(
@@ -140,3 +142,71 @@ def test_bid_increment_validation(
     final_auction = auction_house_with_auction.auction_list(auction_id)
     assert final_auction[4] == bob
     assert final_auction[1] == min_next_bid
+
+
+def test_recover_erc20(auction_house, payment_token, alice, deployer):
+    """Test recovery of ERC20 tokens accidentally sent to contract"""
+    # Amount to recover
+    amount = 1000 * 10**18
+
+    # Send tokens directly to contract (simulating an accident)
+    with boa.env.prank(alice):
+        payment_token.transfer(auction_house.address, amount)
+
+    initial_deployer_balance = payment_token.balanceOf(deployer)
+
+    # Only owner should be able to recover
+    with boa.env.prank(alice):
+        with boa.reverts():  # Non-owner call should revert
+            auction_house.recover_erc20(payment_token.address, amount)
+
+    # Owner recovers tokens
+    with boa.env.prank(deployer):
+        auction_house.recover_erc20(payment_token.address, amount)
+
+    # Verify tokens were recovered
+    assert payment_token.balanceOf(deployer) == initial_deployer_balance + amount
+    assert payment_token.balanceOf(auction_house.address) == 0
+
+
+def test_cannot_recover_active_auction_funds(
+    auction_house_with_auction, payment_token, alice, deployer, default_reserve_price
+):
+    """Test that payment token recovery protects active auction funds"""
+    # Place a bid first
+    with boa.env.prank(alice):
+        payment_token.approve(auction_house_with_auction.address, default_reserve_price)
+        auction_house_with_auction.create_bid(1, default_reserve_price)
+
+    # Try to recover the full balance (should fail)
+    with boa.env.prank(deployer):
+        with boa.reverts("cannot recover auction funds"):
+            auction_house_with_auction.recover_erc20(
+                payment_token.address, payment_token.balanceOf(auction_house_with_auction.address)
+            )
+
+    # Send additional tokens to contract
+    excess_amount = default_reserve_price
+    with boa.env.prank(alice):
+        payment_token.transfer(auction_house_with_auction.address, excess_amount)
+
+    # Should be able to recover only the excess
+    initial_balance = payment_token.balanceOf(auction_house_with_auction.address)
+    with boa.env.prank(deployer):
+        auction_house_with_auction.recover_erc20(payment_token.address, excess_amount)
+
+    # Verify only excess was recovered
+    assert (
+        payment_token.balanceOf(auction_house_with_auction.address)
+        == initial_balance - excess_amount
+    )
+    assert payment_token.balanceOf(auction_house_with_auction.address) >= default_reserve_price
+
+
+def test_cannot_receive_eth(auction_house, alice):
+    """Test that the contract cannot receive ETH"""
+    boa.env.set_balance(alice, 10**18)
+    assert boa.env.get_balance(alice) > 0
+    with pytest.raises(Revert):
+        # Try to send ETH to contract using raw_call
+        boa.env.raw_call(auction_house.address, sender=alice, value=1)

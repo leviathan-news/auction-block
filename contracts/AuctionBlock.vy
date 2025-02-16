@@ -683,6 +683,39 @@ def set_approved_directory(directory_address: address):
     log DirectorySet(directory_address)
 
 
+@external
+def recover_erc20(token_addr: address, amount: uint256):
+    """
+    @notice Recover ERC20 tokens accidentally sent to contract
+    @dev Only callable by owner. If recovering payment token, ensures auction funds are protected
+    @param token_addr The token contract address
+    @param amount Amount of tokens to recover
+    """
+    ownable._check_owner()
+    token: IERC20 = IERC20(token_addr)
+
+    # Special handling for payment token to protect auction funds
+    if token.address == self.payment_token.address:
+        required_balance: uint256 = 0
+
+        # Calculate total required balance for all auctions
+        for i: uint256 in range(MAX_AUCTIONS):
+            auction_id: uint256 = i + 1
+            if auction_id > self.auction_id:
+                break
+
+            auction: Auction = self.auction_list[auction_id]
+            # Include active bid amount if auction not settled
+            if not auction.settled:
+                required_balance += auction.amount
+        current_balance: uint256 = staticcall token.balanceOf(self)
+        assert (
+            current_balance - amount >= required_balance
+        ), "cannot recover auction funds"
+
+    assert extcall token.transfer(ownable.owner, amount), "transfer failed"
+
+
 # ============================================================================================
 # 🏠 Internal functions
 # ============================================================================================
