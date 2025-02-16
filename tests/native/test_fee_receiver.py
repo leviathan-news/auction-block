@@ -26,21 +26,21 @@ def test_set_fee(auction_house, deployer, precision):
     """Test setting new fee percentages"""
     # Only owner should be able to set fee
     with boa.env.prank(boa.env.generate_address()):
-        with boa.reverts():  # Non-owner should fail
-            auction_house.set_fee(3)
+        with boa.reverts('!owner'):  # Non-owner should fail
+            auction_house.set_fee_percent(3 * precision // 100)
 
     # Test valid fee changes
     test_fees = [0, 50, 100]  # 0%, 50%, 100%
 
     for new_fee in test_fees:
         with boa.env.prank(deployer):
-            auction_house.set_fee(new_fee * precision // 100)
-        assert auction_house.fee() == new_fee * precision // 100
+            auction_house.set_fee_percent(new_fee * precision // 100)
+        assert auction_house.fee_percent() == new_fee * precision // 100
 
     # Should not allow setting fee above MAX_FEE (100)
     with boa.env.prank(deployer):
         with boa.reverts("!fee"):
-            auction_house.set_fee(101 * precision // 100)
+            auction_house.set_fee_percent(101 * precision // 100)
 
 
 def test_fee_collection(
@@ -53,7 +53,7 @@ def test_fee_collection(
     # Set fee to 10%
     test_fee = 10
     with boa.env.prank(deployer):
-        house.set_fee(test_fee)
+        house.set_fee_percent(test_fee)
 
     # Place a bid
     with boa.env.prank(alice):
@@ -97,7 +97,7 @@ def test_zero_fee_settlement(
 
     # Set fee to 0%
     with boa.env.prank(deployer):
-        house.set_fee(0)
+        house.set_fee_percent(0)
 
     # Place a bid
     with boa.env.prank(alice):

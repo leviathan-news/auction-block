@@ -156,8 +156,8 @@ event FeeReceiverUpdated:
     fee_receiver: address
 
 
-event FeeUpdated:
-    fee: uint256
+event FeePercentUpdated:
+    fee_percent: uint256
 
 
 event DirectorySet:
@@ -168,11 +168,11 @@ event DirectorySet:
 # 📜 Constants
 # ============================================================================================
 
-PRECISION: constant(uint256) = 100 * 10**8
+PERCENT_PRECISION: constant(uint256) = 100 * 10**8
 MAX_WITHDRAWALS: constant(uint256) = 100
 MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 1000
-MAX_FEE: constant(uint256) = 100 * 10**8  # 100%
+MAX_FEE_PERCENT: constant(uint256) = 100 * 10**8  # 100%
 
 
 # ============================================================================================
@@ -205,7 +205,7 @@ authorized_directory: public(AuctionDirectory)
 
 # Fee configuration
 fee_receiver: public(address)
-fee: public(uint256)
+fee_percent: public(uint256)
 
 
 # ============================================================================================
@@ -232,7 +232,7 @@ def __init__(
     # Money
     self.payment_token = IERC20(payment_token)
     self.fee_receiver = fee_receiver
-    self.fee = 5 * 10**8  # 5%
+    self.fee_percent = 5 * 10**8  # 5%
 
 
 # ============================================================================================
@@ -532,7 +532,7 @@ def withdraw_stale(addresses: DynArray[address, MAX_WITHDRAWALS]):
         if pending_amount == 0:
             continue
 
-        fee: uint256 = pending_amount * self.fee // PRECISION
+        fee: uint256 = pending_amount * self.fee_percent // PERCENT_PRECISION
         withdrawer_return: uint256 = pending_amount - fee
         assert extcall self.payment_token.transfer(
             _address, withdrawer_return
@@ -710,11 +710,11 @@ def set_fee_receiver(_fee_receiver: address):
 
 
 @external
-def set_fee(_fee: uint256):
+def set_fee_percent(_fee: uint256):
     ownable._check_owner()
-    assert _fee <= MAX_FEE, "!fee"
-    self.fee = _fee
-    log FeeUpdated(_fee)
+    assert _fee <= MAX_FEE_PERCENT, "!fee"
+    self.fee_percent = _fee
+    log FeePercentUpdated(_fee)
 
 
 @external
@@ -783,7 +783,9 @@ def _settle_auction(auction_id: uint256):
     )
 
     if _auction.amount > 0:
-        fee_amount: uint256 = _auction.amount * self.fee // PRECISION
+        fee_amount: uint256 = (
+            _auction.amount * self.fee_percent // PERCENT_PRECISION
+        )
         remaining_amount: uint256 = _auction.amount - fee_amount
 
         if fee_amount > 0:
@@ -917,7 +919,7 @@ def _minimum_total_bid(auction_id: uint256) -> uint256:
         return _auction.params.reserve_price
 
     _min_pct: uint256 = _auction.params.min_bid_increment_percentage
-    return _auction.amount + ((_auction.amount * _min_pct) // PRECISION)
+    return _auction.amount + ((_auction.amount * _min_pct) // PERCENT_PRECISION)
 
 
 @internal

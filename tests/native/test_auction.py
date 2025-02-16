@@ -21,7 +21,7 @@ def test_initial_state(
     assert auction_house.default_duration() == default_duration
     assert auction_house.paused() is False
     assert auction_house.fee_receiver() == fee_receiver
-    assert auction_house.fee() == default_fee
+    assert auction_house.fee_percent() == default_fee
     assert auction_house.auction_id() == 0
     assert auction_house.payment_token() == payment_token.address
 

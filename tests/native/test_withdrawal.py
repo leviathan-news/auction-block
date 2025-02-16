@@ -42,7 +42,7 @@ def test_withdraw_stale(
     print("\nBefore withdraw_stale:")
     print(f"Fee receiver balance: {fee_receiver_before_stale}")
     print(f"Pending amount: {pending_amount}")
-    print(f"Contract fee: {auction_house_with_auction.fee()}")
+    print(f"Contract fee: {auction_house_with_auction.fee_percent()}")
     print(f"Default fee from params: {default_fee}")
     print(f"Precision: {precision}")
 
@@ -55,7 +55,7 @@ def test_withdraw_stale(
     balance_after_withdrawal = payment_token.balanceOf(alice)
 
     # Calculate expected fee using contract's fee parameter and precision
-    expected_stale_fee = pending_amount * auction_house_with_auction.fee() // precision
+    expected_stale_fee = pending_amount * auction_house_with_auction.fee_percent() // precision
     expected_return = pending_amount - expected_stale_fee
     fee_from_stale = payment_token.balanceOf(fee_receiver) - fee_receiver_before_stale
     amount_to_alice = balance_after_withdrawal - balance_before_withdrawal
@@ -120,10 +120,10 @@ def test_withdraw_stale_multiple_users(
 
     # Calculate expected amounts
     stale_fee = (
-        first_bid * auction_house_with_auction.fee() // precision
+        first_bid * auction_house_with_auction.fee_percent() // precision
     )  # 5% fee on Bob's stale return
     bob_return = first_bid - stale_fee
-    fee_from_bid = second_bid * auction_house_with_auction.fee() // precision
+    fee_from_bid = second_bid * auction_house_with_auction.fee_percent() // precision
     owner_share = second_bid - fee_from_bid
 
     # Verify final balances
@@ -619,10 +619,10 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     bob_total_payment = house.auction_list(first_auction)[1]
 
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // precision
+    alice_fee_amount = alice_total_payment * house.fee_percent() // precision
     alice_nonfee_amount = alice_total_payment - alice_fee_amount
 
-    bob_fee_amount = bob_total_payment * house.fee() // precision
+    bob_fee_amount = bob_total_payment * house.fee_percent() // precision
     bob_nonfee_amount = bob_total_payment - bob_fee_amount
 
     final_alice = payment_token.balanceOf(alice)
@@ -716,10 +716,10 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     bob_total_payment = house.auction_list(first_auction)[1]
 
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // precision
+    alice_fee_amount = alice_total_payment * house.fee_percent() // precision
     alice_nonfee_amount = alice_total_payment - alice_fee_amount
 
-    bob_fee_amount = bob_total_payment * house.fee() // precision
+    bob_fee_amount = bob_total_payment * house.fee_percent() // precision
     bob_nonfee_amount = bob_total_payment - bob_fee_amount
 
     final_alice = payment_token.balanceOf(alice)
@@ -817,10 +817,10 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     bob_total_payment = house.auction_list(first_auction)[1] + house.auction_list(second_auction)[1]
 
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // precision
+    alice_fee_amount = alice_total_payment * house.fee_percent() // precision
     alice_nonfee_amount = alice_total_payment - alice_fee_amount
 
-    bob_fee_amount = bob_total_payment * house.fee() // precision
+    bob_fee_amount = bob_total_payment * house.fee_percent() // precision
     bob_nonfee_amount = bob_total_payment - bob_fee_amount
 
     final_alice = payment_token.balanceOf(alice)
