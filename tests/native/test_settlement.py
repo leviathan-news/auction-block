@@ -11,7 +11,7 @@ def test_withdraw_zero_pending(auction_house_with_auction, alice, payment_token)
 
 
 def test_withdraw_after_outbid(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test withdrawing funds after being outbid"""
     auction_id = auction_house_with_auction.auction_id()
@@ -20,7 +20,7 @@ def test_withdraw_after_outbid(
     # Calculate bids
     first_bid = default_reserve_price
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    second_bid = first_bid + (first_bid * min_increment) // 100
+    second_bid = first_bid + (first_bid * min_increment) // precision
 
     with boa.env.prank(alice):
         payment_token.approve(auction_house_with_auction.address, first_bid)
@@ -41,7 +41,7 @@ def test_withdraw_after_outbid(
 
 
 def test_settle_auction_with_single_bid(
-    auction_house_with_auction, alice, deployer, fee_receiver, payment_token, default_reserve_price
+    auction_house_with_auction, alice, deployer, fee_receiver, payment_token, default_reserve_price, precision, default_fee
 ):
     """Test settling auction with one bid"""
     auction_id = auction_house_with_auction.auction_id()
@@ -59,11 +59,10 @@ def test_settle_auction_with_single_bid(
     boa.env.time_travel(seconds=4000)
 
     with boa.env.prank(deployer):
-        # auction_house_with_auction.pause()
         auction_house_with_auction.settle_auction(auction_id)
 
     # Fee is 5% to fee_receiver
-    fee = bid_amount * 5 // 100
+    fee = bid_amount * default_fee // precision
     owner_amount = bid_amount - fee
 
     assert payment_token.balanceOf(deployer) - deployer_balance_before == owner_amount
@@ -107,6 +106,7 @@ def test_settle_multiple_bids(
     proceeds_receiver,
     payment_token,
     default_reserve_price,
+    precision
 ):
     auction_id = auction_house_with_auction.auction_id()
     alice_balance_before = payment_token.balanceOf(alice)
@@ -114,7 +114,7 @@ def test_settle_multiple_bids(
     # Place bids
     first_bid = default_reserve_price
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    second_bid = first_bid + (first_bid * min_increment) // 100
+    second_bid = first_bid + (first_bid * min_increment) // precision
 
     with boa.env.prank(alice):
         payment_token.approve(auction_house_with_auction.address, first_bid)
@@ -148,7 +148,7 @@ def test_settle_auction_not_ended(auction_house_with_auction, deployer):
 
 
 def test_auction_extension(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test auction gets extended when bid near end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -156,7 +156,7 @@ def test_auction_extension(
     # Calculate bid amounts
     first_bid = default_reserve_price
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    second_bid = first_bid + (first_bid * min_increment) // 100
+    second_bid = first_bid + (first_bid * min_increment) // precision
 
     # Place initial bid
     with boa.env.prank(alice):

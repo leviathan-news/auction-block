@@ -13,12 +13,13 @@ TEST_POOL_ADDR = "0x3ff0c368af361ff01906f75a7750480d1e2d7aa9"
 WETH_ADDR = "0x980b62da83eff3d4576c647993b0c1d7faf17c73"
 
 # Default auction parameters
-DEFAULT_TIME_BUFFER = 300  # 5 minutes
-DEFAULT_RESERVE_PRICE = int(0.2 * 10**18)  # 0.2 tokens
-DEFAULT_MIN_BID_INCREMENT = 2  # 2%
-DEFAULT_DURATION = 3600  # 1 hour
-DEFAULT_SPLIT_PERCENTAGE = 100  # 100%
-DEFAULT_FEE = 5  # 5%
+DEFAULT_TIME_BUFFER = 300                   # 5 minutes
+DEFAULT_RESERVE_PRICE = int(0.2 * 10**18)   # 0.2 tokens
+DEFAULT_MIN_BID_INCREMENT = 2 * 10 ** 8     # 2%
+DEFAULT_DURATION = 3600                     # 1 hour
+DEFAULT_SPLIT_PERCENTAGE = 100 * 10 ** 8    # 100%
+DEFAULT_FEE = 5 * 10 ** 8                   # 5%
+PRECISION = 100 * 10 ** 8
 
 
 @dataclass
@@ -62,6 +63,10 @@ def default_split_percentage():
 def default_fee():
     return DEFAULT_FEE
 
+
+@pytest.fixture(scope="session")
+def precision():
+    return PRECISION
 
 @pytest.fixture(scope="session")
 def fee_receiver():
@@ -322,7 +327,7 @@ def directory(payment_token, auction_house, deployer):
 
 @pytest.fixture
 def auction_house_dual_bid(
-    auction_house_with_auction, payment_token, alice, bob, default_reserve_price
+    auction_house_with_auction, payment_token, alice, bob, default_reserve_price, precision
 ):
     """
     Deploy the Auction Directory contract.
@@ -335,7 +340,7 @@ def auction_house_dual_bid(
         house.create_bid(auction_id, default_reserve_price)
 
     min_increment = house.default_min_bid_increment_percentage()
-    bob_bid = default_reserve_price + (default_reserve_price * min_increment // 100)
+    bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
 
     with boa.env.prank(bob):
         payment_token.approve(house, 2**256 - 1)

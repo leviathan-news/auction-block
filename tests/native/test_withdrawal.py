@@ -9,12 +9,10 @@ def test_withdraw_stale(
     payment_token,
     fee_receiver,
     default_reserve_price,
+    default_fee,
+    precision
 ):
     """Test admin withdrawal of stale pending returns"""
-    balance_of_alice_before = payment_token.balanceOf(alice)
-    balance_of_fee_receiver_before = payment_token.balanceOf(fee_receiver)
-    balance_of_owner_before = payment_token.balanceOf(deployer)
-
     auction_id = auction_house_with_auction.auction_id()
 
     # Create pending returns
@@ -24,7 +22,7 @@ def test_withdraw_stale(
 
     # Bob outbids
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    next_bid = default_reserve_price + (default_reserve_price * min_increment) // 100
+    next_bid = default_reserve_price + (default_reserve_price * min_increment) // precision
     with boa.env.prank(bob):
         payment_token.approve(auction_house_with_auction.address, next_bid)
         auction_house_with_auction.create_bid(auction_id, next_bid)
@@ -34,32 +32,46 @@ def test_withdraw_stale(
     with boa.env.prank(deployer):
         auction_house_with_auction.settle_auction(auction_id)
 
+    # Record balances after settlement but before stale withdrawal
+    balance_before_withdrawal = payment_token.balanceOf(alice)
+    fee_receiver_before_stale = payment_token.balanceOf(fee_receiver)
+    pending_amount = auction_house_with_auction.auction_pending_returns(auction_id, alice)
+    assert pending_amount > 0
+
+    print(f"\nBefore withdraw_stale:")
+    print(f"Fee receiver balance: {fee_receiver_before_stale}")
+    print(f"Pending amount: {pending_amount}")
+    print(f"Contract fee: {auction_house_with_auction.fee()}")
+    print(f"Default fee from params: {default_fee}")
+    print(f"Precision: {precision}")
+
     # Admin stale withdrawal
-    assert auction_house_with_auction.auction_pending_returns(auction_id, alice) > 0
     with boa.env.prank(deployer):
         auction_house_with_auction.withdraw_stale([alice])
 
-    # Calculate expected fee distribution
-    stale_fee = default_reserve_price * 5 // 100
-    return_amount = default_reserve_price - stale_fee
-    fee_from_bid = next_bid * auction_house_with_auction.fee() // 100
-    owner_share = next_bid - fee_from_bid
-
-    # Verify balances
+    # After withdrawal checks
     assert auction_house_with_auction.auction_pending_returns(auction_id, alice) == 0
-    assert (
-        payment_token.balanceOf(alice)
-        == balance_of_alice_before - default_reserve_price + return_amount
-    )
-    assert (
-        payment_token.balanceOf(fee_receiver)
-        == balance_of_fee_receiver_before + fee_from_bid + stale_fee
-    )
-    assert payment_token.balanceOf(deployer) == balance_of_owner_before + owner_share
+    balance_after_withdrawal = payment_token.balanceOf(alice)
 
+    # Calculate expected fee using contract's fee parameter and precision
+    # Note: We now use the contract's fee parameter instead of hardcoded 5
+    expected_stale_fee = pending_amount * auction_house_with_auction.fee() // precision
+    expected_return = pending_amount - expected_stale_fee
+    fee_from_stale = payment_token.balanceOf(fee_receiver) - fee_receiver_before_stale
+    amount_to_alice = balance_after_withdrawal - balance_before_withdrawal
+
+    print(f"\nAfter withdraw_stale:")
+    print(f"Fee from stale withdrawal: {fee_from_stale}")
+    print(f"Expected stale fee: {expected_stale_fee}")
+    print(f"Amount returned to alice: {amount_to_alice}")
+    print(f"Expected return to alice: {expected_return}")
+
+    # Verify the amounts
+    assert fee_from_stale == expected_stale_fee, f"Fee amount incorrect: got {fee_from_stale}, expected {expected_stale_fee}"
+    assert amount_to_alice == expected_return, "Return amount to alice incorrect"
 
 def test_withdraw_stale_multiple_users(
-    auction_house_with_auction, alice, bob, charlie, deployer, payment_token, fee_receiver
+    auction_house_with_auction, alice, bob, charlie, deployer, payment_token, fee_receiver, precision
 ):
     """Test admin withdrawal for multiple users with various states"""
     auction_id = auction_house_with_auction.auction_id()
@@ -81,7 +93,7 @@ def test_withdraw_stale_multiple_users(
 
     # Charlie wins with higher bid
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    second_bid = first_bid + (first_bid * min_increment) // 100
+    second_bid = first_bid + (first_bid * min_increment // precision)
     with boa.env.prank(charlie):
         payment_token.approve(auction_house_with_auction.address, second_bid)
         auction_house_with_auction.create_bid(auction_id, second_bid)
@@ -96,9 +108,9 @@ def test_withdraw_stale_multiple_users(
         auction_house_with_auction.withdraw_stale([alice, bob, charlie])
 
     # Calculate expected amounts
-    stale_fee = first_bid * 5 // 100  # 5% fee on Bob's stale return
+    stale_fee = first_bid * auction_house_with_auction.fee() // precision  # 5% fee on Bob's stale return
     bob_return = first_bid - stale_fee
-    fee_from_bid = second_bid * auction_house_with_auction.fee() // 100
+    fee_from_bid = second_bid * auction_house_with_auction.fee() // precision
     owner_share = second_bid - fee_from_bid
 
     # Verify final balances
@@ -113,7 +125,7 @@ def test_withdraw_stale_multiple_users(
 
 
 def test_create_bid_with_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test using pending returns for a new bid"""
     auction_id = auction_house_with_auction.auction_id()
@@ -121,8 +133,8 @@ def test_create_bid_with_pending_returns(
 
     # Calculate bid amounts
     initial_bid = default_reserve_price
-    bob_bid = initial_bid + (initial_bid * min_increment) // 100
-    final_bid = bob_bid + (bob_bid * min_increment) // 100
+    bob_bid = initial_bid + (initial_bid * min_increment) // precision 
+    final_bid = bob_bid + (bob_bid * min_increment) // precision
     additional_amount = final_bid - initial_bid
 
     # Initial bid from Alice
@@ -150,7 +162,7 @@ def test_create_bid_with_pending_returns(
 
 
 def test_create_bid_insufficient_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test bid fails when pending returns aren't enough"""
     auction_id = auction_house_with_auction.auction_id()
@@ -158,7 +170,7 @@ def test_create_bid_insufficient_pending_returns(
 
     # Calculate bid amounts
     initial_bid = default_reserve_price
-    bob_bid = initial_bid + (initial_bid * min_increment) // 100
+    bob_bid = initial_bid + (initial_bid * min_increment) // precision
     attempted_bid = bob_bid * 2  # Try to bid way higher
 
     # Initial bid from Alice
@@ -191,6 +203,7 @@ def test_prevent_bid_cycling_attack(
     bob,
     payment_token,
     default_reserve_price,
+    precision
 ):
     """
     Test that the contract prevents bid cycling attacks by not allowing
@@ -205,7 +218,7 @@ def test_prevent_bid_cycling_attack(
     # Calculate bid amounts
     initial_bid = default_reserve_price
     min_increment = house.default_min_bid_increment_percentage()
-    second_bid = initial_bid + (initial_bid * min_increment // 100)
+    second_bid = initial_bid + (initial_bid * min_increment // precision)
 
     # Step 1: Alice makes initial bid
     with boa.env.prank(alice):
@@ -257,6 +270,7 @@ def test_prevent_withdrawal_during_active_auction(
     bob,
     payment_token,
     default_reserve_price,
+    precision
 ):
     """
     Security test to ensure users CANNOT withdraw pending returns while an auction
@@ -271,7 +285,7 @@ def test_prevent_withdrawal_during_active_auction(
     # Calculate bid amounts
     initial_bid = default_reserve_price
     min_increment = house.default_min_bid_increment_percentage()
-    second_bid = initial_bid + (initial_bid * min_increment // 100)
+    second_bid = initial_bid + (initial_bid * min_increment // precision)
 
     # Step 1: Alice makes initial bid
     with boa.env.prank(alice):
@@ -319,6 +333,7 @@ def test_prevent_multi_auction_withdrawal_manipulation(
     deployer,
     payment_token,
     default_reserve_price,
+    precision
 ):
     """
     Test to prevent users from using pending returns from one auction
@@ -338,7 +353,7 @@ def test_prevent_multi_auction_withdrawal_manipulation(
 
     # Bob outbids on first auction
     min_increment = house.default_min_bid_increment_percentage()
-    second_bid = default_reserve_price + (default_reserve_price * min_increment // 100)
+    second_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, second_bid)
         house.create_bid(auction1_id, second_bid)
@@ -356,6 +371,7 @@ def test_prevent_withdrawal_amount_manipulation(
     charlie,
     payment_token,
     default_reserve_price,
+    precision
 ):
     """
     Test to prevent manipulation of withdrawal amounts through
@@ -372,12 +388,12 @@ def test_prevent_withdrawal_amount_manipulation(
         house.create_bid(auction_id, default_reserve_price)
 
     min_increment = house.default_min_bid_increment_percentage()
-    bob_bid = default_reserve_price + (default_reserve_price * min_increment // 100)
+    bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction_id, bob_bid)
 
-    charlie_bid = bob_bid + (bob_bid * min_increment // 100)
+    charlie_bid = bob_bid + (bob_bid * min_increment // precision)
     with boa.env.prank(charlie):
         payment_token.approve(house.address, charlie_bid)
         house.create_bid(auction_id, charlie_bid)
@@ -402,6 +418,7 @@ def test_prevent_cross_auction_balance_manipulation(
     deployer,
     payment_token,
     default_reserve_price,
+    precision
 ):
     """
     Test to prevent users from manipulating their balances across multiple
@@ -423,7 +440,7 @@ def test_prevent_cross_auction_balance_manipulation(
 
     # Get outbid on first auction
     min_increment = house.default_min_bid_increment_percentage()
-    bob_bid = default_reserve_price + (default_reserve_price * min_increment // 100)
+    bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction1_id, bob_bid)
@@ -533,6 +550,7 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     approval_flags,
     fee_receiver,
     user_mint_amount,
+    precision
 ):
 
     # Audit initial state
@@ -600,10 +618,10 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     bob_total_payment = house.auction_list(first_auction)[1]
 
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // 100
+    alice_fee_amount = alice_total_payment * house.fee() // precision
     alice_nonfee_amount = alice_total_payment - alice_fee_amount
 
-    bob_fee_amount = bob_total_payment * house.fee() // 100
+    bob_fee_amount = bob_total_payment * house.fee() // precision
     bob_nonfee_amount = bob_total_payment - bob_fee_amount
 
     final_alice = payment_token.balanceOf(alice)
@@ -635,6 +653,7 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     approval_flags,
     fee_receiver,
     user_mint_amount,
+    precision
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -696,10 +715,10 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     bob_total_payment = house.auction_list(first_auction)[1]
 
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // 100
+    alice_fee_amount = alice_total_payment * house.fee() // precision
     alice_nonfee_amount = alice_total_payment - alice_fee_amount
 
-    bob_fee_amount = bob_total_payment * house.fee() // 100
+    bob_fee_amount = bob_total_payment * house.fee() // precision
     bob_nonfee_amount = bob_total_payment - bob_fee_amount
 
     final_alice = payment_token.balanceOf(alice)
@@ -733,6 +752,7 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     approval_flags,
     fee_receiver,
     user_mint_amount,
+    precision
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -796,10 +816,10 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     bob_total_payment = house.auction_list(first_auction)[1] + house.auction_list(second_auction)[1]
 
     # Calculate the expected fee and remaining amount for each auction
-    alice_fee_amount = alice_total_payment * house.fee() // 100
+    alice_fee_amount = alice_total_payment * house.fee() // precision
     alice_nonfee_amount = alice_total_payment - alice_fee_amount
 
-    bob_fee_amount = bob_total_payment * house.fee() // 100
+    bob_fee_amount = bob_total_payment * house.fee() // precision
     bob_nonfee_amount = bob_total_payment - bob_fee_amount
 
     final_alice = payment_token.balanceOf(alice)

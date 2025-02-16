@@ -22,7 +22,7 @@ def test_set_fee_receiver(auction_house, deployer):
             auction_house.set_fee_receiver("0x0000000000000000000000000000000000000000")
 
 
-def test_set_fee(auction_house, deployer):
+def test_set_fee(auction_house, deployer, precision):
     """Test setting new fee percentages"""
     # Only owner should be able to set fee
     with boa.env.prank(boa.env.generate_address()):
@@ -34,17 +34,17 @@ def test_set_fee(auction_house, deployer):
 
     for new_fee in test_fees:
         with boa.env.prank(deployer):
-            auction_house.set_fee(new_fee)
-        assert auction_house.fee() == new_fee
+            auction_house.set_fee(new_fee * precision // 100)
+        assert auction_house.fee() == new_fee * precision // 100
 
     # Should not allow setting fee above MAX_FEE (100)
     with boa.env.prank(deployer):
         with boa.reverts("!fee"):
-            auction_house.set_fee(101)
+            auction_house.set_fee(101 * precision // 100)
 
 
 def test_fee_collection(
-    auction_house_with_auction, deployer, alice, payment_token, default_reserve_price
+    auction_house_with_auction, deployer, alice, payment_token, default_reserve_price, precision
 ):
     """Test that fees are properly collected during auction settlement"""
     house = auction_house_with_auction
@@ -74,7 +74,7 @@ def test_fee_collection(
         house.settle_auction(auction_id)
 
     # Verify fee distribution
-    expected_fee = default_reserve_price * test_fee // 100
+    expected_fee = default_reserve_price * test_fee // precision
     expected_remaining = default_reserve_price - expected_fee
 
     fee_receiver_balance_after = payment_token.balanceOf(fee_receiver)

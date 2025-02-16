@@ -2,7 +2,7 @@ import boa
 
 
 def test_auction_extension_near_end(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test auction extension when bid placed near end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -22,7 +22,7 @@ def test_auction_extension_near_end(
 
     # Calculate next bid
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    next_bid = bid_amount + (bid_amount * min_increment) // 100
+    next_bid = bid_amount + (bid_amount * min_increment) // precision
 
     # New bid should extend
     with boa.env.prank(bob):
@@ -34,7 +34,7 @@ def test_auction_extension_near_end(
 
 
 def test_auction_extension_not_near_end(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test auction not extended when bid placed well before end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -54,7 +54,7 @@ def test_auction_extension_not_near_end(
 
     # Calculate next bid
     min_increment = auction_house_with_auction.default_min_bid_increment_percentage()
-    next_bid = bid_amount + (bid_amount * min_increment) // 100
+    next_bid = bid_amount + (bid_amount * min_increment) // precision
 
     # New bid should not extend
     with boa.env.prank(bob):
@@ -108,7 +108,7 @@ def test_bid_validation_too_low(
 
 
 def test_bid_increment_validation(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test minimum bid increment enforcement"""
     auction_id = auction_house_with_auction.auction_id()
@@ -129,7 +129,7 @@ def test_bid_increment_validation(
     # Calculate minimum valid next bid
     min_increment = (
         bid_amount * auction_house_with_auction.default_min_bid_increment_percentage()
-    ) // 100
+    ) // precision
     min_next_bid = bid_amount + min_increment
 
     # Valid bid at minimum increment

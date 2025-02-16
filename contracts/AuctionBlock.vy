@@ -168,11 +168,11 @@ event DirectorySet:
 # 📜 Constants
 # ============================================================================================
 
-PRECISION: constant(uint256) = 100
+PRECISION: constant(uint256) = 100 * 10 ** 8
 MAX_WITHDRAWALS: constant(uint256) = 100
 MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 1000
-MAX_FEE: constant(uint256) = 100 # 100%
+MAX_FEE: constant(uint256) = 100 * 10 ** 8  # 100%
 
 
 # ============================================================================================
@@ -224,15 +224,15 @@ def __init__(
     pausable.__init__()
 
     # Defaults
-    self.default_duration = 3600    # 1 hour
-    self.default_time_buffer = 300  # 5 minutes
-    self.default_reserve_price = 2 * 10 ** 17   # 0.2 tokens
-    self.default_min_bid_increment_percentage = 2 # 2%
+    self.default_duration = 3600                    # 1 hour
+    self.default_time_buffer = 300                  # 5 minutes
+    self.default_reserve_price = 2 * 10 ** 17       # 0.2 tokens
+    self.default_min_bid_increment_percentage = 2 * 10 ** 8   # 2%
 
     # Money
     self.payment_token = IERC20(payment_token)
     self.fee_receiver = fee_receiver
-    self.fee = 5  # 5%
+    self.fee = 5 * 10 ** 8 # 5%
 
 
 # ============================================================================================
@@ -532,7 +532,7 @@ def withdraw_stale(addresses: DynArray[address, MAX_WITHDRAWALS]):
         if pending_amount == 0:
             continue
 
-        fee: uint256 = pending_amount * 5 // 100
+        fee: uint256 = pending_amount * self.fee // PRECISION
         withdrawer_return: uint256 = pending_amount - fee
         assert extcall self.payment_token.transfer(
             _address, withdrawer_return

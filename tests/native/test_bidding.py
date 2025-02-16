@@ -26,7 +26,7 @@ def test_minimum_additional_bid_no_bids(auction_house_with_auction, alice):
     ), "Minimum additional bid should equal reserve price for new bidder"
 
 
-def test_minimum_total_bid_with_active_bid(auction_house_with_auction, alice, payment_token):
+def test_minimum_total_bid_with_active_bid(auction_house_with_auction, alice, payment_token, precision):
     """Test minimum total bid calculation with an active bid"""
     house = auction_house_with_auction
     auction_id = house.auction_id()
@@ -39,14 +39,14 @@ def test_minimum_total_bid_with_active_bid(auction_house_with_auction, alice, pa
 
     # Calculate expected minimum next bid
     increment_percentage = house.default_min_bid_increment_percentage()
-    expected_min = initial_bid + (initial_bid * increment_percentage // 100)
+    expected_min = initial_bid + (initial_bid * increment_percentage // precision)
 
     min_bid = house.minimum_total_bid(auction_id)
     assert min_bid == expected_min, f"Expected minimum bid {expected_min}, got {min_bid}"
 
 
 def test_minimum_additional_bid_with_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token
+    auction_house_with_auction, alice, bob, payment_token, precision
 ):
     """Test minimum additional bid calculation when bidder has pending returns"""
     house = auction_house_with_auction
@@ -60,14 +60,14 @@ def test_minimum_additional_bid_with_pending_returns(
 
     # Bob outbids Alice
     increment_percentage = house.default_min_bid_increment_percentage()
-    bob_bid = initial_bid + (initial_bid * increment_percentage // 100)
+    bob_bid = initial_bid + (initial_bid * increment_percentage // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction_id, bob_bid)
 
     # Calculate Alice's minimum additional bid
     # She should need to pay the difference between minimum total bid and her pending returns
-    next_min_total = bob_bid + (bob_bid * increment_percentage // 100)
+    next_min_total = bob_bid + (bob_bid * increment_percentage // precision)
     alice_pending = house.pending_returns(alice)
     expected_additional = next_min_total - alice_pending
 
@@ -134,7 +134,7 @@ def test_auction_bid_by_user_winning_bid(
 
 
 def test_auction_bid_by_user_outbid(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test auction_bid_by_user for outbid user"""
     house = auction_house_with_auction
@@ -147,7 +147,7 @@ def test_auction_bid_by_user_outbid(
 
     # Bob outbids Alice
     min_next_bid = default_reserve_price + (
-        default_reserve_price * house.default_min_bid_increment_percentage() // 100
+        default_reserve_price * house.default_min_bid_increment_percentage() // precision
     )
 
     with boa.env.prank(bob):
@@ -163,7 +163,7 @@ def test_auction_bid_by_user_outbid(
 
 
 def test_auction_bid_by_user_multiple_bids(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """Test auction_bid_by_user with multiple back-and-forth bids"""
     house = auction_house_with_auction
@@ -184,7 +184,7 @@ def test_auction_bid_by_user_multiple_bids(
     for _ in range(3):
         # Bob outbids
         min_next_bid = current_bid + (
-            current_bid * house.default_min_bid_increment_percentage() // 100
+            current_bid * house.default_min_bid_increment_percentage() // precision
         )
         with boa.env.prank(bob):
             payment_token.approve(house.address, min_next_bid)
@@ -200,7 +200,7 @@ def test_auction_bid_by_user_multiple_bids(
 
         # Alice bids again
         min_next_bid = current_bid + (
-            current_bid * house.default_min_bid_increment_percentage() // 100
+            current_bid * house.default_min_bid_increment_percentage() // precision
         )
         with boa.env.prank(alice):
             house.create_bid(auction_id, min_next_bid)
@@ -224,7 +224,7 @@ def test_auction_bid_by_user_invalid_auction(auction_house_with_auction, alice):
 
 
 def test_auction_bid_by_user_after_settlement(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, deployer
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, deployer, precision
 ):
     """Test auction_bid_by_user after auction is settled"""
     house = auction_house_with_auction
@@ -236,7 +236,7 @@ def test_auction_bid_by_user_after_settlement(
         house.create_bid(auction_id, default_reserve_price)
 
     min_next_bid = default_reserve_price + (
-        default_reserve_price * house.default_min_bid_increment_percentage() // 100
+        default_reserve_price * house.default_min_bid_increment_percentage() // precision
     )
     with boa.env.prank(bob):
         payment_token.approve(house.address, min_next_bid)
