@@ -24,6 +24,7 @@ def test_mint_works_without_nft(
     nft,
     payment_token,
     zero_address,
+    directory,
 ):
     house = auction_house_with_auction
     auction_id = house.auction_id()
@@ -36,7 +37,7 @@ def test_mint_works_without_nft(
     # Alice wins!
     assert nft.balanceOf(alice) == 0
     assert house.auction_list(auction_id)[4] == alice
-    assert house.nft() == zero_address
+    assert directory.nft() == zero_address
     with boa.env.prank(deployer):
         house.settle_auction(auction_id)
 
@@ -67,7 +68,7 @@ def test_nft_mints_on_complete_auction(
     # Alice wins!
     assert nft.balanceOf(alice) == 0
     assert house.auction_list(auction_id)[4] == alice
-    assert house.nft() == nft.address
+    assert directory.nft() == nft.address
     with boa.env.prank(deployer):
         house.settle_auction(auction_id)
 
@@ -98,7 +99,7 @@ def test_nft_id_matches_auction_id(
     # Alice wins!
     assert nft.balanceOf(alice) == 0
     assert house.auction_list(auction_id)[4] == alice
-    assert house.nft() == nft.address
+    assert directory.nft() == nft.address
     with boa.env.prank(deployer):
         house.settle_auction(auction_id)
 
