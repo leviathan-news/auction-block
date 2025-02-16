@@ -26,7 +26,9 @@ def test_minimum_additional_bid_no_bids(auction_house_with_auction, alice):
     ), "Minimum additional bid should equal reserve price for new bidder"
 
 
-def test_minimum_total_bid_with_active_bid(auction_house_with_auction, alice, payment_token, precision):
+def test_minimum_total_bid_with_active_bid(
+    auction_house_with_auction, alice, payment_token, precision
+):
     """Test minimum total bid calculation with an active bid"""
     house = auction_house_with_auction
     auction_id = house.auction_id()
@@ -224,7 +226,13 @@ def test_auction_bid_by_user_invalid_auction(auction_house_with_auction, alice):
 
 
 def test_auction_bid_by_user_after_settlement(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, deployer, precision
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    deployer,
+    precision,
 ):
     """Test auction_bid_by_user after auction is settled"""
     house = auction_house_with_auction

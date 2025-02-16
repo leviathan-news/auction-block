@@ -10,7 +10,7 @@ def test_withdraw_stale(
     fee_receiver,
     default_reserve_price,
     default_fee,
-    precision
+    precision,
 ):
     """Test admin withdrawal of stale pending returns"""
     auction_id = auction_house_with_auction.auction_id()
@@ -38,7 +38,7 @@ def test_withdraw_stale(
     pending_amount = auction_house_with_auction.auction_pending_returns(auction_id, alice)
     assert pending_amount > 0
 
-    print(f"\nBefore withdraw_stale:")
+    print("\nBefore withdraw_stale:")
     print(f"Fee receiver balance: {fee_receiver_before_stale}")
     print(f"Pending amount: {pending_amount}")
     print(f"Contract fee: {auction_house_with_auction.fee()}")
@@ -60,18 +60,28 @@ def test_withdraw_stale(
     fee_from_stale = payment_token.balanceOf(fee_receiver) - fee_receiver_before_stale
     amount_to_alice = balance_after_withdrawal - balance_before_withdrawal
 
-    print(f"\nAfter withdraw_stale:")
+    print("\nAfter withdraw_stale:")
     print(f"Fee from stale withdrawal: {fee_from_stale}")
     print(f"Expected stale fee: {expected_stale_fee}")
     print(f"Amount returned to alice: {amount_to_alice}")
     print(f"Expected return to alice: {expected_return}")
 
     # Verify the amounts
-    assert fee_from_stale == expected_stale_fee, f"Fee amount incorrect: got {fee_from_stale}, expected {expected_stale_fee}"
+    assert (
+        fee_from_stale == expected_stale_fee
+    ), f"Fee amount incorrect: got {fee_from_stale}, expected {expected_stale_fee}"
     assert amount_to_alice == expected_return, "Return amount to alice incorrect"
 
+
 def test_withdraw_stale_multiple_users(
-    auction_house_with_auction, alice, bob, charlie, deployer, payment_token, fee_receiver, precision
+    auction_house_with_auction,
+    alice,
+    bob,
+    charlie,
+    deployer,
+    payment_token,
+    fee_receiver,
+    precision,
 ):
     """Test admin withdrawal for multiple users with various states"""
     auction_id = auction_house_with_auction.auction_id()
@@ -108,7 +118,9 @@ def test_withdraw_stale_multiple_users(
         auction_house_with_auction.withdraw_stale([alice, bob, charlie])
 
     # Calculate expected amounts
-    stale_fee = first_bid * auction_house_with_auction.fee() // precision  # 5% fee on Bob's stale return
+    stale_fee = (
+        first_bid * auction_house_with_auction.fee() // precision
+    )  # 5% fee on Bob's stale return
     bob_return = first_bid - stale_fee
     fee_from_bid = second_bid * auction_house_with_auction.fee() // precision
     owner_share = second_bid - fee_from_bid
@@ -133,7 +145,7 @@ def test_create_bid_with_pending_returns(
 
     # Calculate bid amounts
     initial_bid = default_reserve_price
-    bob_bid = initial_bid + (initial_bid * min_increment) // precision 
+    bob_bid = initial_bid + (initial_bid * min_increment) // precision
     final_bid = bob_bid + (bob_bid * min_increment) // precision
     additional_amount = final_bid - initial_bid
 
@@ -198,12 +210,7 @@ def test_create_bid_insufficient_pending_returns(
 
 
 def test_prevent_bid_cycling_attack(
-    auction_house_with_auction,
-    alice,
-    bob,
-    payment_token,
-    default_reserve_price,
-    precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """
     Test that the contract prevents bid cycling attacks by not allowing
@@ -265,12 +272,7 @@ def test_prevent_bid_cycling_attack(
 
 
 def test_prevent_withdrawal_during_active_auction(
-    auction_house_with_auction,
-    alice,
-    bob,
-    payment_token,
-    default_reserve_price,
-    precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
 ):
     """
     Security test to ensure users CANNOT withdraw pending returns while an auction
@@ -333,7 +335,7 @@ def test_prevent_multi_auction_withdrawal_manipulation(
     deployer,
     payment_token,
     default_reserve_price,
-    precision
+    precision,
 ):
     """
     Test to prevent users from using pending returns from one auction
@@ -365,13 +367,7 @@ def test_prevent_multi_auction_withdrawal_manipulation(
 
 
 def test_prevent_withdrawal_amount_manipulation(
-    auction_house_with_auction,
-    alice,
-    bob,
-    charlie,
-    payment_token,
-    default_reserve_price,
-    precision
+    auction_house_with_auction, alice, bob, charlie, payment_token, default_reserve_price, precision
 ):
     """
     Test to prevent manipulation of withdrawal amounts through
@@ -418,7 +414,7 @@ def test_prevent_cross_auction_balance_manipulation(
     deployer,
     payment_token,
     default_reserve_price,
-    precision
+    precision,
 ):
     """
     Test to prevent users from manipulating their balances across multiple
@@ -550,7 +546,7 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     approval_flags,
     fee_receiver,
     user_mint_amount,
-    precision
+    precision,
 ):
 
     # Audit initial state
@@ -653,7 +649,7 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     approval_flags,
     fee_receiver,
     user_mint_amount,
-    precision
+    precision,
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -752,7 +748,7 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     approval_flags,
     fee_receiver,
     user_mint_amount,
-    precision
+    precision,
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()

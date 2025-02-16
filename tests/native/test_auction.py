@@ -11,7 +11,7 @@ def test_initial_state(
     default_min_bid_increment,
     default_duration,
     default_fee,
-    precision
+    precision,
 ):
     """Test the initial state of the auction house after deployment"""
     assert auction_house.owner() == deployer
@@ -78,7 +78,9 @@ def test_create_bid(auction_house_with_auction, alice, payment_token, default_re
     ), "Expected house to hold tokens"
 
 
-def test_outbid(auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision):
+def test_outbid(
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+):
     """Test outbidding functionality"""
     house = auction_house_with_auction
     auction_id = house.auction_id()

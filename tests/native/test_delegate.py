@@ -90,7 +90,14 @@ def test_delegated_bid_chaining(
 
 
 def test_delegated_bid_with_pending_returns(
-    auction_house_with_auction, admin, alice, bob, payment_token, default_reserve_price, bid_flag, precision
+    auction_house_with_auction,
+    admin,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    bid_flag,
+    precision,
 ):
     """Test delegated bidding when the user has pending returns"""
     house = auction_house_with_auction

@@ -233,7 +233,7 @@ def test_cannot_create_bid_when_paused(auction_house_with_auction, alice, paymen
             auction_house_with_auction.create_bid(auction_id, bid_amount)
 
 
-#@pytest.mark.fork_only
+# @pytest.mark.fork_only
 @pytest.mark.skip()
 def test_cannot_create_token_bid_when_paused(
     auction_house_with_auction, alice, payment_token, weth, deployer

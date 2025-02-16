@@ -8,19 +8,19 @@ def mock_pool_contract():
 
 
 @pytest.fixture
-def mock_pool(mock_pool_contract, payment_token, weth,fork_mode):
+def mock_pool(mock_pool_contract, payment_token, weth, fork_mode):
     pool = mock_pool_contract.deploy()
     pool.set_coin(1, payment_token.address)  # SQUID
     pool.set_coin(0, weth.address)  # WETH
-    eth_amount = 1_000 * 10 ** 18
-    
+    eth_amount = 1_000 * 10**18
+
     addr = boa.env.generate_address()
     if fork_mode:
         boa.env.set_balance(addr, eth_amount)
         with boa.env.prank(addr):
             weth.deposit(value=eth_amount)
             weth.transfer(pool, eth_amount)
-            
+
     else:
         weth._mint_for_testing(pool, eth_amount)
     payment_token._mint_for_testing(pool, eth_amount)

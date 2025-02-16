@@ -41,7 +41,14 @@ def test_withdraw_after_outbid(
 
 
 def test_settle_auction_with_single_bid(
-    auction_house_with_auction, alice, deployer, fee_receiver, payment_token, default_reserve_price, precision, default_fee
+    auction_house_with_auction,
+    alice,
+    deployer,
+    fee_receiver,
+    payment_token,
+    default_reserve_price,
+    precision,
+    default_fee,
 ):
     """Test settling auction with one bid"""
     auction_id = auction_house_with_auction.auction_id()
@@ -106,7 +113,7 @@ def test_settle_multiple_bids(
     proceeds_receiver,
     payment_token,
     default_reserve_price,
-    precision
+    precision,
 ):
     auction_id = auction_house_with_auction.auction_id()
     alice_balance_before = payment_token.balanceOf(alice)
