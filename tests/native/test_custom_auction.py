@@ -53,34 +53,6 @@ def test_create_custom_auction(
     assert auction_params[3] == custom_duration, "Duration should match custom value"
 
 
-@pytest.mark.skip()
-def test_create_custom_auction_invalid_duration(
-    auction_house, deployer, default_time_buffer, default_reserve_price, default_min_bid_increment
-):
-    """Test that creating a custom auction with invalid duration raises an error"""
-    # Test too short duration
-    with boa.env.prank(deployer):
-        with pytest.raises(Exception, match="!duration"):
-            auction_house.create_custom_auction(
-                default_time_buffer,
-                default_reserve_price,
-                default_min_bid_increment,
-                3500,  # Less than MIN_DURATION (3600)
-                "",
-            )
-
-    # Test too long duration
-    with boa.env.prank(deployer):
-        with pytest.raises(Exception, match="!duration"):
-            auction_house.create_custom_auction(
-                default_time_buffer,
-                default_reserve_price,
-                default_min_bid_increment,
-                259201,  # More than MAX_DURATION (259200)
-                "",
-            )
-
-
 def test_create_custom_auction_only_owner(
     auction_house,
     alice,

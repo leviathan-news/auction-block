@@ -187,7 +187,9 @@ def test_current_auctions(auction_house_with_auction, deployer):
     assert active_auctions[0] == 2
 
     # Fast forward past all auctions
-    boa.env.time_travel(seconds=4000)  # Well past second auction
+    auction_id = active_auctions[0]
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
 
     # Should show no active auctions
     active_auctions = auction_house_with_auction.current_auctions()

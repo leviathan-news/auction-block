@@ -28,7 +28,8 @@ def test_withdraw_stale(
         auction_house_with_auction.create_bid(auction_id, next_bid)
 
     # Settlement
-    boa.env.time_travel(seconds=4000)
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
     with boa.env.prank(deployer):
         auction_house_with_auction.settle_auction(auction_id)
 
@@ -54,7 +55,6 @@ def test_withdraw_stale(
     balance_after_withdrawal = payment_token.balanceOf(alice)
 
     # Calculate expected fee using contract's fee parameter and precision
-    # Note: We now use the contract's fee parameter instead of hardcoded 5
     expected_stale_fee = pending_amount * auction_house_with_auction.fee() // precision
     expected_return = pending_amount - expected_stale_fee
     fee_from_stale = payment_token.balanceOf(fee_receiver) - fee_receiver_before_stale
@@ -109,7 +109,8 @@ def test_withdraw_stale_multiple_users(
         auction_house_with_auction.create_bid(auction_id, second_bid)
 
     # Settlement
-    boa.env.time_travel(seconds=4000)
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
     with boa.env.prank(deployer):
         auction_house_with_auction.settle_auction(auction_id)
 
@@ -258,7 +259,8 @@ def test_prevent_bid_cycling_attack(
     assert house.pending_returns(alice) == initial_bid, "Pending returns should be unchanged"
 
     # Now end the auction and verify withdrawal works
-    boa.env.time_travel(seconds=4000)  # Past auction end
+    expiry_time = house.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
 
     with boa.env.prank(alice):
         house.settle_auction(auction_id)
@@ -315,7 +317,8 @@ def test_prevent_withdrawal_during_active_auction(
     ), "Security vulnerability: User was able to withdraw during active auction!"
 
     # Now properly end the auction
-    boa.env.time_travel(seconds=4000)  # Past auction end time
+    expiry_time = house.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)  # Past auction end time
 
     # Now withdrawal should succeed
     with boa.env.prank(alice):
@@ -395,7 +398,8 @@ def test_prevent_withdrawal_amount_manipulation(
         house.create_bid(auction_id, charlie_bid)
 
     # End auction
-    boa.env.time_travel(seconds=4000)
+    expiry_time = house.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
 
     # Verify withdrawal amount matches original bid exactly
     with boa.env.prank(alice):
@@ -447,7 +451,8 @@ def test_prevent_cross_auction_balance_manipulation(
             house.create_bid(auction2_id, default_reserve_price)
 
     # End first auction and withdraw
-    boa.env.time_travel(seconds=4000)
+    expiry_time = house.auction_remaining_time(auction2_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
     with boa.env.prank(alice):
         house.settle_auction(auction1_id)
         house.withdraw(auction1_id)

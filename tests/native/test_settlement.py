@@ -32,7 +32,8 @@ def test_withdraw_after_outbid(
         auction_house_with_auction.create_bid(auction_id, second_bid)
 
     # Alice withdraws
-    boa.env.time_travel(seconds=4000)
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
     auction_house_with_auction.settle_auction(auction_id)
     with boa.env.prank(alice):
         auction_house_with_auction.withdraw(auction_id)
@@ -63,7 +64,8 @@ def test_settle_auction_with_single_bid(
         payment_token.approve(auction_house_with_auction.address, bid_amount)
         auction_house_with_auction.create_bid(auction_id, bid_amount)
 
-    boa.env.time_travel(seconds=4000)
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
 
     with boa.env.prank(deployer):
         auction_house_with_auction.settle_auction(auction_id)
@@ -85,7 +87,8 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
     print(f"Initial auction state: {initial_auction}")
 
     # Fast forward past auction end
-    boa.env.time_travel(seconds=4000)
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
 
     with boa.env.prank(deployer):
         # auction_house_with_auction.pause()
@@ -131,7 +134,8 @@ def test_settle_multiple_bids(
         payment_token.approve(auction_house_with_auction.address, second_bid)
         auction_house_with_auction.create_bid(auction_id, second_bid)
 
-    boa.env.time_travel(seconds=4000)
+    expiry_time = auction_house_with_auction.auction_remaining_time(auction_id) + 1
+    boa.env.time_travel(seconds=expiry_time)
 
     with boa.env.prank(deployer):
         # auction_house_with_auction.pause()
