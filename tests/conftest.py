@@ -211,13 +211,8 @@ def base_auction_house(
 ):
     with boa.env.prank(deployer):
         return auction_house_contract.deploy(
-            default_time_buffer,
-            default_reserve_price,
-            default_min_bid_increment,
-            default_duration,
             payment_token,
             fee_receiver,
-            default_fee,
         )
 
 

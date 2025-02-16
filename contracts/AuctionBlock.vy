@@ -172,7 +172,7 @@ PRECISION: constant(uint256) = 100
 MAX_WITHDRAWALS: constant(uint256) = 100
 MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 1000
-MAX_FEE: constant(uint256) = 100  # 100%
+MAX_FEE: constant(uint256) = 100 # 100%
 
 
 # ============================================================================================
@@ -214,31 +214,25 @@ fee: public(uint256)
 
 @deploy
 def __init__(
-    time_buffer: uint256,
-    reserve_price: uint256,
-    min_bid_increment_percentage: uint256,
-    duration: uint256,
     payment_token: address,
     fee_receiver: address,
-    fee: uint256,
 ):
     assert payment_token != empty(address), "!payment_token"
     assert fee_receiver != empty(address), "!fee_receiver"
-    assert fee <= MAX_FEE, "!fee"
 
     ownable.__init__()
     pausable.__init__()
 
     # Defaults
-    self.default_time_buffer = time_buffer
-    self.default_reserve_price = reserve_price
-    self.default_min_bid_increment_percentage = min_bid_increment_percentage
-    self.default_duration = duration
+    self.default_duration = 3600    # 1 hour
+    self.default_time_buffer = 300  # 5 minutes
+    self.default_reserve_price = 2 * 10 ** 17   # 0.2 tokens
+    self.default_min_bid_increment_percentage = 2 # 2%
 
     # Money
     self.payment_token = IERC20(payment_token)
     self.fee_receiver = fee_receiver
-    self.fee = fee
+    self.fee = 5  # 5%
 
 
 # ============================================================================================
@@ -703,7 +697,6 @@ def set_default_min_bid_increment_percentage(_percentage: uint256):
 @external
 def set_default_duration(_duration: uint256):
     ownable._check_owner()
-    # assert _duration >= MIN_DURATION and _duration <= MAX_DURATION, "!duration"
     self.default_duration = _duration
     log DefaultAuctionDurationUpdated(_duration)
 
