@@ -154,6 +154,7 @@ event DirectorySet:
 
 PERCENT_PRECISION: constant(uint256) = 100 * 10**8
 MAX_WITHDRAWALS: constant(uint256) = 100
+# XXX
 MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTIONS: constant(uint256) = 1000
 MAX_FEE_PERCENT: constant(uint256) = 100 * 10**8  # 100%
@@ -373,17 +374,14 @@ def create_bid(
     on_behalf_of: address = msg.sender,
 ):
     """
+    @notice Create a bid using the contract's payment token
     @dev Create a bid using the primary payment token
+    @param auction_id An active auction
+    @param bid_amount The user's total bid, inclusive of prior bids
+    @param on_behalf_of User to bid on behalf of
+    @param ipfs_hash Optional data to register with the bid
     """
-    if msg.sender != self.authorized_directory.address:
-        self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-
-    payment_amount: uint256 = self._collect_payment(
-        auction_id, bid_amount, on_behalf_of
-    )
-    self._create_bid(auction_id, payment_amount, on_behalf_of)
-    if ipfs_hash != "":
-        self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash
+    self._create_bid(auction_id, bid_amount, ipfs_hash, on_behalf_of)
 
 
 @external
@@ -392,7 +390,7 @@ def create_bid_with_token(
     auction_id: uint256,
     token_amount: uint256,
     token: IERC20,
-    min_dy: uint256,
+    min_total_bid: uint256,
     ipfs_hash: String[46] = "",
     on_behalf_of: address = msg.sender,
 ):
@@ -400,20 +398,15 @@ def create_bid_with_token(
     @notice Create a bid using an alternative token
     @dev Must have approved the token for use with this contract
     @param auction_id An active auction
-    @param token_amount Amount of the alternative token
-    @param token Address of the token
-    @param min_dy To protect against slippage, min amount of payment token to receive
+    @param token_amount Quantity of misc token to trade.  Value should exclude any existing bid amount
+    @param token Address of the alternative token, if approved
+    @param min_total_bid Required minimum final total bid value, or revert (slippage)
     @param on_behalf_of User to bid on behalf of
+    @param ipfs_hash Optional data to register with the bid
     """
-    if msg.sender != self.authorized_directory.address:
-        self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    payment_amount: uint256 = self._collect_payment(
-        auction_id, min_dy, on_behalf_of, token, token_amount
+    self._create_bid(
+        auction_id, min_total_bid, ipfs_hash, on_behalf_of, token, token_amount
     )
-
-    self._create_bid(auction_id, payment_amount, on_behalf_of)
-    if ipfs_hash != "":
-        self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash
 
 
 @external
@@ -857,7 +850,28 @@ def _collect_payment(
 
 
 @internal
-def _create_bid(auction_id: uint256, total_bid: uint256, bidder: address):
+def _create_bid(
+    auction_id: uint256,
+    bid_amount: uint256,
+    ipfs_hash: String[46],
+    on_behalf_of: address,
+    token: IERC20 = empty(IERC20),
+    min_dy: uint256 = 0,
+):
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+
+    payment_amount: uint256 = self._collect_payment(
+        auction_id, bid_amount, on_behalf_of, token, min_dy
+    )
+    self._register_bid(auction_id, payment_amount, on_behalf_of)
+
+    # User may be requested to register data with their bid
+    if ipfs_hash != "":
+        self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash
+
+
+@internal
+def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     pausable._check_unpaused()
 
     _auction: Auction = self.auction_list[auction_id]
@@ -931,7 +945,8 @@ def _minimum_additional_bid(
 def _check_caller(
     _account: address, _caller: address, _req_status: ApprovalStatus
 ):
-    if _account != _caller:
+    # Directory contract assumes onus of confirming status
+    if _account != _caller and msg.sender != self.authorized_directory.address:
         _status: ApprovalStatus = self.approved_caller[_account][_caller]
         if _status == ApprovalStatus.BidAndWithdraw:
             return
