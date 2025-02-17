@@ -173,6 +173,7 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
             )
     return auction_list
 
+
 @external
 @view
 def safe_get_dx(token: IERC20, dy: uint256) -> uint256:

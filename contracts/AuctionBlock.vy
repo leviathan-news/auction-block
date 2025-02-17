@@ -687,14 +687,15 @@ def _collect_payment(
         else:
             self.auction_pending_returns[auction_id][bidder] = 0
             tokens_needed = total_bid - pending_amount
-
     if tokens_needed > 0:
         # Directory handles privileges, auction contracts invisible to user
         token_source: address = bidder
         if msg.sender == self.authorized_directory.address:
             token_source = self.authorized_directory.address
 
-        assert extcall self.payment_token.transferFrom(token_source, self, tokens_needed, default_return_value=True), "!transfer"
+        assert extcall self.payment_token.transferFrom(
+            token_source, self, tokens_needed, default_return_value=True
+        ), "!transfer"
 
     return total_bid
 
