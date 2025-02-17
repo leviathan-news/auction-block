@@ -11,6 +11,9 @@ from .imports import ownable_2step as ownable
 
 initializes: ownable
 
+# ============================================================================================
+# 🧩 Interfaces
+# ============================================================================================
 
 interface Pool:
     def get_dy(i: uint256, j: uint256, dx: uint256) -> uint256: view
@@ -43,6 +46,10 @@ flag ApprovalStatus:
     BidAndWithdraw  # Approved for both bid and withdraw
 
 
+# ============================================================================================
+# 📣 Events
+# ============================================================================================
+
 event ApprovedCallerSet:
     account: address
     caller: address
@@ -53,6 +60,11 @@ event DirectorySet:
     directory_address: address
 
 
+# ============================================================================================
+# 💾 Storage
+# ============================================================================================
+
+
 payment_token: public(IERC20)
 trading_token: public(IERC20)
 pool: public(Pool)
@@ -61,6 +73,10 @@ indices: public(uint256[2])
 # User settings: user -> caller -> status
 approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 authorized_directory: public(address)
+
+# ============================================================================================
+# 🚧 Constructor
+# ============================================================================================
 
 
 @deploy
@@ -76,6 +92,46 @@ def __init__(
     self.indices = _indices
 
     ownable.__init__()
+
+
+# ============================================================================================
+# 👀 View functions
+# ============================================================================================
+
+@external
+@view
+def get_dx(_dy: uint256) -> uint256:
+    return self._get_dx(_dy)
+
+
+@external
+@view
+def get_dy(_dx: uint256) -> uint256:
+    return self._get_dy(_dx)
+
+
+@external
+@view
+def safe_get_dx(_dy: uint256) -> uint256:
+    """
+    @dev A gas fuzzling function, recommend not to use in smart contracts
+    @return A safe dx above the minimum required to guarantee dy
+    """
+    _actual_dy: uint256 = 0
+    _dx: uint256 = self._get_dx(_dy)
+    for _i: uint256 in range(10):
+        _actual_dy = self._get_dy(_dx)
+        if _actual_dy >= _dy:
+            break
+        else:
+            _dx = _dx * 100000001 // 100000000
+    assert _actual_dy >= _dy
+    return _dx
+
+
+# ============================================================================================
+# ✍️ Write functions
+# ============================================================================================
 
 
 @external
@@ -155,6 +211,34 @@ def exchange(
     return received
 
 
+@external
+def set_approved_caller(caller: address, status: ApprovalStatus):
+    """
+    @dev Set approval status for a caller
+    """
+    self.approved_caller[msg.sender][caller] = status
+    log ApprovedCallerSet(msg.sender, caller, status)
+
+
+# ============================================================================================
+# 👑 Owner functions
+# ============================================================================================
+
+
+@external
+def set_approved_directory(directory_address: address):
+    """
+    @dev Authorized directory contract with permissions
+    """
+    ownable._check_owner()
+    self.authorized_directory = directory_address
+    log DirectorySet(directory_address)
+
+
+# ============================================================================================
+# 🏠 Internal functions
+# ============================================================================================
+
 @internal
 def _exchange(
     _dx: uint256, _min_dy: uint256, _from: address = msg.sender
@@ -168,56 +252,6 @@ def _exchange(
         self.indices[0], self.indices[1], _dx, _min_dy
     )
     return received
-
-
-@external
-@view
-def get_dx(_dy: uint256) -> uint256:
-    return self._get_dx(_dy)
-
-
-@external
-@view
-def get_dy(_dx: uint256) -> uint256:
-    return self._get_dy(_dx)
-
-
-@external
-@view
-def safe_get_dx(_dy: uint256) -> uint256:
-    """
-    @dev A gas fuzzling function, recommend not to use in smart contracts
-    @return A safe dx above the minimum required to guarantee dy
-    """
-    _actual_dy: uint256 = 0
-    _dx: uint256 = self._get_dx(_dy)
-    for _i: uint256 in range(10):
-        _actual_dy = self._get_dy(_dx)
-        if _actual_dy >= _dy:
-            break
-        else:
-            _dx = _dx * 100000001 // 100000000
-    assert _actual_dy >= _dy
-    return _dx
-
-
-@external
-def set_approved_caller(caller: address, status: ApprovalStatus):
-    """
-    @dev Set approval status for a caller
-    """
-    self.approved_caller[msg.sender][caller] = status
-    log ApprovedCallerSet(msg.sender, caller, status)
-
-
-@external
-def set_approved_directory(directory_address: address):
-    """
-    @dev Authorized directory contract with permissions
-    """
-    ownable._check_owner()
-    self.authorized_directory = directory_address
-    log DirectorySet(directory_address)
 
 
 @internal

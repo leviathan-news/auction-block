@@ -25,9 +25,11 @@ interface AuctionContract:
         ipfs_hash: String[46],
         on_behalf_of: address,
     ): nonpayable
+    def minimum_total_bid(auction_id: uint256) -> uint256: view
     def minimum_additional_bid_for_user(
         auction_id: uint256, user: address
     ) -> uint256: view
+    def auction_bid_by_user(auction_id: uint256, user: address) -> uint256: view
 
 
 interface AuctionZap:
@@ -245,37 +247,57 @@ def create_bid_with_token(
     auction_id: uint256,
     token_amount: uint256,
     token: IERC20,
-    min_dy: uint256,
+    min_total_bid: uint256,
     ipfs_hash: String[46] = "",
     on_behalf_of: address = msg.sender,
 ):
     """
     @notice Create a bid using an alternative token
     @dev Must have approved the token for use with this contract
+    @param auction_contract Auction contract containing ongoing auction
     @param auction_id An active auction
     @param token_amount Amount of the alternative token
     @param token Address of the token
-    @param min_dy To protect against slippage, min amount of payment token to receive
+    @param min_total_bid To protect against slippage, min amount of payment token to receive
     @param on_behalf_of User to bid on behalf of
     """
+
     pausable._check_unpaused()
+    # Contract exists
     assert auction_contract in self.registered_contracts, "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
-    # Get tokens from user
-    extcall token.transferFrom(on_behalf_of, self, token_amount)
-
-    # Trade tokens
+    # Token trading authorized
     auction_zap: AuctionZap = self.additional_tokens[token]
-    assert auction_zap != empty(AuctionZap), "!contract"
+    assert auction_zap != empty(AuctionZap), "!token"
 
+    # Did the user request enough tokens?
+    current_bid: uint256 = staticcall auction_contract.auction_bid_by_user(
+        auction_id, on_behalf_of
+    )
+    assert current_bid < min_total_bid, "!bid_amount"
+
+    # Is the user's bid sufficient
+    assert min_total_bid >= staticcall auction_contract.minimum_total_bid(
+        auction_id
+    ), "!bid_amount"
+
+    expected_swap_output: uint256 = staticcall auction_zap.get_dy(token_amount)
+    expected_total_bid: uint256 = current_bid + expected_swap_output
+    assert expected_total_bid >= min_total_bid, "!token_amount"
+
+    # Get tokens from user and zap
+    extcall token.transferFrom(on_behalf_of, self, token_amount)
     extcall token.approve(auction_zap.address, token_amount)
-    received: uint256 = extcall auction_zap.zap(token_amount, min_dy)
+    received: uint256 = extcall auction_zap.zap(
+        token_amount, expected_swap_output
+    )
 
     # Place bid with received tokens
     extcall self.payment_token.approve(auction_contract.address, received)
+
     extcall auction_contract.create_bid(
-        auction_id, received, ipfs_hash, on_behalf_of
+        auction_id, received + current_bid, ipfs_hash, on_behalf_of
     )
 
 

@@ -180,11 +180,14 @@ def test_auction_bid_by_user_multiple_bids(
 
     # Track increasing bids
     current_bid = default_reserve_price
-    alice_expected_total = current_bid
+    alice_expected_total = current_bid  # Initially just their winning bid
+    
+    print(f"\nInitial bid: {current_bid}")
 
     # Series of back-and-forth bids
-    for _ in range(3):
-        # Bob outbids
+    for i in range(3):
+        print(f"\nRound {i+1}:")
+        # Bob outbids - Alice's winning bid becomes pending returns
         min_next_bid = current_bid + (
             current_bid * house.default_min_bid_increment_percentage() // precision
         )
@@ -192,36 +195,46 @@ def test_auction_bid_by_user_multiple_bids(
             payment_token.approve(house.address, min_next_bid)
             house.create_bid(auction_id, min_next_bid)
         current_bid = min_next_bid
+        
+        print(f"Bob bid: {current_bid}")
 
-        # Verify amounts
+        # After Bob's bid, Alice should have their last bid in pending returns
         alice_total = house.auction_bid_by_user(auction_id, alice)
-        assert alice_total == alice_expected_total, "Should track Alice's total bids"
+        print(f"Alice total after Bob's bid: {alice_total}")
+        print(f"Expected Alice total: {alice_expected_total}")
+        assert alice_total == alice_expected_total, "Should track Alice's total (now in pending returns)"
 
         bob_total = house.auction_bid_by_user(auction_id, bob)
         assert bob_total == current_bid, "Should track Bob's current winning bid"
 
-        # Alice bids again
+        # Alice bids again, incorporating their pending returns
         min_next_bid = current_bid + (
             current_bid * house.default_min_bid_increment_percentage() // precision
         )
+        print(f"Alice attempting bid of: {min_next_bid}")
+        print(f"Alice current total: {alice_total}")
+        
         with boa.env.prank(alice):
+            # Only need to approve the difference since we have pending returns
+            additional_needed = min_next_bid - alice_total
+            print(f"Additional tokens needed: {additional_needed}")
+            payment_token.approve(house.address, additional_needed)
             house.create_bid(auction_id, min_next_bid)
         current_bid = min_next_bid
-        alice_expected_total = current_bid
+        alice_expected_total = current_bid  # Now winning bid
+        
+        print(f"New current bid: {current_bid}")
 
         # Verify updated amounts
-        alice_total = house.auction_bid_by_user(auction_id, alice)
-        assert alice_total == alice_expected_total, "Should track Alice's new total"
-
-        bob_total = house.auction_bid_by_user(auction_id, bob)
-        assert bob_total == bob_total, "Should track Bob's outbid amount"
-
+        actual_alice_total = house.auction_bid_by_user(auction_id, alice)
+        print(f"Actual Alice total: {actual_alice_total}")
+        print(f"Expected Alice total: {alice_expected_total}")
+        assert actual_alice_total == alice_expected_total, "Should track Alice's total (now winning bid)"
 
 def test_auction_bid_by_user_invalid_auction(auction_house_with_auction, alice):
     """Test auction_bid_by_user with invalid auction ID"""
     invalid_id = auction_house_with_auction.auction_id() + 1
-
-    with pytest.raises(Exception):
+    with boa.reverts("!auction"):
         auction_house_with_auction.auction_bid_by_user(invalid_id, alice)
 
 
@@ -292,3 +305,87 @@ def test_overwrite_bid_metadata(auction_house_with_auction, alice, payment_token
         house.update_bid_metadata(auction_id, ipfs_hash)
 
     assert house.auction_metadata(auction_id, alice) == ipfs_hash
+
+
+def test_increase_own_bid(
+    auction_house_with_auction, alice, payment_token, default_reserve_price, precision
+):
+    """Test increasing your own winning bid"""
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+
+    # Initial bid
+    with boa.env.prank(alice):
+        payment_token.approve(house.address, default_reserve_price * 10)
+        house.create_bid(auction_id, default_reserve_price)
+
+    # Verify state after initial bid
+    assert house.auction_bid_by_user(auction_id, alice) == default_reserve_price
+    assert house.pending_returns(alice) == 0  # No pending returns when winning
+
+    # Calculate increased bid
+    increased_bid = default_reserve_price + (
+        default_reserve_price * house.default_min_bid_increment_percentage() // precision
+    )
+
+    # Increase own bid
+    with boa.env.prank(alice):
+        # Only need to approve the difference
+        additional_needed = increased_bid - default_reserve_price
+        payment_token.approve(house.address, additional_needed)
+        house.create_bid(auction_id, increased_bid)
+
+    # Verify final state
+    assert house.auction_bid_by_user(auction_id, alice) == increased_bid
+    assert house.pending_returns(alice) == 0  # Still no pending returns when winning
+
+def test_complex_bidding_sequence(
+    auction_house_with_auction, alice, bob, charlie, payment_token, default_reserve_price, precision
+):
+    """Test a complex sequence of bids to verify accounting"""
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+
+    # Everyone approves a large amount to simplify test
+    for bidder in [alice, bob, charlie]:
+        with boa.env.prank(bidder):
+            payment_token.approve(house.address, default_reserve_price * 100)
+
+    # Initial bid from Alice
+    with boa.env.prank(alice):
+        house.create_bid(auction_id, default_reserve_price)
+    
+    assert house.auction_bid_by_user(auction_id, alice) == default_reserve_price
+    assert house.pending_returns(alice) == 0
+
+    # Bob outbids
+    bob_bid = default_reserve_price * 2
+    with boa.env.prank(bob):
+        house.create_bid(auction_id, bob_bid)
+    
+    assert house.auction_bid_by_user(auction_id, bob) == bob_bid
+    assert house.auction_bid_by_user(auction_id, alice) == default_reserve_price  # Now in pending returns
+    assert house.pending_returns(alice) == default_reserve_price
+
+    # Charlie outbids both
+    charlie_bid = bob_bid * 2
+    with boa.env.prank(charlie):
+        house.create_bid(auction_id, charlie_bid)
+    
+    assert house.auction_bid_by_user(auction_id, charlie) == charlie_bid
+    assert house.auction_bid_by_user(auction_id, bob) == bob_bid  # Now in pending returns
+    assert house.auction_bid_by_user(auction_id, alice) == default_reserve_price  # Still in pending returns
+    
+    # Alice uses pending returns plus additional to outbid everyone
+    final_bid = charlie_bid * 2
+    with boa.env.prank(alice):
+        additional_needed = final_bid - default_reserve_price  # Subtract pending returns
+        payment_token.approve(house.address, additional_needed)
+        house.create_bid(auction_id, final_bid)
+
+    # Verify final state
+    assert house.auction_bid_by_user(auction_id, alice) == final_bid
+    assert house.pending_returns(alice) == 0  # Now winning
+    assert house.pending_returns(bob) == bob_bid  # Has pending returns
+    assert house.pending_returns(charlie) == charlie_bid  # Has pending returns
+

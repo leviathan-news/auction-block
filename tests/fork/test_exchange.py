@@ -92,7 +92,7 @@ def test_bid_with_misc_token_reverts_on_bad_slippage(
         payment_token.approve(auction_house.address, 2**256 - 1)
         auction_house.set_approved_caller(weth_trader, approval_flags.BidOnly)
 
-        with pytest.raises(Exception):  # Should revert
+        with boa.reverts("!token_amount"):
             weth_trader.zap_and_bid(
                 auction_house,
                 auction_id,

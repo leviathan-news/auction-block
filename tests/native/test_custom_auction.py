@@ -63,6 +63,7 @@ def test_create_custom_auction_only_owner(
 ):
     """Test that only the owner can create a custom auction"""
     with boa.env.prank(alice):
+        # XXX
         with pytest.raises(Exception):  # Should raise an ownership error
             auction_house.create_custom_auction(
                 default_time_buffer,

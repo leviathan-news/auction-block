@@ -7,23 +7,15 @@
 @notice Auction block for standard single-price auctions
 """
 
-from ethereum.ercs import IERC20
-
-from .imports import ownable_2step as ownable
-from .imports import pausable
-
-
-# ============================================================================================
-# 🧩 Interfaces
-# ============================================================================================
-
-interface AuctionDirectory:
-    def mint_nft(owner: address, auction_id: uint256): nonpayable
-
 
 # ============================================================================================
 # ⚙️ Modules
 # ============================================================================================
+
+from ethereum.ercs import IERC20
+
+from .imports import ownable_2step as ownable
+from .imports import pausable
 
 initializes: ownable
 exports: (
@@ -39,6 +31,13 @@ exports: (
     pausable.pause,
     pausable.unpause,
 )
+
+# ============================================================================================
+# 🧩 Interfaces
+# ============================================================================================
+
+interface AuctionDirectory:
+    def mint_nft(owner: address, auction_id: uint256): nonpayable
 
 
 # ============================================================================================
@@ -153,7 +152,7 @@ default_duration: public(uint256)
 # Can append ad text or other data via IPFS
 auction_metadata: public(HashMap[uint256, HashMap[address, String[46]]])
 
-# Aution pending returns due to users: auction_id -> user -> returns
+# Auction pending returns due to users: auction_id -> user -> returns
 auction_pending_returns: public(HashMap[uint256, HashMap[address, uint256]])
 auction_list: public(HashMap[uint256, Auction])
 auction_id: public(uint256)
@@ -245,19 +244,9 @@ def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
     @param user The address to check bids for
     @return Total amount bid by user on this auction
     """
-    auction: Auction = self.auction_list[auction_id]
-    assert auction.start_time != 0, "!auction"
+    assert self.auction_list[auction_id].start_time != 0, "!auction"
 
-    total_bid: uint256 = 0
-
-    # Add pending returns from previous outbid amounts
-    total_bid += self.auction_pending_returns[auction_id][user]
-
-    # Add current winning bid amount if they are the current winner
-    if auction.bidder == user:
-        total_bid += auction.amount
-
-    return total_bid
+    return self._auction_bid_by_user(auction_id, user)
 
 
 @external
@@ -675,20 +664,33 @@ def _collect_payment(
     @dev Collect payment either in payment or alternate token
     @return Final amount of payment token collected (including any pending returns used)
     """
-    tokens_needed: uint256 = total_bid
-    pending_amount: uint256 = self.auction_pending_returns[auction_id][bidder]
+    assert total_bid > 0, "!bid_amount"
 
-    if pending_amount > 0:
-        if pending_amount >= total_bid:
-            self.auction_pending_returns[auction_id][bidder] = (
-                pending_amount - total_bid
-            )
-            tokens_needed = 0
-        else:
-            self.auction_pending_returns[auction_id][bidder] = 0
-            tokens_needed = total_bid - pending_amount
+    # Get pending returns without double counting
+    pending_returns: uint256 = self.auction_pending_returns[auction_id][bidder]
+    auction: Auction = self.auction_list[auction_id]
+
+    # Get winning bid amount if any
+    winning_amount: uint256 = 0
+    if auction.bidder == bidder:
+        winning_amount = auction.amount
+
+
+    # Total tokens already available
+    available_tokens: uint256 = pending_returns + winning_amount
+
+    # How many new tokens needed
+    tokens_needed: uint256 = total_bid
+    if available_tokens >= tokens_needed:
+        self.auction_pending_returns[auction_id][bidder] = (
+            available_tokens - tokens_needed
+        )
+        tokens_needed = 0
+    else:
+        self.auction_pending_returns[auction_id][bidder] = 0
+        tokens_needed -= available_tokens
+
     if tokens_needed > 0:
-        # Directory handles privileges, auction contracts invisible to user
         token_source: address = bidder
         if msg.sender == self.authorized_directory.address:
             token_source = self.authorized_directory.address
@@ -734,16 +736,24 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     assert total_bid >= _reserve_price, "!reservePrice"
     assert total_bid >= self._minimum_total_bid(auction_id), "!increment"
 
+    # Store old bid and cancel it out
     last_bidder: address = _auction.bidder
-    if last_bidder != empty(address):
+    last_amount: uint256 = _auction.amount
+    self.auction_pending_returns[auction_id][bidder] = 0
+
+    # If the bidder has changed, credit the former bidder
+    if last_bidder != empty(address) and last_bidder != bidder:
         self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
 
-    _end_time: uint256 = _auction.end_time
 
+    # Extend the auction if need be
+    _end_time: uint256 = _auction.end_time
     _extended: bool = _auction.end_time - block.timestamp < _time_buffer
     if _extended:
         _end_time = block.timestamp + _time_buffer
 
+
+    # Store auction
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=total_bid,
@@ -826,3 +836,19 @@ def _is_auction_live(auction_id: uint256) -> bool:
         _is_live = True
 
     return _is_live
+
+
+@internal
+@view
+def _auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
+    auction: Auction = self.auction_list[auction_id]
+    total_bid: uint256 = 0
+
+    # Add pending returns from previous outbid amounts
+    total_bid += self.auction_pending_returns[auction_id][user]
+
+    # Add current winning bid amount if they are the current winner
+    if auction.bidder == user:
+        total_bid += auction.amount
+
+    return total_bid

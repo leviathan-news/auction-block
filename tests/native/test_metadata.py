@@ -109,6 +109,7 @@ def test_multiple_auctions_different_ipfs(auction_house, deployer):
         assert auction[6] == expected_hash  # ipfs_hash
 
 
+# XXX
 def test_invalid_ipfs_hash_length(auction_house, deployer):
     """Test that oversized IPFS hashes are rejected"""
     too_long_hash = "Q" * 47  # One character too long

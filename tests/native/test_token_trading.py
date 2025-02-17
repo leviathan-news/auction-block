@@ -148,6 +148,7 @@ def test_mock_unsupported_token(auction_house, payment_token, alice):
 
     with boa.env.prank(alice):
         payment_token.approve(auction_house.address, 2**256 - 1)
+        # XXX
         with pytest.raises(Exception):
             auction_house.create_bid_with_token(
                 auction_id, min_bid, payment_token, min_bid  # Token not added to supported tokens
@@ -211,7 +212,7 @@ def test_mock_bid_slippage_protection_in_directory(
         weth.approve(directory.address, 2**256 - 1)
 
         # Try with unrealistic min_amount_out
-        with boa.reverts("slippage"):
+        with boa.reverts("!token_amount"):
             directory.create_bid_with_token(
                 auction_house,
                 auction_id,
@@ -232,7 +233,7 @@ def test_mock_unsupported_token_in_directory(directory, auction_house, payment_t
 
     with boa.env.prank(alice):
         payment_token.approve(directory.address, 2**256 - 1)
-        with boa.reverts("!contract"):
+        with boa.reverts("!token"):
             directory.create_bid_with_token(
                 auction_house,
                 auction_id,
