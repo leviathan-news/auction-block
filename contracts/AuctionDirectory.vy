@@ -177,12 +177,14 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
 @external
 @view
 def safe_get_dx(token: IERC20, dy: uint256) -> uint256:
+    assert self.additional_tokens[token] != empty(AuctionZap), "!token"
     return staticcall self.additional_tokens[token].safe_get_dx(dy)
 
 
 @external
 @view
 def get_dy(token: IERC20, dx: uint256) -> uint256:
+    assert self.additional_tokens[token] != empty(AuctionZap), "!token"
     return staticcall self.additional_tokens[token].get_dy(dx)
 
 

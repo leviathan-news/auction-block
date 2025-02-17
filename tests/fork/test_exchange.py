@@ -37,14 +37,13 @@ def test_exchange(auction_house, weth_trader, weth, payment_token, alice):
     assert payment_token.balanceOf(alice) == init_squid + expected
 
 
-def test_bid_with_misc_token(auction_house, weth_trader, weth, payment_token, alice):
+def test_bid_with_misc_token(
+    auction_house, weth_trader, weth, payment_token, alice, approval_flags
+):
     owner = auction_house.owner()
 
     # Setup auction and unpause as owner
     with boa.env.prank(owner):
-        auction_house.pause()
-        auction_house.add_token_support(weth, weth_trader)
-        auction_house.unpause()
         auction_id = auction_house.create_new_auction()
 
     # Get required bid amount
@@ -58,8 +57,11 @@ def test_bid_with_misc_token(auction_house, weth_trader, weth, payment_token, al
 
     # Place bid with WETH
     with boa.env.prank(alice):
-        weth.approve(auction_house, 2**256 - 1)
-        auction_house.create_bid_with_token(auction_id, min_bid, weth, expected_payment)
+        weth.approve(weth_trader.address, 2**256 - 1)
+        payment_token.approve(auction_house.address, 2**256 - 1)
+        auction_house.set_approved_caller(weth_trader, approval_flags.BidOnly)
+
+        weth_trader.zap_and_bid(auction_house, auction_id, min_bid, expected_payment)
 
     # Verify WETH was spent
     assert weth.balanceOf(alice) < init_weth
@@ -71,14 +73,13 @@ def test_bid_with_misc_token(auction_house, weth_trader, weth, payment_token, al
     assert auction[1] == expected_payment
 
 
-def test_bid_with_misc_token_reverts_on_bad_slippage(auction_house, weth_trader, weth, alice):
+def test_bid_with_misc_token_reverts_on_bad_slippage(
+    auction_house, weth_trader, weth, alice, approval_flags, payment_token
+):
     owner = auction_house.owner()
 
     # Setup auction and unpause as owner
     with boa.env.prank(owner):
-        auction_house.pause()
-        auction_house.add_token_support(weth, weth_trader)
-        auction_house.unpause()
         auction_id = auction_house.create_new_auction()
 
     # Get required bid amount
@@ -88,9 +89,15 @@ def test_bid_with_misc_token_reverts_on_bad_slippage(auction_house, weth_trader,
     # Try to place bid with unrealistic min_amount_out
     with boa.env.prank(alice):
         weth.approve(weth_trader, 2**256 - 1)  # Approve trader instead of auction house
+        payment_token.approve(auction_house.address, 2**256 - 1)
+        auction_house.set_approved_caller(weth_trader, approval_flags.BidOnly)
+
         with pytest.raises(Exception):  # Should revert
-            auction_house.create_bid_with_token(
-                auction_id, min_bid, weth, expected_payment * 2  # Unrealistic slippage protection
+            weth_trader.zap_and_bid(
+                auction_house,
+                auction_id,
+                min_bid,
+                expected_payment * 2,  # Unrealistic slippage protection
             )
 
 

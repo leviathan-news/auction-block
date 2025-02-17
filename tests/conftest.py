@@ -257,16 +257,17 @@ def inert_weth():
 
 
 @pytest.fixture(scope="session")
-def weth_trader(payment_token, weth, trading_pool, pool_indices, directory):
+def weth_trader(payment_token, weth, trading_pool, pool_indices, directory, deployer):
     weth_index = pool_indices[0]
     squid_index = pool_indices[1]
     assert trading_pool.coins(squid_index) == payment_token.address
     assert trading_pool.coins(weth_index) == weth.address
 
     contract = boa.load_partial("contracts/AuctionZap.vy")
-    deployment = contract.deploy(payment_token, weth, trading_pool, [weth_index, squid_index])
-    deployment.set_approved_directory(directory)
-    directory.add_token_support(weth, deployment)
+    with boa.env.prank(deployer):
+        deployment = contract.deploy(payment_token, weth, trading_pool, [weth_index, squid_index])
+        deployment.set_approved_directory(directory)
+        directory.add_token_support(weth, deployment)
     return deployment
 
 
