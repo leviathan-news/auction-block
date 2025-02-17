@@ -4,7 +4,9 @@ import pytest
 pytestmark = pytest.mark.fork_only
 
 
-def test_rebid_with_alternative_token(auction_house, weth_trader, weth, payment_token, alice, bob, directory):
+def test_rebid_with_alternative_token(
+    auction_house, weth_trader, weth, payment_token, alice, bob, directory
+):
     """
     Test that rebidding with alternative tokens only requires trading the difference needed
     when a user is outbid and wants to bid again.
@@ -36,7 +38,9 @@ def test_rebid_with_alternative_token(auction_house, weth_trader, weth, payment_
 
     with boa.env.prank(bob):
         weth.approve(directory, 2**256 - 1)
-        directory.create_bid_with_token(auction_house, auction_id, weth_amount_bob, weth, min_bid_bob)
+        directory.create_bid_with_token(
+            auction_house, auction_id, weth_amount_bob, weth, min_bid_bob
+        )
 
     print("\nStep 2: Bob's outbid:")
     print(f"Min bid required: {min_bid_bob}")
