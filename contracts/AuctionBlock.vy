@@ -17,17 +17,8 @@ from .imports import pausable
 # 🧩 Interfaces
 # ============================================================================================
 
-interface TokenTrader:
-    def exchange(
-        _dx: uint256, _min_dy: uint256, _from: address = msg.sender
-    ) -> uint256: nonpayable
-    def safe_get_dx(_dy: uint256) -> uint256: view
-    def get_dy(_dx: uint256) -> uint256: view
-
-
 interface AuctionDirectory:
     def mint_nft(owner: address, auction_id: uint256): nonpayable
-    def additional_tokens(token: IERC20) -> TokenTrader: view
 
 
 # ============================================================================================
@@ -267,19 +258,6 @@ def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
         total_bid += auction.amount
 
     return total_bid
-
-
-@external
-@view
-def safe_get_dx(_token_addr: IERC20, _dy: uint256) -> uint256:
-    """
-    @dev A gas fuzzling function, recommend not to use in smart contracts
-    @return A safe dx above the minimum required to guarantee dy
-    """
-    _trader: TokenTrader = (
-        staticcall self.authorized_directory.additional_tokens(_token_addr)
-    )
-    return staticcall _trader.safe_get_dx(_dy)
 
 
 @external
@@ -686,34 +664,6 @@ def _settle_auction(auction_id: uint256):
 
 
 @internal
-def _trade_token(
-    from_addr: address,
-    token: IERC20,
-    dx: uint256,
-    min_dy: uint256,
-) -> uint256:
-    """
-    @dev Helper to trade an alternative token for the required SQUID amount
-    @return Amount of SQUID received from trade
-    """
-    trader: TokenTrader = (
-        staticcall self.authorized_directory.additional_tokens(token)
-    )
-    assert trader.address != empty(address), "!trader"
-
-    # Calculate required token amount and trade
-    actual_dy: uint256 = staticcall trader.get_dy(dx)
-    assert actual_dy >= min_dy, "!token_amount"
-
-    # Transfer token to contract, or revert
-    extcall token.transferFrom(from_addr, self, dx)
-    extcall token.approve(trader.address, dx)
-
-    # Exchange, or revert
-    return extcall trader.exchange(dx, min_dy, self)
-
-
-@internal
 def _collect_payment(
     auction_id: uint256,
     total_bid: uint256,
@@ -737,22 +687,15 @@ def _collect_payment(
         else:
             self.auction_pending_returns[auction_id][bidder] = 0
             tokens_needed = total_bid - pending_amount
+
     if tokens_needed > 0:
-        # Directory checks privileges and allows user to ignore direct approvals to auction contracts
+        # Directory handles privileges, auction contracts invisible to user
         token_source: address = bidder
         if msg.sender == self.authorized_directory.address:
             token_source = self.authorized_directory.address
-        if token == empty(IERC20):
-            # Standard payment
-            assert extcall self.payment_token.transferFrom(
-                token_source, self, tokens_needed, default_return_value=True
-            ), "!transfer"
-        else:
-            # Run through a trading contract
-            amount_received: uint256 = self._trade_token(
-                bidder, token, token_amount, tokens_needed
-            )
-            total_bid = amount_received + pending_amount
+
+        assert extcall self.payment_token.transferFrom(token_source, self, tokens_needed, default_return_value=True), "!transfer"
+
     return total_bid
 
 

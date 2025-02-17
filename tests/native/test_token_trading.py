@@ -43,7 +43,7 @@ def test_trading_views(auction_house, payment_token, weth, mock_trader, mock_poo
         directory.add_token_support(weth, mock_trader)
     val = 10**18
     rate = mock_pool.rate() / 10**18
-    assert auction_house.safe_get_dx(weth, val) == val / rate
+    assert directory.safe_get_dx(weth, val) == val / rate
 
 
 def test_mock_pool_basic(mock_pool, payment_token, pool_indices, weth):

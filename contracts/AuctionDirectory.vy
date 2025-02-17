@@ -32,6 +32,7 @@ interface AuctionContract:
 
 interface AuctionZap:
     def get_dy(dx: uint256) -> uint256: view
+    def safe_get_dx(dy: uint256) -> uint256: view
     def zap(token_amount: uint256, min_dy: uint256) -> uint256: nonpayable
 
 
@@ -171,6 +172,11 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
                 )
             )
     return auction_list
+
+@external
+@view
+def safe_get_dx(token: IERC20, dy: uint256) -> uint256:
+    return staticcall self.additional_tokens[token].safe_get_dx(dy)
 
 
 @external
