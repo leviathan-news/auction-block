@@ -29,10 +29,11 @@ def mock_pool(mock_pool_contract, payment_token, weth, fork_mode):
 
 
 @pytest.fixture
-def mock_trader(payment_token, weth, mock_pool, pool_indices):
+def mock_trader(payment_token, weth, mock_pool, pool_indices, directory):
     """Deploy mock trader that uses mock pool"""
     contract = boa.load_partial("contracts/AuctionTrade.vy")
     trader = contract.deploy(payment_token, weth, mock_pool.address, pool_indices)
+    trader.set_approved_directory(directory)
     return trader
 
 
@@ -80,7 +81,9 @@ def test_mock_trader_basic(auction_house, mock_trader, payment_token, alice, moc
     assert payment_token.balanceOf(alice) == init_balance + expected
 
 
-def test_mock_bid_with_token(auction_house, mock_trader, payment_token, alice, weth, directory):
+def test_mock_zap_bid_with_token(
+    auction_house, mock_trader, payment_token, alice, weth, directory, approval_flags
+):
     """Test bidding using mock trader"""
     owner = auction_house.owner()
 
@@ -95,8 +98,10 @@ def test_mock_bid_with_token(auction_house, mock_trader, payment_token, alice, w
 
     # Place bid
     with boa.env.prank(alice):
-        weth.approve(auction_house.address, 2**256 - 1)
-        auction_house.create_bid_with_token(auction_id, min_bid, weth, expected_payment)
+        weth.approve(mock_trader.address, 2**256 - 1)
+        payment_token.approve(auction_house.address, 2**256 - 1)
+        auction_house.set_approved_caller(mock_trader, approval_flags.BidOnly)
+        mock_trader.zap_and_bid(auction_house, auction_id, min_bid, expected_payment)
 
     # Verify auction state
     auction = auction_house.auction_list(auction_id)
@@ -104,8 +109,8 @@ def test_mock_bid_with_token(auction_house, mock_trader, payment_token, alice, w
     assert auction[1] == expected_payment  # amount
 
 
-def test_mock_bid_slippage_protection(
-    auction_house, mock_trader, payment_token, alice, weth, directory
+def test_mock_zap_bid_slippage_protection(
+    auction_house, mock_trader, payment_token, alice, weth, directory, approval_flags
 ):
     """Test slippage protection with mock trader"""
     owner = auction_house.owner()
@@ -118,14 +123,16 @@ def test_mock_bid_slippage_protection(
     expected_payment = mock_trader.get_dy(min_bid)
 
     with boa.env.prank(alice):
-        weth.approve(auction_house.address, 2**256 - 1)
+        weth.approve(mock_trader.address, 2**256 - 1)
+        payment_token.approve(auction_house.address, 2**256 - 1)
+        auction_house.set_approved_caller(mock_trader, approval_flags.BidOnly)
 
         # Try with unrealistic min_amount_out
         with boa.reverts("!token_amount"):
-            auction_house.create_bid_with_token(
+            mock_trader.zap_and_bid(
+                auction_house,
                 auction_id,
                 min_bid,
-                weth,
                 expected_payment * 2,  # Requiring double the expected output
             )
 
@@ -160,7 +167,6 @@ def test_trading_views_in_directory(directory, payment_token, weth, mock_trader,
     assert trader.safe_get_dx(val) == val / rate
 
 
-@pytest.mark.skip()
 def test_mock_bid_with_token_in_directory(
     auction_house, directory, mock_trader, payment_token, alice, weth
 ):
@@ -177,6 +183,7 @@ def test_mock_bid_with_token_in_directory(
     expected_payment = directory.get_dy(weth, min_bid)
 
     # Place bid
+    print(f"Alice has {weth.balanceOf(alice)} WETH for {min_bid} and {expected_payment}")
     with boa.env.prank(alice):
         weth.approve(directory.address, 2**256 - 1)
         directory.create_bid_with_token(auction_house, auction_id, min_bid, weth, expected_payment)
@@ -187,7 +194,6 @@ def test_mock_bid_with_token_in_directory(
     assert auction[1] == expected_payment  # amount
 
 
-@pytest.mark.skip()
 def test_mock_bid_slippage_protection_in_directory(
     auction_house, directory, mock_trader, payment_token, alice, weth
 ):
@@ -215,7 +221,6 @@ def test_mock_bid_slippage_protection_in_directory(
             )
 
 
-@pytest.mark.skip()
 def test_mock_unsupported_token_in_directory(directory, auction_house, payment_token, alice):
     """Test bidding with unsupported token fails"""
     owner = directory.owner()

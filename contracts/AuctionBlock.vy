@@ -142,10 +142,10 @@ event DirectorySet:
 # 📜 Constants
 # ============================================================================================
 
-PERCENT_PRECISION: constant(uint256) = 100 * 10**8
 MAX_WITHDRAWALS: constant(uint256) = 100
-MAX_AUCTIONS: constant(uint256) = 1000
+MAX_AUCTIONS: constant(uint256) = 10000
 MAX_FEE_PERCENT: constant(uint256) = 100 * 10**8  # 100%
+PERCENT_PRECISION: constant(uint256) = 100 * 10**8
 
 
 # ============================================================================================
@@ -304,6 +304,7 @@ def minimum_additional_bid_for_user(
     return self._minimum_additional_bid(auction_id, user)
 
 
+# XXX
 @external
 @view
 def pending_returns(user: address) -> uint256:
@@ -353,31 +354,6 @@ def create_bid(
     @param ipfs_hash Optional data to register with the bid
     """
     self._create_bid(auction_id, bid_amount, ipfs_hash, on_behalf_of)
-
-
-@external
-@nonreentrant
-def create_bid_with_token(
-    auction_id: uint256,
-    token_amount: uint256,
-    token: IERC20,
-    min_total_bid: uint256,
-    ipfs_hash: String[46] = "",
-    on_behalf_of: address = msg.sender,
-):
-    """
-    @notice Create a bid using an alternative token
-    @dev Must have approved the token for use with this contract
-    @param auction_id An active auction
-    @param token_amount Quantity of misc token to trade.  Value should exclude any existing bid amount
-    @param token Address of the alternative token, if approved
-    @param min_total_bid Required minimum final total bid value, or revert (slippage)
-    @param on_behalf_of User to bid on behalf of
-    @param ipfs_hash Optional data to register with the bid
-    """
-    self._create_bid(
-        auction_id, min_total_bid, ipfs_hash, on_behalf_of, token, token_amount
-    )
 
 
 @external
@@ -762,10 +738,14 @@ def _collect_payment(
             self.auction_pending_returns[auction_id][bidder] = 0
             tokens_needed = total_bid - pending_amount
     if tokens_needed > 0:
+        # Directory checks privileges and allows user to ignore direct approvals to auction contracts
+        token_source: address = bidder
+        if msg.sender == self.authorized_directory.address:
+            token_source = self.authorized_directory.address
         if token == empty(IERC20):
             # Standard payment
             assert extcall self.payment_token.transferFrom(
-                bidder, self, tokens_needed, default_return_value=True
+                token_source, self, tokens_needed, default_return_value=True
             ), "!transfer"
         else:
             # Run through a trading contract

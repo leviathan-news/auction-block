@@ -68,7 +68,7 @@ def test_bid_through_directory(
 
     print(f"Alice {alice} bids on {auction_id}")
     with boa.env.prank(alice):
-        payment_token.approve(house, default_reserve_price)
+        payment_token.approve(directory, default_reserve_price)
         directory.create_bid(house.address, auction_id, default_reserve_price)
 
     assert house.auction_list(auction_id)[4] == alice

@@ -25,14 +25,14 @@ interface AuctionContract:
         ipfs_hash: String[46],
         on_behalf_of: address,
     ): nonpayable
-    def create_bid_with_token(
-        auction_id: uint256,
-        token_amount: uint256,
-        token: IERC20,
-        min_dy: uint256,
-        ipfs_hash: String[46],
-        on_behalf_of: address,
-    ): nonpayable
+    def minimum_additional_bid_for_user(
+        auction_id: uint256, user: address
+    ) -> uint256: view
+
+
+interface AuctionZap:
+    def get_dy(dx: uint256) -> uint256: view
+    def zap(token_amount: uint256, min_dy: uint256) -> uint256: nonpayable
 
 
 interface NFT:
@@ -129,7 +129,7 @@ approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 
 # Payment tokens
 payment_token: public(IERC20)
-additional_tokens: public(HashMap[IERC20, address])
+additional_tokens: public(HashMap[IERC20, AuctionZap])
 supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
 nft: public(NFT)
 
@@ -175,6 +175,12 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
 
 @external
 @view
+def get_dy(token: IERC20, dx: uint256) -> uint256:
+    return staticcall self.additional_tokens[token].get_dy(dx)
+
+
+@external
+@view
 def num_auction_contracts() -> uint256:
     return len(self.registered_contracts)
 
@@ -206,6 +212,18 @@ def create_bid(
     assert auction_contract in self.registered_contracts, "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
+    # Get tokens from user
+    _transfer_amount: uint256 = (
+        staticcall auction_contract.minimum_additional_bid_for_user(
+            auction_id, on_behalf_of
+        )
+    )
+    extcall self.payment_token.transferFrom(
+        on_behalf_of, self, _transfer_amount
+    )
+    extcall self.payment_token.approve(
+        auction_contract.address, _transfer_amount
+    )
     extcall auction_contract.create_bid(
         auction_id, bid_amount, ipfs_hash, on_behalf_of
     )
@@ -234,8 +252,21 @@ def create_bid_with_token(
     pausable._check_unpaused()
     assert auction_contract in self.registered_contracts, "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    extcall auction_contract.create_bid_with_token(
-        auction_id, token_amount, token, min_dy, ipfs_hash, on_behalf_of
+
+    # Get tokens from user
+    extcall token.transferFrom(on_behalf_of, self, token_amount)
+
+    # Trade tokens
+    auction_zap: AuctionZap = self.additional_tokens[token]
+    assert auction_zap != empty(AuctionZap), "!contract"
+
+    extcall token.approve(auction_zap.address, token_amount)
+    received: uint256 = extcall auction_zap.zap(token_amount, min_dy)
+
+    # Place bid with received tokens
+    extcall self.payment_token.approve(auction_contract.address, received)
+    extcall auction_contract.create_bid(
+        auction_id, received, ipfs_hash, on_behalf_of
     )
 
 
@@ -293,22 +324,22 @@ def set_nft(nft_addr: address):
 
 
 @external
-def add_token_support(token: IERC20, trader: address):
+def add_token_support(token: IERC20, zap_address: AuctionZap):
     """
     @notice Add support for an alternative payment token
     @dev Must be connected with a contract that supports token trading
     @param token The address of the ERC20 compatible token
-    @param trader Address of a compatible trading contract
+    @param zap_address Address of a compatible trading contract
     """
 
     ownable._check_owner()
     assert token.address != empty(address), "!token"
-    assert trader != empty(address), "!trader"
+    assert zap_address.address != empty(address), "!trader"
     assert token != self.payment_token, "!payment_token"
 
-    self.additional_tokens[token] = trader
+    self.additional_tokens[token] = zap_address
     self.supported_tokens.append(token)
-    log TokenSupportAdded(token.address, trader)
+    log TokenSupportAdded(token.address, zap_address.address)
 
 
 @external
@@ -318,8 +349,8 @@ def revoke_token_support(token_addr: IERC20):
     """
     ownable._check_owner()
     assert token_addr.address != empty(address), "!token"
-    assert self.additional_tokens[token_addr] != empty(address), "!supported"
-    self.additional_tokens[token_addr] = empty(address)
+    assert self.additional_tokens[token_addr] != empty(AuctionZap), "!supported"
+    self.additional_tokens[token_addr] = empty(AuctionZap)
 
     # Remove the token from supported_tokens
     for i: uint256 in range(MAX_TOKENS):
