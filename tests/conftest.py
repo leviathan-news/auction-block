@@ -222,7 +222,7 @@ def base_auction_house(
         )
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def auction_house(base_auction_house):
     """Return the session-scoped contract for each test"""
     return base_auction_house
@@ -263,9 +263,10 @@ def weth_trader(payment_token, weth, trading_pool, pool_indices, directory):
     assert trading_pool.coins(squid_index) == payment_token.address
     assert trading_pool.coins(weth_index) == weth.address
 
-    contract = boa.load_partial("contracts/AuctionTrade.vy")
+    contract = boa.load_partial("contracts/AuctionZap.vy")
     deployment = contract.deploy(payment_token, weth, trading_pool, [weth_index, squid_index])
     deployment.set_approved_directory(directory)
+    directory.add_token_support(weth, deployment)
     return deployment
 
 
@@ -314,8 +315,7 @@ def zero_address():
     return "0x0000000000000000000000000000000000000000"
 
 
-# @pytest.fixture(scope="session")
-@pytest.fixture
+@pytest.fixture(scope="session")
 def directory(payment_token, auction_house, deployer):
     """
     Deploy the Auction Directory contract.
