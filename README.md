@@ -14,15 +14,7 @@ Leviathan Auction House is a decentralized auction platform that enables:
 - Comprehensive fee management
 - Safety features including pausability and emergency auction nullification
 
-## Smart Contracts
-
-The system consists of three main contracts:
-
-- **AuctionBlock.vy**: The core auction implementation
-- **AuctionDirectory.vy**: Registry for managing multiple auction instances
-- **AuctionTrade.vy**: AMM integration for multi-token support
-
-### Key Features
+## Key Features
 
 - Configurable auction parameters (reserve price, duration, bid increments)
 - Support for alternate payment tokens through AMM integration
@@ -31,6 +23,48 @@ The system consists of three main contracts:
 - Fee distribution system
 - Emergency controls for auction management
 - Comprehensive test coverage
+
+## Core Components
+
+### AuctionDirectory.vy
+
+* Central registry for all auction contracts and zaps
+* Unified bidding interface for users
+* Token support management through zap contracts
+* Permission and delegation system
+
+### AuctionBlock.vy
+
+* Reference implementation of English auction mechanics
+* Configurable parameters for reserve price, duration, etc.
+* Support for metadata via IPFS
+* Fee distribution system
+
+### AuctionZap.vy (Zap Contract)
+
+* Curve AMM integration for token swaps
+* Slippage protection
+* Safe estimation for bid amounts
+
+## Security Model
+
+### Access Control
+
+- Two-step ownership transfers
+- Granular delegation system
+- Clear separation between admin and user functions
+
+### Token Safety
+
+- Tokens always collected before swaps/bids
+- Slippage protection on all AMM interactions
+- Independent balance verification
+
+### Emergency Controls
+
+- Pausable functionality at multiple levels
+- Auction nullification capability
+- Protected withdrawal system
 
 ## Development Setup
 

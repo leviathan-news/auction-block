@@ -2,9 +2,16 @@
 
 """
 @title Auction Block
-@license MIT
 @author Leviathan
-@notice Auction block for standard single-price auctions
+@license MIT
+@notice Core auction contract implementing English auction mechanics with extensions
+@dev Implements:
+     - Single-price English auctions with configurable parameters
+     - Anti-sniping through time buffer extension
+     - Fee distribution system
+     - Emergency controls (pause/nullify)
+     - Delegated bidding permissions
+     - Tokens are always collected before bid state changes
 """
 
 
@@ -184,16 +191,19 @@ def __init__(
     ownable.__init__()
     pausable.__init__()
 
-    # Defaults
-    self.default_duration = 3600  # 1 hour
-    self.default_time_buffer = 300  # 5 minutes
-    self.default_reserve_price = 2 * 10**17  # 0.2 tokens
-    self.default_min_bid_increment_percentage = 2 * 10**8  # 2%
-
-    # Money
+    # Set Payment Token and Default Parameters
     self.payment_token = IERC20(payment_token)
     self.fee_receiver = fee_receiver
     self.fee_percent = 5 * 10**8  # 5%
+
+    # Duration 1 hour
+    self.default_duration = 3600
+    # Time buffer 5 minutes
+    self.default_time_buffer = 300
+    # Reserve price of 0.2 SQUID
+    self.default_reserve_price = 10**18 // 5
+    # Bid must be 2% higher
+    self.default_min_bid_increment_percentage = 2 * 10**8  # 2%
 
 
 # ============================================================================================
@@ -204,8 +214,10 @@ def __init__(
 @view
 def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
     """
-    @dev Returns an array of currently active auction IDs based on timestamp
-    @return Array of auction IDs that are currently active (between start and end time)
+    @notice Get list of all currently active auction IDs
+    @dev Active means between start and end time, and not settled
+         Limited by MAX_AUCTIONS constant
+    @return Array of active auction IDs
     """
     active_auctions: DynArray[uint256, MAX_AUCTIONS] = []
 
@@ -221,12 +233,27 @@ def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]:
 @external
 @view
 def is_auction_live(auction_id: uint256) -> bool:
+    """
+    @notice Check if an auction is currently active
+    @dev An auction is live if:
+         - Current time is between start and end time
+         - Auction is not settled
+         Note: Returns true even if contract is paused
+    @param auction_id The auction to check
+    @return True if auction is live, false otherwise
+    """
     return self._is_auction_live(auction_id)
 
 
 @external
 @view
 def auction_remaining_time(auction_id: uint256) -> uint256:
+    """
+    @notice Get remaining time for an auction in seconds
+    @dev Returns 0 if auction has ended
+    @param auction_id The auction to check
+    @return Seconds remaining until auction ends
+    """
     end_time: uint256 = self.auction_list[auction_id].end_time
     remaining_time: uint256 = 0
     if end_time > block.timestamp:
@@ -238,11 +265,11 @@ def auction_remaining_time(auction_id: uint256) -> uint256:
 @view
 def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
     """
-    @notice Get the total amount a user has bid on a specific auction
-    @dev Returns the sum of current winning bid (if they're the winner) plus any pending returns
-    @param auction_id The auction to check
-    @param user The address to check bids for
-    @return Total amount bid by user on this auction
+    @notice Get total amount bid by user on specific auction
+    @dev Includes both current winning bid and any pending returns
+    @param auction_id Auction to check
+    @param user Address to check bids for
+    @return Total amount user has bid on this auction
     """
     assert self.auction_list[auction_id].start_time != 0, "!auction"
 
@@ -253,8 +280,11 @@ def auction_bid_by_user(auction_id: uint256, user: address) -> uint256:
 @view
 def minimum_total_bid(auction_id: uint256) -> uint256:
     """
-    @notice Returns the minimum bid one must place for a given auction
-    @return Minimum bid in the payment token
+    @notice Calculate minimum valid bid amount for an auction
+    @dev Returns reserve price if no bids yet
+         Otherwise current bid plus increment percentage
+    @param auction_id Auction to check
+    @return Minimum valid bid amount in payment tokens
     """
     return self._minimum_total_bid(auction_id)
 
@@ -266,12 +296,12 @@ def minimum_additional_bid_for_user(
 ) -> uint256:
     """
     @notice Returns the minimum additional amount a user must add to become top bidder for an auction
+    @param auction_id Auction to check
     @return Required amount to bid in the payment token
     """
     return self._minimum_additional_bid(auction_id, user)
 
 
-# XXX
 @external
 @view
 def pending_returns(user: address) -> uint256:
@@ -298,7 +328,13 @@ def pending_returns(user: address) -> uint256:
 @nonreentrant
 def settle_auction(auction_id: uint256):
     """
-    @dev Settle an auction
+    @notice Finalizes an auction after end time, distributing proceeds
+    @dev Can only settle after auction end time
+         Distributes fees and proceeds
+         Mints NFT to winner if directory configured
+    @param auction_id ID of the auction to settle
+    @custom:security Cannot settle an auction more than once
+                     Must be past auction end time
     """
     pausable._check_unpaused()
     self._settle_auction(auction_id)
@@ -314,11 +350,15 @@ def create_bid(
 ):
     """
     @notice Create a bid using the contract's payment token
-    @dev Create a bid using the primary payment token
-    @param auction_id An active auction
-    @param bid_amount The user's total bid, inclusive of prior bids
-    @param ipfs_hash Optional data to register with the bid
-    @param on_behalf_of User to bid on behalf of
+    @dev Collects payment first, then updates auction state
+         Automatically extends auction if bid near end time
+         Previous bidder's amount moved to pending returns
+    @param auction_id ID of auction to bid on
+    @param bid_amount Total bid amount (must include any previous bids/returns)
+    @param ipfs_hash Optional IPFS hash for bid metadata
+    @param on_behalf_of Address to place bid for (defaults to caller)
+    @custom:security Requires caller to have bid permission for on_behalf_of
+                     Bid must meet reserve and increment requirements
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
@@ -340,7 +380,13 @@ def update_bid_metadata(
     on_behalf_of: address = msg.sender,
 ):
     """
-    @dev Update metadata
+    @notice Update IPFS metadata associated with a user's bid
+    @dev Allows adding or updating metadata for any bid by user
+         Does not affect bid status or amount
+    @param auction_id The auction to update metadata for
+    @param ipfs_hash New IPFS hash to associate with bid
+    @param on_behalf_of Address to update metadata for (defaults to caller)
+    @custom:security Requires bid permission for on_behalf_of
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
     self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash
@@ -352,7 +398,14 @@ def withdraw(
     auction_id: uint256, on_behalf_of: address = msg.sender
 ) -> uint256:
     """
-    @dev Withdraw tokens after losing and settling auction
+    @notice Withdraw pending returns from previous outbid
+    @dev Only available after auction is settled
+         Clears pending returns for auction/user combination
+    @param auction_id Auction to withdraw from
+    @param on_behalf_of Address to withdraw for (defaults to caller)
+    @return Amount of tokens withdrawn
+    @custom:security Requires withdraw permission for on_behalf_of
+                     Only withdraws if auction is settled
     """
     pausable._check_unpaused()
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
@@ -377,7 +430,14 @@ def withdraw_multiple(
     on_behalf_of: address = msg.sender,
 ):
     """
-    @dev Withdraw from multiple settled auctions at once
+    @notice Batch withdraw pending returns from multiple auctions
+    @dev Only withdraws from settled auctions
+         Skips live auctions and non-settled auctions
+    @param auction_ids Array of auction IDs to withdraw from
+    @param on_behalf_of Address to withdraw for (defaults to caller)
+    @custom:security Requires withdraw permission for on_behalf_of
+                     Only processes settled auctions
+                     Limited to MAX_WITHDRAWALS auctions
     """
     pausable._check_unpaused()
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
@@ -409,7 +469,14 @@ def withdraw_multiple(
 @nonreentrant
 def withdraw_stale(addresses: DynArray[address, MAX_WITHDRAWALS]):
     """
-    @dev Admin function to withdraw pending returns that have not been claimed
+    @notice Admin function to process unclaimed returns with fee penalty
+    @dev Only callable by owner
+         Processes all pending returns for each address
+         Takes fee percentage from unclaimed amounts
+    @param addresses Array of addresses to process
+    @custom:security Only callable by owner
+                     Limited to MAX_WITHDRAWALS addresses
+                     Cannot process after contract is deprecated
     """
     ownable._check_owner()
     pausable._check_unpaused()
@@ -448,7 +515,14 @@ def withdraw_stale(addresses: DynArray[address, MAX_WITHDRAWALS]):
 @external
 def set_approved_caller(caller: address, status: ApprovalStatus):
     """
-    @dev Set approval status for a caller
+    @notice Configure delegation permissions for a specific caller
+    @dev Allows user to set granular permissions for another address
+    @param caller Address being granted or restricted permissions
+    @param status Approval level for the caller:
+                  - Nothing: No permissions
+                  - BidOnly: Can place bids on behalf of user
+                  - WithdrawOnly: Can withdraw funds on behalf of user
+                  - BidAndWithdraw: Full bidding and withdrawal permissions
     """
     self.approved_caller[msg.sender][caller] = status
     log ApprovedCallerSet(msg.sender, caller, status)
@@ -462,7 +536,7 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 @nonreentrant
 def create_new_auction(ipfs_hash: String[46] = "") -> uint256:
     """
-    @dev Create a new auction
+    @dev Create a new auction with default parameters
     @param ipfs_hash The IPFS hash of the auction metadata
     @return New auction id
     """
@@ -501,7 +575,13 @@ def create_custom_auction(
 @external
 def nullify_auction(auction_id: uint256):
     """
-    @dev In the event of an emergency, pause all functions except allowing auction nullification
+    @notice Emergency function to cancel an auction
+    @dev Only callable by owner
+         Moves current winning bid to pending returns
+         Marks auction as settled to prevent further bids
+    @param auction_id ID of auction to nullify
+    @custom:security Cannot nullify already settled auction
+                     Current high bid protected via pending returns
     """
     ownable._check_owner()
     assert self._is_auction_settled(auction_id) == False, "settled"
@@ -528,6 +608,12 @@ def nullify_auction(auction_id: uint256):
 
 @external
 def set_fee_receiver(_fee_receiver: address):
+    """
+    @notice Update address receiving auction fees
+    @dev Only callable by owner
+    @param _fee_receiver New fee receiving address
+    @custom:security Cannot set to zero address
+    """
     ownable._check_owner()
     assert _fee_receiver != empty(address), "!fee_receiver"
     self.fee_receiver = _fee_receiver
@@ -536,6 +622,13 @@ def set_fee_receiver(_fee_receiver: address):
 
 @external
 def set_fee_percent(_fee: uint256):
+    """
+    @notice Update fee percentage taken from auction proceeds
+    @dev Only callable by owner
+         Fee is expressed in basis points with 8 decimal precision
+    @param _fee New fee percentage (max 100 * 10**8)
+    @custom:security Cannot exceed MAX_FEE_PERCENT
+    """
     ownable._check_owner()
     assert _fee <= MAX_FEE_PERCENT, "!fee"
     self.fee_percent = _fee
@@ -545,7 +638,12 @@ def set_fee_percent(_fee: uint256):
 @external
 def set_approved_directory(directory_address: address):
     """
-    @dev Authorized directory contract with permissions
+    @notice Set authorized directory contract address
+    @dev Only callable by owner
+         Directory contract gets special permissions for bidding
+    @param directory_address Address of directory contract
+    @custom:security Directory can bypass normal approval checks
+                     Only one directory can be authorized at a time
     """
     ownable._check_owner()
     self.authorized_directory = AuctionDirectory(directory_address)

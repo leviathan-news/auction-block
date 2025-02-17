@@ -1,9 +1,20 @@
 # @version 0.4.0
 
-# @notice WETH Auction Zap
-# @dev Trade WETH -> SQUID through Curve pool
-# @author Leviathan
-# @license MIT
+"""
+@title WETH Auction Zap
+@author Leviathan
+@license MIT
+@notice Facilitates token swaps and bidding for Leviathan auction system
+@dev Provides core functionality for:
+     - Token conversion through Curve pool
+     - Direct bidding with alternative tokens
+     - Flexible trading across different token pairs
+     - Delegated bidding permissions
+"""
+
+# ============================================================================================
+# ⚙️ Modules
+# ============================================================================================
 
 from ethereum.ercs import IERC20
 
@@ -101,12 +112,24 @@ def __init__(
 @external
 @view
 def get_dx(_dy: uint256) -> uint256:
+    """
+    @notice Calculate input token amount required for desired output
+    @param _dy Desired output token amount
+    @return Required input token amount
+    """
+
     return self._get_dx(_dy)
 
 
 @external
 @view
 def get_dy(_dx: uint256) -> uint256:
+    """
+    @notice Calculate output token amount for given input
+    @param _dx Input token amount
+    @return Expected output token amount
+    """
+
     return self._get_dy(_dx)
 
 
@@ -114,9 +137,13 @@ def get_dy(_dx: uint256) -> uint256:
 @view
 def safe_get_dx(_dy: uint256) -> uint256:
     """
-    @dev A gas fuzzling function, recommend not to use in smart contracts
-    @return A safe dx above the minimum required to guarantee dy
+    @notice Calculate input amount with extra buffer to guarantee output
+    @dev Iterative calculation to ensure sufficient input for desired output
+         Gas intensive so only for offchain use
+    @param _dy Desired output token amount
+    @return Input token amount with safety margin
     """
+
     _actual_dy: uint256 = 0
     _dx: uint256 = self._get_dx(_dy)
     for _i: uint256 in range(10):
@@ -138,7 +165,8 @@ def safe_get_dx(_dy: uint256) -> uint256:
 def zap(token_amount: uint256, min_dy: uint256) -> uint256:
     """
     @notice Trade misc token for payment token
-    @param token_amount Amount of misc token to swap
+    @dev Utilized in Auction directory
+    @param token_amount Input amount of trading token (WETH) to trade
     @param min_dy Minimum payment tokens to receive
     @return Amount of payment tokens received
     """
@@ -157,13 +185,17 @@ def zap_and_bid(
     on_behalf_of: address = msg.sender,
 ):
     """
-    @notice Create a bid using an alternative token
-    @dev Must have approved the token for use with this contract
-    @param auction_id An active auction
-    @param token_amount Quantity of misc token to trade.  Value should exclude any existing bid amount
-    @param min_total_bid Required minimum final total bid value, or revert (slippage)
-    @param on_behalf_of User to bid on behalf of
-    @param ipfs_hash Optional data to register with the bid
+    @notice Swap tokens and place bid in single transaction
+    @dev Converts trading token to payment token and bids on auction
+         Requires trading token approval on Zap
+         Requires payment token approval on AuctionHouse
+         Requires setting this contract as approved caller for bidding on AuctionHouse
+    @param auction_contract Target auction contract
+    @param auction_id Specific auction to bid on
+    @param token_amount Trading tokens to convert
+    @param min_total_bid Minimum acceptable total bid after conversion
+    @param ipfs_hash Optional metadata for bid
+    @param on_behalf_of Address to bid for
     """
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
     current_bid: uint256 = staticcall auction_contract.auction_bid_by_user(
@@ -199,8 +231,8 @@ def exchange(
     _dx: uint256, _min_dy: uint256, _from: address = msg.sender
 ) -> uint256:
     """
-    @notice Exchange tokens through the pool
-    @param _dx Amount of trading token to exchange
+    @notice Direct WETH -> SQUID trade through Curve pool
+    @param _dx Input amount of trading token (WETH) to exchange
     @param _min_dy Minimum amount of payment token to receive
     @param _from Optional address to pull tokens from
     @return Amount of payment token received
@@ -214,7 +246,14 @@ def exchange(
 @external
 def set_approved_caller(caller: address, status: ApprovalStatus):
     """
-    @dev Set approval status for a caller
+    @notice Configure delegation permissions for a specific caller
+    @dev Allows user to set granular permissions for another address
+    @param caller Address being granted or restricted permissions
+    @param status Approval level for the caller:
+                  - Nothing: No permissions
+                  - BidOnly: Can place bids on behalf of user
+                  - WithdrawOnly: Can withdraw funds on behalf of user
+                  - BidAndWithdraw: Full bidding and withdrawal permissions
     """
     self.approved_caller[msg.sender][caller] = status
     log ApprovedCallerSet(msg.sender, caller, status)
@@ -228,7 +267,12 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
 @external
 def set_approved_directory(directory_address: address):
     """
-    @dev Authorized directory contract with permissions
+    @notice Set authorized directory contract address
+    @dev Only callable by owner
+         Directory contract gets special permissions for bidding
+    @param directory_address Address of directory contract
+    @custom:security Directory can bypass normal approval checks
+                     Only one directory can be authorized at a time
     """
     ownable._check_owner()
     self.authorized_directory = directory_address

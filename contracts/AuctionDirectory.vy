@@ -2,10 +2,21 @@
 
 """
 @title Auction Directory
+@author Leviathan News
 @license MIT
-@author Leviathan
-@notice Registry to list permutations of auction contracts
+@notice Central registry and interface for Leviathan auction system
+@dev Core contract providing:
+     - Unified bidding interface for all auction types
+     - Multi-token support through zap contracts
+     - Permission management for delegated bidding
+     - Registry of all deployed auction contracts
 """
+
+
+# ============================================================================================
+# ⚙️ Modules
+# ============================================================================================
+
 
 from ethereum.ercs import IERC20
 
@@ -156,9 +167,10 @@ def __init__(payment_token: IERC20):
 @view
 def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
     """
-    @dev Returns a list of tuples where each tuple contains an auction contract address
-         and an active auction ID.
-    @return A single flat list of (contract address, auction ID) pairs.
+    @notice Returns all currently active auctions across all registered contracts
+    @dev Iterates through all registered contracts and their current auctions
+         Memory bounded by MAX_AUCTIONS constant
+    @return Array of AuctionInfo structs containing contract addresses and auction IDs
     """
     auction_list: DynArray[AuctionInfo, MAX_AUCTIONS] = []
 
@@ -179,6 +191,15 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
 @external
 @view
 def safe_get_dx(token: IERC20, dy: uint256) -> uint256:
+    """
+    @notice Calculates the required input amount of alternate token for a desired bid
+    @dev Uses zap contract's safe calculation which includes safety margin
+         Reverts if token not supported
+    @param token The alternate token address to calculate for
+    @param dy The desired output amount in payment tokens
+    @return Required input amount of alternate token, including safety margin
+    """
+
     assert self.additional_tokens[token] != empty(AuctionZap), "!token"
     return staticcall self.additional_tokens[token].safe_get_dx(dy)
 
@@ -186,6 +207,13 @@ def safe_get_dx(token: IERC20, dy: uint256) -> uint256:
 @external
 @view
 def get_dy(token: IERC20, dx: uint256) -> uint256:
+    """
+    @notice Calculates expected output of payment tokens for a given alternate token input
+    @dev Direct price quote without safety margin, use safe_get_dx for actual bidding
+    @param token The alternate token address to calculate for
+    @param dx The input amount of alternate token
+    @return Expected output amount in payment tokens
+    """
     assert self.additional_tokens[token] != empty(AuctionZap), "!token"
     return staticcall self.additional_tokens[token].get_dy(dx)
 
@@ -193,12 +221,22 @@ def get_dy(token: IERC20, dx: uint256) -> uint256:
 @external
 @view
 def num_auction_contracts() -> uint256:
+    """
+    @notice Returns the total number of registered auction contracts
+    @dev Helper function for UI pagination/iteration
+    @return Current count of registered auction contracts
+    """
     return len(self.registered_contracts)
 
 
 @external
 @view
 def num_supported_tokens() -> uint256:
+    """
+    @notice Returns the total number of registered token zaps
+    @dev Helper function for UI pagination/iteration
+    @return Current count of supported tokens
+    """
     return len(self.supported_tokens)
 
 
@@ -217,7 +255,16 @@ def create_bid(
     on_behalf_of: address = msg.sender,
 ):
     """
-    @dev Create a bid using the primary payment token
+    @notice Place a bid on an auction using the primary payment token
+    @dev Transfers tokens from bidder to directory, then executes bid on auction contract
+         Caller must have approval status or be bidding for themselves
+    @param auction_contract The target auction contract address
+    @param auction_id The ID of the auction to bid on
+    @param bid_amount Total bid amount in payment tokens
+    @param ipfs_hash Optional IPFS hash for bid metadata
+    @param on_behalf_of Address to place bid for (defaults to caller)
+    @custom:security Requires auction contract to be registered and appropriate approval for delegated bids
+                     Requires appropriate approval status for delegated bids
     """
     pausable._check_unpaused()
     assert auction_contract in self.registered_contracts, "!contract"
@@ -252,16 +299,20 @@ def create_bid_with_token(
     on_behalf_of: address = msg.sender,
 ):
     """
-    @notice Create a bid using an alternative token
-    @dev Must have approved the token for use with this contract
-    @param auction_contract Auction contract containing ongoing auction
-    @param auction_id An active auction
-    @param token_amount Amount of the alternative token
-    @param token Address of the token
-    @param min_total_bid To protect against slippage, min amount of payment token to receive
-    @param on_behalf_of User to bid on behalf of
+    @notice Place a bid using an alternative token that gets swapped to the payment token
+    @dev Transfers alternate tokens from bidder, executes swap via zap contract, then places bid
+         Must approve both Directory for alternate token and auction for payment token
+    @param auction_contract The target auction contract
+    @param auction_id ID of the auction to bid on
+    @param token_amount Amount of alternate token to swap and bid with
+    @param token Address of the alternate token (must be supported)
+    @param min_total_bid Minimum acceptable total bid after token conversion
+    @param ipfs_hash Optional IPFS hash for bid metadata
+    @param on_behalf_of Address to place bid for (defaults to caller)
+    @custom:security Requires auction contract to be registered
+                     Requires token to have zap contract configured
+                     Requires appropriate approval status for delegated bids
     """
-
     pausable._check_unpaused()
     # Contract exists
     assert auction_contract in self.registered_contracts, "!contract"
@@ -304,7 +355,14 @@ def create_bid_with_token(
 @external
 def set_approved_caller(caller: address, status: ApprovalStatus):
     """
-    @dev Set approval status for a caller
+    @notice Configure delegation permissions for a specific caller
+    @dev Allows user to set granular permissions for another address
+    @param caller Address being granted or restricted permissions
+    @param status Approval level for the caller:
+                  - Nothing: No permissions
+                  - BidOnly: Can place bids on behalf of user
+                  - WithdrawOnly: Can withdraw funds on behalf of user
+                  - BidAndWithdraw: Full bidding and withdrawal permissions
     """
     self.approved_caller[msg.sender][caller] = status
     log ApprovedCallerSet(msg.sender, caller, status)
@@ -336,12 +394,26 @@ def mint_nft(
 
 @external
 def register_auction_contract(new_contract: AuctionContract):
+    """
+    @notice Registers a new auction contract implementation
+    @dev Only callable by owner
+         New contract must implement AuctionContract interface
+    @param new_contract Address of auction contract to register
+    @custom:security Ensure contract is fully configured before registering
+    """
     self.registered_contracts.append(new_contract)
     log AuctionContractAdded(new_contract.address)
 
 
 @external
 def deprecate_directory(new_address: address):
+    """
+    @notice Marks this directory as deprecated in favor of new implementation
+    @dev Only callable by owner
+         Sets is_current to False and stores upgrade address
+    @param new_address Address of new directory implementation
+    @custom:security Users should migrate to new directory after deprecation
+    """
     ownable._check_owner()
     self.is_current = False
     self.upgrade_address = new_address
@@ -350,6 +422,11 @@ def deprecate_directory(new_address: address):
 
 @external
 def set_nft(nft_addr: address):
+    """
+    @notice Updates the NFT contract
+    @dev Set to zero address to disable NFT minting
+    @param nft_addr Address of NFT contract
+    """
     ownable._check_owner()
     self.nft = NFT(nft_addr)
 
@@ -357,10 +434,13 @@ def set_nft(nft_addr: address):
 @external
 def add_token_support(token: IERC20, zap_address: AuctionZap):
     """
-    @notice Add support for an alternative payment token
-    @dev Must be connected with a contract that supports token trading
-    @param token The address of the ERC20 compatible token
-    @param zap_address Address of a compatible trading contract
+    @notice Adds support for a new alternate payment token
+    @dev Only callable by owner
+         Configures token with corresponding zap contract for AMM integration
+    @param token Address of alternate token to support
+    @param zap_address Address of zap contract that handles token conversion
+    @custom:security Zap contract must be verified and tested before adding
+                     Cannot add primary payment token as alternate token
     """
 
     ownable._check_owner()
@@ -377,6 +457,8 @@ def add_token_support(token: IERC20, zap_address: AuctionZap):
 def revoke_token_support(token_addr: IERC20):
     """
     @notice Remove support for an alternative payment token
+    @dev Only owner
+    @param token_addr Address of previously supported token to remove
     """
     ownable._check_owner()
     assert token_addr.address != empty(address), "!token"
