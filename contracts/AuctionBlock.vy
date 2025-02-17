@@ -317,10 +317,19 @@ def create_bid(
     @dev Create a bid using the primary payment token
     @param auction_id An active auction
     @param bid_amount The user's total bid, inclusive of prior bids
-    @param on_behalf_of User to bid on behalf of
     @param ipfs_hash Optional data to register with the bid
+    @param on_behalf_of User to bid on behalf of
     """
-    self._create_bid(auction_id, bid_amount, ipfs_hash, on_behalf_of)
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+
+    payment_amount: uint256 = self._collect_payment(
+        auction_id, bid_amount, on_behalf_of
+    )
+    self._register_bid(auction_id, payment_amount, on_behalf_of)
+
+    # User may be requested to register data with their bid
+    if ipfs_hash != "":
+        self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash
 
 
 @external
@@ -657,8 +666,6 @@ def _collect_payment(
     auction_id: uint256,
     total_bid: uint256,
     bidder: address,
-    token: IERC20 = empty(IERC20),  # Optional token param
-    token_amount: uint256 = 0,  # Amount of alternate token provided
 ) -> uint256:
     """
     @dev Collect payment either in payment or alternate token
@@ -675,8 +682,6 @@ def _collect_payment(
     if auction.bidder == bidder:
         winning_amount = auction.amount
 
-
-    # Total tokens already available
     available_tokens: uint256 = pending_returns + winning_amount
 
     # How many new tokens needed
@@ -703,27 +708,6 @@ def _collect_payment(
 
 
 @internal
-def _create_bid(
-    auction_id: uint256,
-    bid_amount: uint256,
-    ipfs_hash: String[46],
-    on_behalf_of: address,
-    token: IERC20 = empty(IERC20),
-    min_dy: uint256 = 0,
-):
-    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-
-    payment_amount: uint256 = self._collect_payment(
-        auction_id, bid_amount, on_behalf_of, token, min_dy
-    )
-    self._register_bid(auction_id, payment_amount, on_behalf_of)
-
-    # User may be requested to register data with their bid
-    if ipfs_hash != "":
-        self.auction_metadata[auction_id][on_behalf_of] = ipfs_hash
-
-
-@internal
 def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     pausable._check_unpaused()
 
@@ -745,15 +729,11 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     if last_bidder != empty(address) and last_bidder != bidder:
         self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
 
-
-    # Extend the auction if need be
     _end_time: uint256 = _auction.end_time
     _extended: bool = _auction.end_time - block.timestamp < _time_buffer
     if _extended:
         _end_time = block.timestamp + _time_buffer
 
-
-    # Store auction
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=total_bid,
