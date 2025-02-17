@@ -1,6 +1,7 @@
 # @version 0.4.0
 
-# @notice Curve token trade helper for auction bot
+# @notice WETH Auction Zap
+# @dev Trade WETH -> SQUID through Curve pool
 # @author Leviathan
 # @license MIT
 

@@ -31,7 +31,7 @@ def mock_pool(mock_pool_contract, payment_token, weth, fork_mode):
 @pytest.fixture
 def mock_trader(payment_token, weth, mock_pool, pool_indices, directory):
     """Deploy mock trader that uses mock pool"""
-    contract = boa.load_partial("contracts/AuctionTrade.vy")
+    contract = boa.load_partial("contracts/AuctionZap.vy")
     trader = contract.deploy(payment_token, weth, mock_pool.address, pool_indices)
     trader.set_approved_directory(directory)
     return trader
@@ -160,7 +160,7 @@ def test_trading_views_in_directory(directory, payment_token, weth, mock_trader,
         directory.add_token_support(weth, mock_trader)
     val = 10**18
     rate = mock_pool.rate() / 10**18
-    trader_contract = boa.load_partial("contracts/AuctionTrade.vy")
+    trader_contract = boa.load_partial("contracts/AuctionZap.vy")
     trader = trader_contract.at(directory.additional_tokens(weth))
     assert trader.get_dy(val) == val * rate
     assert trader.get_dx(val) == val / rate
