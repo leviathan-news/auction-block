@@ -41,9 +41,16 @@ interface AuctionContract:
         auction_id: uint256, user: address
     ) -> uint256: view
     def auction_bid_by_user(auction_id: uint256, user: address) -> uint256: view
-    def update_bid_metadata(auction_id: uint256, ipfs_hash: String[46], on_behalf_of: address): nonpayable
-    def withdraw(auction_id: uint256, on_behalf_of: address) -> uint256: nonpayable
-    def withdraw_multiple(auction_ids: DynArray[uint256, 100], on_behalf_of: address): nonpayable
+    def update_bid_metadata(
+        auction_id: uint256, ipfs_hash: String[46], on_behalf_of: address
+    ): nonpayable
+    def withdraw(
+        auction_id: uint256, on_behalf_of: address
+    ) -> uint256: nonpayable
+    def withdraw_multiple(
+        auction_ids: DynArray[uint256, 100], on_behalf_of: address
+    ): nonpayable
+
 
 interface AuctionZap:
     def get_dy(dx: uint256) -> uint256: view
@@ -371,7 +378,6 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
     log ApprovedCallerSet(msg.sender, caller, status)
 
 
-
 @external
 def mint_nft(
     target: address, auction_id: uint256, contract_addr: address = msg.sender
@@ -392,7 +398,12 @@ def mint_nft(
 
 @external
 @nonreentrant
-def update_bid_metadata(auction_contract: AuctionContract, auction_id: uint256, ipfs_hash: String[46], on_behalf_of: address):
+def update_bid_metadata(
+    auction_contract: AuctionContract,
+    auction_id: uint256,
+    ipfs_hash: String[46],
+    on_behalf_of: address,
+):
     """
     @notice Update IPFS metadata associated with a user's bid
     @dev Allows adding or updating metadata for any bid by user
@@ -405,13 +416,17 @@ def update_bid_metadata(auction_contract: AuctionContract, auction_id: uint256, 
     """
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    extcall auction_contract.update_bid_metadata(auction_id, ipfs_hash, on_behalf_of) 
+    extcall auction_contract.update_bid_metadata(
+        auction_id, ipfs_hash, on_behalf_of
+    )
 
 
 @external
 @nonreentrant
 def withdraw(
-    auction_contract: AuctionContract, auction_id: uint256, on_behalf_of: address = msg.sender
+    auction_contract: AuctionContract,
+    auction_id: uint256,
+    on_behalf_of: address = msg.sender,
 ) -> uint256:
     """
     @notice Withdraw pending returns from previous outbid
@@ -427,11 +442,13 @@ def withdraw(
     pausable._check_unpaused()
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    return extcall auction_contract.withdraw(auction_id, on_behalf_of) 
+    return extcall auction_contract.withdraw(auction_id, on_behalf_of)
+
 
 @external
 @nonreentrant
-def withdraw_multiple(auction_contract: AuctionContract,
+def withdraw_multiple(
+    auction_contract: AuctionContract,
     auction_ids: DynArray[uint256, MAX_WITHDRAWALS],
     on_behalf_of: address = msg.sender,
 ):
@@ -448,8 +465,8 @@ def withdraw_multiple(auction_contract: AuctionContract,
     pausable._check_unpaused()
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
-    extcall auction_contract.withdraw_multiple(auction_ids, on_behalf_of) 
- 
+    extcall auction_contract.withdraw_multiple(auction_ids, on_behalf_of)
+
 
 # ============================================================================================
 # 👑 Owner functions
