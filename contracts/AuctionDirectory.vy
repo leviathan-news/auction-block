@@ -41,7 +41,9 @@ interface AuctionContract:
         auction_id: uint256, user: address
     ) -> uint256: view
     def auction_bid_by_user(auction_id: uint256, user: address) -> uint256: view
-
+    def update_bid_metadata(auction_id: uint256, ipfs_hash: String[46], on_behalf_of: address): nonpayable
+    def withdraw(auction_id: uint256, on_behalf_of: address) -> uint256: nonpayable
+    def withdraw_multiple(auction_ids: DynArray[uint256, 100], on_behalf_of: address): nonpayable
 
 interface AuctionZap:
     def get_dy(dx: uint256) -> uint256: view
@@ -125,6 +127,7 @@ event ApprovedCallerSet:
 MAX_TOKENS: constant(uint256) = 100
 MAX_AUCTION_CONTRACTS: constant(uint256) = 1000
 MAX_AUCTIONS: constant(uint256) = 10000
+MAX_WITHDRAWALS: constant(uint256) = 100
 
 
 # ============================================================================================
@@ -267,7 +270,7 @@ def create_bid(
                      Requires appropriate approval status for delegated bids
     """
     pausable._check_unpaused()
-    assert auction_contract in self.registered_contracts, "!contract"
+    assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
     # Get tokens from user
@@ -315,7 +318,7 @@ def create_bid_with_token(
     """
     pausable._check_unpaused()
     # Contract exists
-    assert auction_contract in self.registered_contracts, "!contract"
+    assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
     # Token trading authorized
@@ -368,6 +371,7 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
     log ApprovedCallerSet(msg.sender, caller, status)
 
 
+
 @external
 def mint_nft(
     target: address, auction_id: uint256, contract_addr: address = msg.sender
@@ -378,14 +382,74 @@ def mint_nft(
     @param auction_id Auction ID that won the NFT
     @return -1 on fail or NFT id
     """
-    # assert self._is_registered_contract(msg.sender), "!registered"
     token_id: int256 = -1
     if self._is_registered_contract(
-        contract_addr
+        AuctionContract(contract_addr)
     ) and self.nft.address != empty(address):
         token_id = extcall self.nft.safe_mint(target, contract_addr, auction_id)
     return token_id
 
+
+@external
+@nonreentrant
+def update_bid_metadata(auction_contract: AuctionContract, auction_id: uint256, ipfs_hash: String[46], on_behalf_of: address):
+    """
+    @notice Update IPFS metadata associated with a user's bid
+    @dev Allows adding or updating metadata for any bid by user
+         Does not affect bid status or amount
+    @param auction_contract The target auction contract address
+    @param auction_id The auction to update metadata for
+    @param ipfs_hash New IPFS hash to associate with bid
+    @param on_behalf_of Address to update metadata for (defaults to caller)
+    @custom:security Requires bid permission for on_behalf_of
+    """
+    assert self._is_registered_contract(auction_contract), "!contract"
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    extcall auction_contract.update_bid_metadata(auction_id, ipfs_hash, on_behalf_of) 
+
+
+@external
+@nonreentrant
+def withdraw(
+    auction_contract: AuctionContract, auction_id: uint256, on_behalf_of: address = msg.sender
+) -> uint256:
+    """
+    @notice Withdraw pending returns from previous outbid
+    @dev Only available after auction is settled
+         Clears pending returns for auction/user combination
+    @param auction_contract The target auction contract address
+    @param auction_id Auction to withdraw from
+    @param on_behalf_of Address to withdraw for (defaults to caller)
+    @return Amount of tokens withdrawn
+    @custom:security Requires withdraw permission for on_behalf_of
+                     Only withdraws if auction is settled
+    """
+    pausable._check_unpaused()
+    assert self._is_registered_contract(auction_contract), "!contract"
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    return extcall auction_contract.withdraw(auction_id, on_behalf_of) 
+
+@external
+@nonreentrant
+def withdraw_multiple(auction_contract: AuctionContract,
+    auction_ids: DynArray[uint256, MAX_WITHDRAWALS],
+    on_behalf_of: address = msg.sender,
+):
+    """
+    @notice Batch withdraw pending returns from multiple auctions
+    @dev Only withdraws from settled auctions
+         Skips live auctions and non-settled auctions
+    @param auction_ids Array of auction IDs to withdraw from
+    @param on_behalf_of Address to withdraw for (defaults to caller)
+    @custom:security Requires withdraw permission for on_behalf_of
+                     Only processes settled auctions
+                     Limited to MAX_WITHDRAWALS auctions
+    """
+    pausable._check_unpaused()
+    assert self._is_registered_contract(auction_contract), "!contract"
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    extcall auction_contract.withdraw_multiple(auction_ids, on_behalf_of) 
+ 
 
 # ============================================================================================
 # 👑 Owner functions
@@ -498,9 +562,9 @@ def _check_caller(
 
 @internal
 @view
-def _is_registered_contract(contract_address: address) -> bool:
+def _is_registered_contract(contract_to_check: AuctionContract) -> bool:
     _found_contract: bool = False
     for _contract: AuctionContract in self.registered_contracts:
-        if contract_address == _contract.address:
+        if contract_to_check == _contract:
             _found_contract = True
     return _found_contract
