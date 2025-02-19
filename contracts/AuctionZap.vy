@@ -37,9 +37,9 @@
                +#  +####-..++#####--+###++--  +#++++
                    ++###   +++####+..-+###+++   ++++
                     ++#++   ++++###+     +#+++  +++
-                     ++++     +++++++     +++++                      
-                       +++      +++++++    +++                       
-                                     ++    +     
+                     ++++     +++++++     +++++
+                       +++      +++++++    +++
+                                     ++    +
 """
 
 # ============================================================================================
@@ -50,6 +50,13 @@ from ethereum.ercs import IERC20
 from .imports import ownable_2step as ownable
 
 initializes: ownable
+exports: (
+    ownable.owner,
+    ownable.pending_owner,
+    ownable.transfer_ownership,
+    ownable.accept_ownership,
+)
+
 
 # ============================================================================================
 # 🧩 Interfaces

@@ -463,7 +463,7 @@ def update_bid_metadata(
     auction_contract: AuctionContract,
     auction_id: uint256,
     ipfs_hash: String[46],
-    on_behalf_of: address,
+    on_behalf_of: address = msg.sender,
 ):
     """
     @notice Update IPFS metadata associated with a user's bid
