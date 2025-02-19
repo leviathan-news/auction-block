@@ -14,6 +14,7 @@ def __init__(price: uint256):
 
 
 @external
+@view
 def price_oracle(index: uint256) -> uint256:
     return self.price
 
@@ -21,3 +22,9 @@ def price_oracle(index: uint256) -> uint256:
 @external
 def set_price(new_price: uint256):
     self.price = new_price
+
+
+@external
+@view
+def feed_type() -> String[6]:
+    return "ETHUSD"

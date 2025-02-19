@@ -46,6 +46,7 @@
         https://github.com/ApeAcademy/ERC721/blob/main/%7B%7Bcookiecutter.project_name%7D%7D/contracts/NFT.vy.
 """
 
+from ethereum.ercs import IERC20
 
 # @dev We import and implement the `IERC165` interface,
 # which is a built-in interface of the Vyper compiler.
@@ -707,6 +708,20 @@ def renounce_ownership():
     self.is_minter[msg.sender] = False
     log RoleMinterChanged(msg.sender, False)
     ownable._transfer_ownership(empty(address))
+
+
+@external
+def recover_erc20(token_addr: address, amount: uint256):
+    """
+    @notice Recover ERC20 tokens accidentally sent to contract
+    @dev Only callable by owner for cleanup purposes
+    @param token_addr The token contract address
+    @param amount Amount of tokens to recover
+    """
+    ownable._check_owner()
+    token: IERC20 = IERC20(token_addr)
+
+    assert extcall token.transfer(ownable.owner, amount), "transfer failed"
 
 
 @internal

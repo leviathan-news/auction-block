@@ -637,6 +637,20 @@ def set_payment_token_oracle(new_oracle_addr: AuctionOracle):
     self.oracle = new_oracle_addr
 
 
+@external
+def recover_erc20(token_addr: address, amount: uint256):
+    """
+    @notice Recover ERC20 tokens accidentally sent to contract
+    @dev Only callable by owner for cleanup purposes
+    @param token_addr The token contract address
+    @param amount Amount of tokens to recover
+    """
+    ownable._check_owner()
+    token: IERC20 = IERC20(token_addr)
+
+    assert extcall token.transfer(ownable.owner, amount), "transfer failed"
+
+
 # ============================================================================================
 # 🏠 Internal functions
 # ============================================================================================

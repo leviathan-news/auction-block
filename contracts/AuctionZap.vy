@@ -2,7 +2,7 @@
 
 """
 @title WETH Auction Zap
-@author Leviathan
+@author Leviathan News
 @license MIT
 @notice Facilitates token swaps and bidding for Leviathan auction system
 @dev Provides core functionality for:
@@ -10,6 +10,36 @@
      - Direct bidding with alternative tokens
      - Flexible trading across different token pairs
      - Delegated bidding permissions
+     - Contract holds no WETH/ETH
+
+
+                            ####++++++++
+                       #+++++++++####+++##++
+                     #########+++-++##++-..
+                      ....++++#++++++#+++-....
+                 ++++++----+++++++++++++++++-..-++##
+                  ...-+++++++++++++++++++++++++++#####
+              +++-....+#+++++++++++++++++++++++++######
+          +++++++++++++++++++++++++++++++-+++++++++++++++++
+        ++#########++++++++----+++--++----+++++++########++++        
+      ###############+++++-.-------------..+++++#############++      
+     ##########++++###++++.  .---------.  .+++++++++-+++  ######     
+     ########  ....--+++++.   .-------..  .++++++++++#+++#+ ####     
+    ########  ..--+++++++++....-------....+++++++####+++++## ###     
+     ######   +++++++++++++++-+-----+-++-+-++++++#######++++         
+     #####   +#######+#+++++++++-+-++-++++++++++++---+#####++        
+      ####  ++####+----+++++++++++++++++++++++++++++-  #####++       
+       ###  +###+.....-+++++++++++++++++++++++++###+++  +###++       
+            ++##+....-+++++#+++++++++++++#++++----+##++  +####+      
+            +###  ..-+#####++++++++++++++##+++-....##++   ####       
+            ++##   ++####+-++++##+##+++++++###++-+  +++  #####       
+             +##+  +####-..+++####++###++-.-+###+++ ++   ###         
+               +#  +####-..++#####--+###++--  +#++++                 
+                   ++###   +++####+..-+###+++   ++++                 
+                    ++#++   ++++###+     +#+++  +++                  
+                     ++++     +++++++     +++++                      
+                       +++      +++++++    +++                       
+                                     ++    +     
 """
 
 # ============================================================================================
@@ -17,7 +47,6 @@
 # ============================================================================================
 
 from ethereum.ercs import IERC20
-
 from .imports import ownable_2step as ownable
 
 initializes: ownable
@@ -160,7 +189,6 @@ def safe_get_dx(_dy: uint256) -> uint256:
 # ✍️ Write functions
 # ============================================================================================
 
-
 @external
 def zap(token_amount: uint256, min_dy: uint256) -> uint256:
     """
@@ -277,6 +305,20 @@ def set_approved_directory(directory_address: address):
     ownable._check_owner()
     self.authorized_directory = directory_address
     log DirectorySet(directory_address)
+
+
+@external
+def recover_erc20(token_addr: address, amount: uint256):
+    """
+    @notice Recover ERC20 tokens accidentally sent to contract
+    @dev Only callable by owner for cleanup purposes
+    @param token_addr The token contract address
+    @param amount Amount of tokens to recover
+    """
+    ownable._check_owner()
+    token: IERC20 = IERC20(token_addr)
+
+    assert extcall token.transfer(ownable.owner, amount), "transfer failed"
 
 
 # ============================================================================================
