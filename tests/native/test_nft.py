@@ -42,6 +42,7 @@ def test_mint_works_without_nft(
         house.settle_auction(auction_id)
 
     assert nft.balanceOf(alice) == 0
+    assert nft.totalSupply() == 0
 
 
 def test_nft_mints_on_complete_auction(
@@ -74,7 +75,11 @@ def test_nft_mints_on_complete_auction(
 
     assert nft.balanceOf(alice) == 1
     token_id = nft.tokenOfOwnerByIndex(alice, 0)
+    assert token_id == 1
     assert nft.tokenURI(token_id) == f"{base_uri_prefix}{token_id}"
+    with boa.reverts('erc721: invalid token ID'):
+        zero_nft_owner = nft.ownerOf(0)
+    assert nft.ownerOf(1) == alice
 
 
 def test_nft_id_matches_auction_id(
@@ -106,3 +111,38 @@ def test_nft_id_matches_auction_id(
     assert nft.balanceOf(alice) == 1
     token_id = nft.tokenOfOwnerByIndex(alice, 0)
     assert token_id == auction_id
+
+
+def test_nft_not_publicly_callable_via_directory(directory, alice, auction_house, nft):
+    with boa.env.prank(alice):
+        nft_id = directory.mint_nft(alice, 1)
+        assert nft_id == 0
+
+        nft_id = directory.mint_nft(alice, 0)
+        assert nft_id == 0
+    assert nft.balanceOf(alice) == 0
+
+def test_nft_not_zero_indexed(nft, alice, auction_house, deployer):
+    house = auction_house
+    assert nft.totalSupply() == 0
+    assert nft.balanceOf(alice) == 0
+    with boa.env.prank(deployer):
+        nft.set_minter(alice, True)
+    with boa.env.prank(alice):
+        nft.safe_mint(alice, house, 0)
+    
+    with boa.reverts('erc721: invalid token ID'):
+        zero_nft_owner = nft.ownerOf(0)
+    assert nft.ownerOf(1) == alice
+    assert nft.tokenOfOwnerByIndex(alice, 0) == 1
+    assert nft.tokenByIndex(0) == 1
+    assert nft.totalSupply() == 1
+    assert nft.balanceOf(alice) == 1
+    assert nft.auction_to_token(house, 0) == 1
+
+def test_nft_not_publicly_callable(alice, auction_house, nft):
+    with boa.env.prank(alice):
+        with boa.reverts("erc721: access is denied"):
+            nft.safe_mint(alice, auction_house, 1)
+
+
