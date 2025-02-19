@@ -193,10 +193,8 @@ def test_cannot_create_bid_when_paused(auction_house_with_auction, alice, paymen
             auction_house_with_auction.create_bid(auction_id, bid_amount)
 
 
-# @pytest.mark.fork_only
-@pytest.mark.skip()
 def test_cannot_create_token_bid_when_paused(
-    auction_house_with_auction, alice, payment_token, weth, deployer
+    auction_house_with_auction, alice, payment_token, weth, deployer, directory
 ):
     """Test that create_bid_with_token cannot be called when paused"""
     auction_id = auction_house_with_auction.auction_id()
@@ -204,14 +202,14 @@ def test_cannot_create_token_bid_when_paused(
 
     # Pause contract
     with boa.env.prank(deployer):
-        auction_house_with_auction.pause()
+        directory.pause()
 
     # Try to create token bid - should fail
     with boa.env.prank(alice):
         weth.approve(auction_house_with_auction, bid_amount)
         with boa.reverts("paused"):
-            auction_house_with_auction.create_bid_with_token(
-                auction_id, bid_amount, weth, bid_amount
+            directory.create_bid_with_token(
+                auction_house_with_auction,  auction_id, bid_amount, weth, bid_amount
             )
 
 
