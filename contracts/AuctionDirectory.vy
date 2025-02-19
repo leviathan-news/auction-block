@@ -58,6 +58,10 @@ interface AuctionZap:
     def zap(token_amount: uint256, min_dy: uint256) -> uint256: nonpayable
 
 
+interface AuctionOracle:
+    def price_usd() -> uint256: view
+
+
 interface NFT:
     def safe_mint(
         owner: address, contract_address: address, auction_id: uint256
@@ -153,8 +157,10 @@ approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
 
 # Payment tokens
 payment_token: public(IERC20)
-additional_tokens: public(HashMap[IERC20, AuctionZap])
 supported_tokens: public(DynArray[IERC20, MAX_TOKENS])
+additional_tokens: public(HashMap[IERC20, AuctionZap])
+oracle: public(AuctionOracle)
+
 nft: public(NFT)
 
 
@@ -250,6 +256,12 @@ def num_supported_tokens() -> uint256:
     return len(self.supported_tokens)
 
 
+@external
+@view
+def payment_token_price_usd() -> uint256:
+    return staticcall self.oracle.price_usd()
+
+
 # ============================================================================================
 # ✍️ Write functions
 # ============================================================================================
@@ -281,11 +293,13 @@ def create_bid(
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
     # Get tokens from user
-    _transfer_amount: uint256 = (
-        staticcall auction_contract.minimum_additional_bid_for_user(
-            auction_id, on_behalf_of
-        )
+    _current_bid: uint256 = staticcall auction_contract.auction_bid_by_user(
+        auction_id, on_behalf_of
     )
+    _transfer_amount: uint256 = bid_amount
+    if _current_bid > 0:
+        _transfer_amount = bid_amount - _current_bid
+
     extcall self.payment_token.transferFrom(
         on_behalf_of, self, _transfer_amount
     )
@@ -336,12 +350,12 @@ def create_bid_with_token(
     current_bid: uint256 = staticcall auction_contract.auction_bid_by_user(
         auction_id, on_behalf_of
     )
-    assert current_bid < min_total_bid, "!bid_amount"
 
     # Is the user's bid sufficient
-    assert min_total_bid >= staticcall auction_contract.minimum_total_bid(
+    min_requirement: uint256 = staticcall auction_contract.minimum_total_bid(
         auction_id
-    ), "!bid_amount"
+    )
+    assert min_total_bid >= min_requirement, "!bid_amount"
 
     expected_swap_output: uint256 = staticcall auction_zap.get_dy(token_amount)
     expected_total_bid: uint256 = current_bid + expected_swap_output
@@ -441,7 +455,7 @@ def withdraw(
     """
     pausable._check_unpaused()
     assert self._is_registered_contract(auction_contract), "!contract"
-    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     return extcall auction_contract.withdraw(auction_id, on_behalf_of)
 
 
@@ -464,7 +478,7 @@ def withdraw_multiple(
     """
     pausable._check_unpaused()
     assert self._is_registered_contract(auction_contract), "!contract"
-    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
+    self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     extcall auction_contract.withdraw_multiple(auction_ids, on_behalf_of)
 
 
@@ -559,6 +573,12 @@ def revoke_token_support(token_addr: IERC20):
             self.supported_tokens.pop()
             break
     log TokenSupportRemoved(token_addr.address)
+
+
+@external
+def set_payment_token_oracle(new_oracle: AuctionOracle):
+    ownable._check_owner()
+    self.oracle = new_oracle
 
 
 # ============================================================================================

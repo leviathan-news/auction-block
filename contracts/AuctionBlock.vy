@@ -797,7 +797,6 @@ def _collect_payment(
         token_source: address = bidder
         if msg.sender == self.authorized_directory.address:
             token_source = self.authorized_directory.address
-
         assert extcall self.payment_token.transferFrom(
             token_source, self, tokens_needed, default_return_value=True
         ), "!transfer"

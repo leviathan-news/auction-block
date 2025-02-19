@@ -73,3 +73,8 @@ def totalSupply() -> uint256:
 def set_rate(new_rate: uint256):
     """Allow changing the rate for testing different scenarios"""
     self.rate = new_rate
+
+
+@external
+def price_oracle() -> uint256:
+    return 1321723924402
