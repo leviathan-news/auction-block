@@ -548,16 +548,17 @@ def burn(token_id: uint256):
 @external
 def safe_mint(
     owner: address, contract_address: address, auction_id: uint256
-) -> int256:
+) -> uint256:
     """
-    @dev Safely mints `token_id` and transfers it to `owner`.
+    @dev Safely mints new token and transfers it to `owner`.
+         Stores lookup in auction_to_token HashMap
     @notice Only authorised minters can access this function.
             Note that `owner` cannot be the zero address.
             Also, new tokens will be automatically assigned
             an incremental ID.
     @param owner The 20-byte owner address.
     @param auction_id External auction ID
-    @return -1 on fail or NFT ID
+    @return 0 on fail or NFT ID
     """
     assert self.is_minter[msg.sender], "erc721: access is denied"
     # New tokens will be automatically assigned an incremental ID.
@@ -573,7 +574,7 @@ def safe_mint(
     self._safe_mint(owner, token_id, b"")
     self.auction_to_token[contract_address][auction_id] = token_id
     log IERC4906.MetadataUpdate(token_id)
-    return convert(token_id, int256)
+    return token_id
 
 
 @external
