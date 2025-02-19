@@ -46,6 +46,46 @@ def test_minimum_total_bid_with_active_bid(
     assert min_bid == expected_min, f"Expected minimum bid {expected_min}, got {min_bid}"
 
 
+def test_overbid_with_active_bid(auction_house_with_auction, alice, payment_token, precision):
+    """Test minimum total bid calculation with an active bid"""
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+
+    # Place initial bid at reserve price
+    initial_bid = house.default_reserve_price() * 10
+    with boa.env.prank(alice):
+        payment_token.approve(house.address, initial_bid)
+        house.create_bid(auction_id, initial_bid)
+
+    # Calculate expected minimum next bid
+    increment_percentage = house.default_min_bid_increment_percentage()
+    expected_min = initial_bid + (initial_bid * increment_percentage // precision)
+
+    min_bid = house.minimum_total_bid(auction_id)
+    assert min_bid == expected_min, f"Expected minimum bid {expected_min}, got {min_bid}"
+
+
+def test_overbid_with_active_bid_directory(
+    auction_house_with_auction, alice, payment_token, precision, directory
+):
+    """Test minimum total bid calculation with an active bid"""
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+
+    # Place initial bid at reserve price
+    initial_bid = house.default_reserve_price() * 10
+    with boa.env.prank(alice):
+        payment_token.approve(directory, initial_bid)
+        directory.create_bid(house, auction_id, initial_bid)
+
+    # Calculate expected minimum next bid
+    increment_percentage = house.default_min_bid_increment_percentage()
+    expected_min = initial_bid + (initial_bid * increment_percentage // precision)
+
+    min_bid = house.minimum_total_bid(auction_id)
+    assert min_bid == expected_min, f"Expected minimum bid {expected_min}, got {min_bid}"
+
+
 def test_minimum_additional_bid_with_pending_returns(
     auction_house_with_auction, alice, bob, payment_token, precision
 ):

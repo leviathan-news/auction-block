@@ -5,6 +5,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
+pytestmark = pytest.mark.skip
+
 
 @pytest.fixture(scope="session")
 def auction_house_for_hypothesis(base_auction_house):

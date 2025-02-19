@@ -2,41 +2,6 @@ import boa
 import pytest
 
 
-@pytest.fixture
-def mock_pool_contract():
-    return boa.load_partial("contracts/test/MockPool.vy")
-
-
-@pytest.fixture
-def mock_pool(mock_pool_contract, payment_token, weth, fork_mode):
-    pool = mock_pool_contract.deploy()
-    pool.set_coin(1, payment_token.address)  # SQUID
-    pool.set_coin(0, weth.address)  # WETH
-    eth_amount = 1_000 * 10**18
-
-    addr = boa.env.generate_address()
-    if fork_mode:
-        boa.env.set_balance(addr, eth_amount)
-        with boa.env.prank(addr):
-            weth.deposit(value=eth_amount)
-            weth.transfer(pool, eth_amount)
-
-    else:
-        weth._mint_for_testing(pool, eth_amount)
-    payment_token._mint_for_testing(pool, eth_amount)
-
-    return pool
-
-
-@pytest.fixture
-def mock_trader(payment_token, weth, mock_pool, pool_indices, directory):
-    """Deploy mock trader that uses mock pool"""
-    contract = boa.load_partial("contracts/AuctionZap.vy")
-    trader = contract.deploy(payment_token, weth, mock_pool.address, pool_indices)
-    trader.set_approved_directory(directory)
-    return trader
-
-
 def test_trading_views(auction_house, payment_token, weth, mock_trader, mock_pool, directory):
     owner = auction_house.owner()
     with boa.env.prank(owner):
@@ -241,3 +206,91 @@ def test_mock_unsupported_token_in_directory(directory, auction_house, payment_t
                 payment_token,  # Token not added to supported tokens
                 min_bid,
             )
+
+
+def test_equal_bid_with_token_directory(
+    auction_house_with_auction, directory, alice, weth, mock_trader, payment_token
+):
+    """Test attempting to bid exactly the current amount"""
+    owner = directory.owner()
+    auction_id = auction_house_with_auction.auction_id()
+
+    # Setup Directory with token support
+    with boa.env.prank(owner):
+        directory.add_token_support(weth, mock_trader)
+        weth._mint_for_testing(alice, 10**23)
+
+    # Place initial bid directly
+    initial_bid_squid = auction_house_with_auction.default_reserve_price()
+    with boa.env.prank(alice):
+        payment_token.approve(auction_house_with_auction, initial_bid_squid)
+        auction_house_with_auction.create_bid(auction_id, initial_bid_squid)
+
+    # Get current bid as seen by contract
+    current_bid = auction_house_with_auction.auction_bid_by_user(auction_id, alice)
+    print(f"Current bid: {current_bid}")
+
+    # Try to "increase" bid to exactly same amount
+    # Use 0.01 WETH which should be worth something, but not enough
+    weth_amount = 10**16  # 0.01 WETH
+    expected_output = directory.get_dy(weth, weth_amount)
+    print(f"WETH output: {expected_output}")
+
+    # This should fail with the original code
+    with boa.env.prank(alice):
+        weth.approve(directory, weth_amount)
+        with pytest.raises(Exception) as excinfo:
+            directory.create_bid_with_token(
+                auction_house_with_auction,
+                auction_id,
+                weth_amount,
+                weth,
+                current_bid,  # Exactly equal to current bid
+            )
+        assert "!bid_amount" in str(excinfo.value), "Should fail with !bid_amount"
+
+
+def test_eth_bid_to_amount(
+    auction_house_with_auction, directory, alice, bob, weth, mock_trader, payment_token, precision
+):
+    owner = directory.owner()
+    with boa.env.prank(owner):
+        directory.add_token_support(weth, mock_trader)
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+
+    with boa.env.prank(alice):
+        min_bid = house.minimum_total_bid(auction_id)
+        payment_token.approve(directory, 2**256 - 1)
+        directory.create_bid(house, auction_id, min_bid)
+
+    with boa.env.prank(bob):
+        bob_first_bid = house.minimum_total_bid(auction_id)
+        payment_token.approve(directory, 2**256 - 1)
+        directory.create_bid(house, auction_id, bob_first_bid)
+
+    with boa.env.prank(alice):
+        alice_final_bid = 10 * 10**18
+        assert alice_final_bid > house.minimum_total_bid(auction_id)
+        directory.create_bid(house, auction_id, alice_final_bid)
+
+    assert house.auction_list(auction_id)[1] == alice_final_bid
+    assert house.auction_list(auction_id)[4] == alice
+
+    with boa.env.prank(bob):
+        big_bid = 42 * 10**18
+        weth.approve(directory, 2**256 - 1)
+        current_bid = house.auction_bid_by_user(auction_id, bob)
+        assert current_bid == bob_first_bid
+        needed_bid = house.minimum_additional_bid_for_user(auction_id, bob)
+        pct = house.auction_list(auction_id)[7][2] / precision
+        assert current_bid + needed_bid == alice_final_bid * (1 + pct)
+
+        needed_dy = big_bid - current_bid
+        needed_weth = directory.safe_get_dx(weth, needed_dy)
+
+        directory.create_bid_with_token(house, auction_id, needed_weth, weth, big_bid)
+
+        assert house.auction_list(auction_id)[4] == bob
+        assert house.auction_list(auction_id)[1] >= big_bid
+        assert house.auction_list(auction_id)[1] < big_bid * 1.02

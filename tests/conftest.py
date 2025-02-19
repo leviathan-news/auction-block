@@ -237,6 +237,15 @@ def auction_house_with_auction(auction_house, deployer, ipfs_hash):
     return auction_house
 
 
+@pytest.fixture
+def auction_house_with_multiple_auctions(auction_house, deployer):
+    """Setup multiple auctions"""
+    with boa.env.prank(deployer):
+        for _ in range(3):
+            auction_house.create_new_auction()
+    return auction_house
+
+
 @pytest.fixture(scope="session")
 def pool_indices():
     # WETH -> SQUID
@@ -351,3 +360,55 @@ def auction_house_dual_bid(
         house.create_bid(auction_id, bob_bid)
 
     return house
+
+
+@pytest.fixture
+def mock_pool_contract():
+    return boa.load_partial("contracts/test/MockPool.vy")
+
+
+@pytest.fixture
+def mock_pool(mock_pool_contract, payment_token, weth, fork_mode):
+    pool = mock_pool_contract.deploy()
+    pool.set_coin(1, payment_token.address)  # SQUID
+    pool.set_coin(0, weth.address)  # WETH
+    eth_amount = 1_000 * 10**18
+
+    addr = boa.env.generate_address()
+    if fork_mode:
+        boa.env.set_balance(addr, eth_amount)
+        with boa.env.prank(addr):
+            weth.deposit(value=eth_amount)
+            weth.transfer(pool, eth_amount)
+
+    else:
+        weth._mint_for_testing(pool, eth_amount)
+    payment_token._mint_for_testing(pool, eth_amount)
+
+    return pool
+
+
+@pytest.fixture
+def mock_trader(payment_token, weth, mock_pool, pool_indices, directory):
+    """Deploy mock trader that uses mock pool"""
+    contract = boa.load_partial("contracts/AuctionZap.vy")
+    trader = contract.deploy(payment_token, weth, mock_pool.address, pool_indices)
+    trader.set_approved_directory(directory)
+    return trader
+
+
+@pytest.fixture
+def eth_price():
+    return 3000
+
+
+@pytest.fixture
+def mock_oracle_pool(eth_price):
+    oracle_contract = boa.load_partial("contracts/test/MockOracle.vy")
+    return oracle_contract.deploy(eth_price * 10**18)
+
+
+@pytest.fixture
+def mock_oracle(mock_oracle_pool, mock_pool):
+    oracle_contract = boa.load_partial("contracts/AuctionOracle.vy")
+    return oracle_contract.deploy(mock_pool, mock_oracle_pool)
