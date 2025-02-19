@@ -1,7 +1,7 @@
 # @version 0.4.0
 
 """
-@title Auction Block
+@title Auction House
 @author Leviathan News
 @license MIT
 @notice Core auction contract implementing English auction mechanics with extensions

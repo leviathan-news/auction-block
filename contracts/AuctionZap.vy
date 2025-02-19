@@ -73,7 +73,7 @@ interface Pool:
     ) -> uint256: nonpayable
 
 
-interface AuctionBlock:
+interface AuctionHouse:
     def auction_bid_by_user(auction_id: uint256, user: address) -> uint256: view
     def create_bid(
         auction_id: uint256,
@@ -212,7 +212,7 @@ def zap(token_amount: uint256, min_dy: uint256) -> uint256:
 
 @external
 def zap_and_bid(
-    auction_contract: AuctionBlock,
+    auction_contract: AuctionHouse,
     auction_id: uint256,
     token_amount: uint256,
     min_total_bid: uint256,

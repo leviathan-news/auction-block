@@ -56,7 +56,7 @@ from .imports import pausable
 # 🧩 Interfaces
 # ============================================================================================
 
-interface AuctionContract:
+interface AuctionHouse:
     def current_auctions() -> DynArray[uint256, MAX_AUCTIONS]: view
     def create_bid(
         auction_id: uint256,
@@ -136,7 +136,7 @@ flag ApprovalStatus:
 # 📣 Events
 # ============================================================================================
 
-event AuctionContractAdded:
+event AuctionHouseAdded:
     contract_address: indexed(address)
 
 
@@ -179,7 +179,7 @@ directory_upgrade_address: public(address)
 
 # Auction Contracts
 registered_auction_contracts: public(
-    DynArray[AuctionContract, MAX_AUCTION_CONTRACTS]
+    DynArray[AuctionHouse, MAX_AUCTION_CONTRACTS]
 )
 
 # User settings: user -> caller -> status
@@ -227,7 +227,7 @@ def active_auctions() -> DynArray[AuctionInfo, MAX_AUCTIONS]:
     """
     auction_list: DynArray[AuctionInfo, MAX_AUCTIONS] = []
 
-    for _contract: AuctionContract in self.registered_auction_contracts:
+    for _contract: AuctionHouse in self.registered_auction_contracts:
         _current_auctions: DynArray[
             uint256, MAX_AUCTIONS
         ] = staticcall _contract.current_auctions()
@@ -312,7 +312,7 @@ def payment_token_price_usd() -> uint256:
 @external
 @nonreentrant
 def create_bid(
-    auction_contract: AuctionContract,
+    auction_contract: AuctionHouse,
     auction_id: uint256,
     bid_amount: uint256,
     ipfs_hash: String[46] = "",
@@ -358,7 +358,7 @@ def create_bid(
 @external
 @nonreentrant
 def create_bid_with_token(
-    auction_contract: AuctionContract,
+    auction_contract: AuctionHouse,
     auction_id: uint256,
     token_amount: uint256,
     token: IERC20,
@@ -445,7 +445,7 @@ def mint_nft(target: address, auction_id: uint256) -> uint256:
     """
     _token_id: uint256 = 0
     _is_registered: bool = self._is_registered_contract(
-        AuctionContract(msg.sender)
+        AuctionHouse(msg.sender)
     )
 
     # Check if NFT address is set and called by and for an authorized contract
@@ -460,7 +460,7 @@ def mint_nft(target: address, auction_id: uint256) -> uint256:
 @external
 @nonreentrant
 def update_bid_metadata(
-    auction_contract: AuctionContract,
+    auction_contract: AuctionHouse,
     auction_id: uint256,
     ipfs_hash: String[46],
     on_behalf_of: address = msg.sender,
@@ -486,7 +486,7 @@ def update_bid_metadata(
 @external
 @nonreentrant
 def withdraw(
-    auction_contract: AuctionContract,
+    auction_contract: AuctionHouse,
     auction_id: uint256,
     on_behalf_of: address = msg.sender,
 ) -> uint256:
@@ -510,7 +510,7 @@ def withdraw(
 @external
 @nonreentrant
 def withdraw_multiple(
-    auction_contract: AuctionContract,
+    auction_contract: AuctionHouse,
     auction_ids: DynArray[uint256, MAX_WITHDRAWALS],
     on_behalf_of: address = msg.sender,
 ):
@@ -536,16 +536,16 @@ def withdraw_multiple(
 
 
 @external
-def register_auction_contract(new_auction_addr: AuctionContract):
+def register_auction_contract(new_auction_addr: AuctionHouse):
     """
     @notice Registers a new auction contract implementation
     @dev Only callable by owner
-         New contract must implement AuctionContract interface
+         New contract must implement AuctionHouse interface
     @param new_auction_addr Address of auction contract to register
     @custom:security Ensure contract is fully configured before registering
     """
     self.registered_auction_contracts.append(new_auction_addr)
-    log AuctionContractAdded(new_auction_addr.address)
+    log AuctionHouseAdded(new_auction_addr.address)
 
 
 @external
@@ -669,9 +669,9 @@ def _check_caller(
 
 @internal
 @view
-def _is_registered_contract(contract_to_check: AuctionContract) -> bool:
+def _is_registered_contract(contract_to_check: AuctionHouse) -> bool:
     _found_contract: bool = False
-    for _contract: AuctionContract in self.registered_auction_contracts:
+    for _contract: AuctionHouse in self.registered_auction_contracts:
         if contract_to_check == _contract:
             _found_contract = True
     return _found_contract
