@@ -58,8 +58,6 @@ def test_active_auctions(directory, mock_auction_contract_1, mock_auction_contra
 def test_bid_through_directory(
     deployer, alice, directory, auction_house, payment_token, default_reserve_price
 ):
-    # house_contract = boa.load_partial("contracts/AuctionBlock.vy")
-    # house = house_contract.at(
     house = auction_house
     with boa.env.prank(deployer):
         house.create_new_auction()

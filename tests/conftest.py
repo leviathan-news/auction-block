@@ -193,7 +193,7 @@ def proceeds_receiver():
 @pytest.fixture(scope="session")
 def auction_house_contract():
     """Cache the contract bytecode"""
-    return boa.load_partial("contracts/AuctionBlock.vy")
+    return boa.load_partial("contracts/AuctionHouse.vy")
 
 
 @pytest.fixture(autouse=True)
