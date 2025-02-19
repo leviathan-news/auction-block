@@ -377,3 +377,40 @@ def test_create_bid_with_token_allows_increasing_own_bid(
         ), f"Bid should have increased from {current_bid} to approximately {higher_bid}"
     else:
         assert False, "Initial bid failed"
+
+
+def test_bid_with_metadata(auction_house_with_auction, alice, payment_token, ipfs_hash, directory):
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+    bid = house.default_reserve_price()
+    with boa.env.prank(alice):
+        payment_token.approve(directory, bid)
+        directory.create_bid(house, auction_id, bid, ipfs_hash)
+    assert house.auction_metadata(auction_id, alice) == ipfs_hash
+
+
+def test_overwrite_bid_metadata(
+    auction_house_with_auction, alice, payment_token, ipfs_hash, directory, bob, approval_flags
+):
+    house = auction_house_with_auction
+    auction_id = house.auction_id()
+    bid = house.default_reserve_price()
+    with boa.env.prank(alice):
+        payment_token.approve(directory, bid)
+        directory.create_bid(house, auction_id, bid)
+        assert house.auction_metadata(auction_id, alice) == ""
+        directory.update_bid_metadata(house, auction_id, ipfs_hash)
+
+    assert house.auction_metadata(auction_id, alice) == ipfs_hash
+
+    with boa.env.prank(bob):
+        with boa.reverts("!caller"):
+            directory.update_bid_metadata(house, auction_id, "Bob Malicious Metadata", alice)
+
+    with boa.env.prank(alice):
+        directory.set_approved_caller(bob, approval_flags.BidOnly)
+
+    with boa.env.prank(bob):
+        directory.update_bid_metadata(house, auction_id, "", alice)
+
+    assert house.auction_metadata(auction_id, alice) == ""

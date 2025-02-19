@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_non_owner_cannot_create_auction(auction_house, alice):
@@ -209,7 +208,7 @@ def test_cannot_create_token_bid_when_paused(
         weth.approve(auction_house_with_auction, bid_amount)
         with boa.reverts("paused"):
             directory.create_bid_with_token(
-                auction_house_with_auction,  auction_id, bid_amount, weth, bid_amount
+                auction_house_with_auction, auction_id, bid_amount, weth, bid_amount
             )
 
 

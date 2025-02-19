@@ -169,6 +169,58 @@ def test_recover_erc20(auction_house, payment_token, alice, deployer):
     assert payment_token.balanceOf(auction_house.address) == 0
 
 
+def test_directory_recover_erc20(directory, payment_token, alice):
+    """Test recovery of ERC20 tokens accidentally sent to contract"""
+    # Amount to recover
+    amount = 1000 * 10**18
+
+    # Send tokens directly to contract (simulating an accident)
+    with boa.env.prank(alice):
+        payment_token.transfer(directory.address, amount)
+
+    owner = directory.owner()
+    initial_owner_balance = payment_token.balanceOf(owner)
+
+    # Only owner should be able to recover
+    with boa.env.prank(alice):
+        with boa.reverts():  # Non-owner call should revert
+            directory.recover_erc20(payment_token.address, amount)
+
+    # Owner recovers tokens
+    with boa.env.prank(owner):
+        directory.recover_erc20(payment_token.address, amount)
+
+    # Verify tokens were recovered
+    assert payment_token.balanceOf(owner) == initial_owner_balance + amount
+    assert payment_token.balanceOf(directory.address) == 0
+
+
+def test_zap_recover_erc20(mock_trader, payment_token, alice):
+    """Test recovery of ERC20 tokens accidentally sent to contract"""
+    # Amount to recover
+    amount = 1000 * 10**18
+
+    # Send tokens directly to contract (simulating an accident)
+    with boa.env.prank(alice):
+        payment_token.transfer(mock_trader.address, amount)
+
+    owner = mock_trader.owner()
+    initial_owner_balance = payment_token.balanceOf(owner)
+
+    # Only owner should be able to recover
+    with boa.env.prank(alice):
+        with boa.reverts():  # Non-owner call should revert
+            mock_trader.recover_erc20(payment_token.address, amount)
+
+    # Owner recovers tokens
+    with boa.env.prank(owner):
+        mock_trader.recover_erc20(payment_token.address, amount)
+
+    # Verify tokens were recovered
+    assert payment_token.balanceOf(owner) == initial_owner_balance + amount
+    assert payment_token.balanceOf(mock_trader.address) == 0
+
+
 def test_cannot_recover_active_auction_funds(
     auction_house_with_auction, payment_token, alice, deployer, default_reserve_price
 ):
