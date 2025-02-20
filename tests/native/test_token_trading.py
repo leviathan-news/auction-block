@@ -47,7 +47,14 @@ def test_mock_trader_basic(auction_house, mock_trader, payment_token, alice, moc
 
 
 def test_mock_zap_bid_with_token(
-    auction_house, mock_trader, payment_token, alice, weth, directory, approval_flags, auction_struct
+    auction_house,
+    mock_trader,
+    payment_token,
+    alice,
+    weth,
+    directory,
+    approval_flags,
+    auction_struct,
 ):
     """Test bidding using mock trader"""
     owner = auction_house.owner()
@@ -156,8 +163,8 @@ def test_mock_bid_with_token_in_directory(
 
     # Verify auction state
     auction = auction_house.auction_list(auction_id)
-    assert auction[auction_struct.bidder] == alice  
-    assert auction[auction_struct.amount] == expected_payment  
+    assert auction[auction_struct.bidder] == alice
+    assert auction[auction_struct.amount] == expected_payment
 
 
 def test_mock_bid_slippage_protection_in_directory(
@@ -251,7 +258,16 @@ def test_equal_bid_with_token_directory(
 
 
 def test_eth_bid_to_amount(
-    auction_house_with_auction, directory, alice, bob, weth, mock_trader, payment_token, precision, auction_struct, auction_params_struct
+    auction_house_with_auction,
+    directory,
+    alice,
+    bob,
+    weth,
+    mock_trader,
+    payment_token,
+    precision,
+    auction_struct,
+    auction_params_struct,
 ):
     owner = directory.owner()
     with boa.env.prank(owner):
@@ -283,7 +299,12 @@ def test_eth_bid_to_amount(
         current_bid = house.auction_bid_by_user(auction_id, bob)
         assert current_bid == bob_first_bid
         needed_bid = house.minimum_additional_bid_for_user(auction_id, bob)
-        pct = house.auction_list(auction_id)[auction_struct.params][auction_params_struct.min_bid_increment_percentage] / precision
+        pct = (
+            house.auction_list(auction_id)[auction_struct.params][
+                auction_params_struct.min_bid_increment_percentage
+            ]
+            / precision
+        )
         assert current_bid + needed_bid == alice_final_bid * (1 + pct)
 
         needed_dy = big_bid - current_bid

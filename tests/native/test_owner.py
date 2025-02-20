@@ -95,9 +95,9 @@ def test_winner_can_withdraw_from_nullified_auction(
     assert payment_token.balanceOf(alice) == init_squid + bid
 
 
-def test_cannot_nullify_settled_auction(auction_house_with_auction, alice, payment_token, deployer
-, auction_struct
-                                        ):
+def test_cannot_nullify_settled_auction(
+    auction_house_with_auction, alice, payment_token, deployer, auction_struct
+):
     house = auction_house_with_auction
     bid = house.default_reserve_price()
     auction_id = house.auction_id()

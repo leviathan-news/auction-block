@@ -235,7 +235,9 @@ def test_successful_overbid_through_directory(
     # Verify bid was increased
     auction_after_increase = house.auction_list(auction_id)
     assert auction_after_increase[auction_struct.bidder] == bob, "Bid increase failed"
-    assert auction_after_increase[auction_struct.amount] == new_bid_amount, "New bid amount incorrect"
+    assert (
+        auction_after_increase[auction_struct.amount] == new_bid_amount
+    ), "New bid amount incorrect"
 
     # Verify only the difference was transferred
     bob_balance_after_increase = payment_token.balanceOf(bob)
@@ -248,7 +250,14 @@ def test_successful_overbid_through_directory(
 
 
 def test_create_bid_with_token_prevents_increasing_own_bid(
-    auction_house_with_auction, alice, payment_token, weth, mock_trader, directory, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    payment_token,
+    weth,
+    mock_trader,
+    directory,
+    precision,
+    auction_struct,
 ):
     """
     Test that create_bid_with_token prevents increasing your own winning bid
@@ -296,7 +305,14 @@ def test_create_bid_with_token_prevents_increasing_own_bid(
 
 
 def test_create_bid_with_token_allows_increasing_own_bid(
-    auction_house_with_auction, alice, payment_token, weth, mock_trader, directory, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    payment_token,
+    weth,
+    mock_trader,
+    directory,
+    precision,
+    auction_struct,
 ):
     """Test that create_bid_with_token allows users to increase their own bids"""
 

@@ -322,6 +322,7 @@ def auction_params_struct():
 
     return AuctionParamsFields
 
+
 @pytest.fixture(scope="session")
 def nft_contract():
     return boa.load_partial("contracts/AuctionNFT.vy")

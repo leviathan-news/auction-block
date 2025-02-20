@@ -56,7 +56,9 @@ def setup_auction_with_outbid(
     if advance_time:
         # Move past auction end
         auction = auction_house.auction_list(auction_id)
-        time_to_advance = auction[auction_struct.end_time] - auction[auction_struct.start_time] + 100  
+        time_to_advance = (
+            auction[auction_struct.end_time] - auction[auction_struct.start_time] + 100
+        )
         boa.env.time_travel(seconds=time_to_advance)
 
     return auction_id, bid_amount
@@ -98,7 +100,9 @@ def test_withdrawal_after_auction_end(auction_house, payment_token, alice, bob, 
 
     # Fast forward past auction end
     auction = auction_house.auction_list(auction_id)
-    boa.env.time_travel(seconds=auction[auction_struct.end_time] - auction[auction_struct.start_time] + 1)
+    boa.env.time_travel(
+        seconds=auction[auction_struct.end_time] - auction[auction_struct.start_time] + 1
+    )
 
     # Withdrawal should still work after auction ends
     initial_balance = payment_token.balanceOf(alice)
@@ -135,7 +139,9 @@ def test_double_withdrawal_prevention(auction_house, payment_token, alice, bob, 
 
 
 @pytest.mark.parametrize("num_withdrawals", [1, 5, 10])
-def test_multiple_withdrawal_stress(auction_house, payment_token, alice, bob, num_withdrawals, auction_struct):
+def test_multiple_withdrawal_stress(
+    auction_house, payment_token, alice, bob, num_withdrawals, auction_struct
+):
     """Stress test multiple withdrawal attempts"""
     total_pending = 0
     auction_ids = []
@@ -153,7 +159,7 @@ def test_multiple_withdrawal_stress(auction_house, payment_token, alice, bob, nu
             bid_amount,
             outbid_amount,
             auction_struct,
-            advance_time=True,  
+            advance_time=True,
         )
         auction_ids.append(auction_id)
         auction_house.settle_auction(auction_id)
@@ -177,7 +183,9 @@ def test_multiple_withdrawal_stress(auction_house, payment_token, alice, bob, nu
 # ============================================================================================
 
 
-def test_cross_auction_withdrawal_independence(auction_house, payment_token, alice, bob, auction_struct):
+def test_cross_auction_withdrawal_independence(
+    auction_house, payment_token, alice, bob, auction_struct
+):
     """Test that withdrawals from one auction don't affect others"""
     # Setup two auctions
     bid_amount1 = 10**18
@@ -237,7 +245,9 @@ def test_withdrawal_sequence_invariants(
 
                 # Advance time for this auction
                 auction = auction_house.auction_list(auction_id)
-                time_to_advance = auction[auction_struct.end_time] - auction[auction_struct.start_time] + 100
+                time_to_advance = (
+                    auction[auction_struct.end_time] - auction[auction_struct.start_time] + 100
+                )
                 boa.env.time_travel(seconds=time_to_advance)
 
     if valid_ids:
@@ -266,7 +276,9 @@ def test_withdrawal_sequence_invariants(
 # ============================================================================================
 
 
-def test_unauthorized_withdrawal_prevention(auction_house, payment_token, alice, bob, charlie, auction_struct):
+def test_unauthorized_withdrawal_prevention(
+    auction_house, payment_token, alice, bob, charlie, auction_struct
+):
     """Test that unauthorized withdrawals are prevented"""
     bid_amount = 10**18
     outbid_amount = bid_amount * 2

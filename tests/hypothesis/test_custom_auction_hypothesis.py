@@ -59,7 +59,13 @@ def test_custom_auction_max_duration_constraint(auction_house):
     suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=50
 )
 def test_custom_auction_parameter_generation(
-    auction_house, time_buffer, reserve_price, min_bid_increment, duration, auction_struct, auction_params_struct
+    auction_house,
+    time_buffer,
+    reserve_price,
+    min_bid_increment,
+    duration,
+    auction_struct,
+    auction_params_struct,
 ):
     """
     Hypothesis-based testing of custom auction parameter generation

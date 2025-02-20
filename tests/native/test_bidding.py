@@ -127,8 +127,7 @@ def test_minimum_bids_invalid_auction(auction_house):
         auction_house.minimum_additional_bid_for_user(999, boa.env.generate_address())
 
 
-def test_minimum_bids_settled_auction(auction_house_with_auction, deployer, auction_struct
-                                      ):
+def test_minimum_bids_settled_auction(auction_house_with_auction, deployer, auction_struct):
     """Test minimum bid calculations for settled auction"""
     house = auction_house_with_auction
     auction_id = house.auction_id()

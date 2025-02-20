@@ -138,7 +138,13 @@ def test_withdraw_stale_multiple_users(
 
 
 def test_create_bid_with_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """Test using pending returns for a new bid"""
     auction_id = auction_house_with_auction.auction_id()
@@ -175,7 +181,13 @@ def test_create_bid_with_pending_returns(
 
 
 def test_create_bid_insufficient_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """Test bid fails when pending returns aren't enough"""
     auction_id = auction_house_with_auction.auction_id()
@@ -211,8 +223,13 @@ def test_create_bid_insufficient_pending_returns(
 
 
 def test_prevent_bid_cycling_attack(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
-,auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """
     Test that the contract prevents bid cycling attacks by not allowing
@@ -520,8 +537,7 @@ def test_cannot_withdraw_twice(
 
 
 def test_auction_winner_cannot_withdraw(
-    auction_house_dual_bid, alice, bob, payment_token, deployer, approval_flags
-,auction_struct
+    auction_house_dual_bid, alice, bob, payment_token, deployer, approval_flags, auction_struct
 ):
     house = auction_house_dual_bid
 
@@ -554,7 +570,7 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     fee_receiver,
     user_mint_amount,
     precision,
-auction_struct
+    auction_struct,
 ):
 
     # Audit initial state
@@ -658,7 +674,7 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     fee_receiver,
     user_mint_amount,
     precision,
-    auction_struct
+    auction_struct,
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -758,7 +774,7 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     fee_receiver,
     user_mint_amount,
     precision,
-    auction_struct
+    auction_struct,
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -819,7 +835,10 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
             house.withdraw_multiple([first_auction, second_auction])
 
     alice_total_payment = 0
-    bob_total_payment = house.auction_list(first_auction)[auction_struct.amount] + house.auction_list(second_auction)[auction_struct.amount]
+    bob_total_payment = (
+        house.auction_list(first_auction)[auction_struct.amount]
+        + house.auction_list(second_auction)[auction_struct.amount]
+    )
 
     # Calculate the expected fee and remaining amount for each auction
     alice_fee_amount = alice_total_payment * house.fee_percent() // precision
@@ -857,7 +876,7 @@ def test_no_withdraw_regular_without_settlement(
     approval_flags,
     fee_receiver,
     user_mint_amount,
-    auction_struct
+    auction_struct,
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -952,7 +971,7 @@ def test_no_withdraw_multiple_without_settlement(
     approval_flags,
     fee_receiver,
     user_mint_amount,
-    auction_struct
+    auction_struct,
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()

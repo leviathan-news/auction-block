@@ -73,7 +73,7 @@ def test_ipfs_hash_persists_after_settlement(
 
     # Fast forward past auction end
     initial_auction = auction_house.auction_list(1)
-    boa.env.time_travel(initial_auction[auction_struct.end_time] + 1)  
+    boa.env.time_travel(initial_auction[auction_struct.end_time] + 1)
 
     # Settle auction
     with boa.env.prank(deployer):
@@ -81,9 +81,9 @@ def test_ipfs_hash_persists_after_settlement(
 
     auction = auction_house.auction_list(1)
     print(f"Post-settlement auction state: {auction}")
-    assert auction[auction_struct.ipfs_hash] == test_hash  
-    assert auction[auction_struct.settled] is True  
-    assert auction[auction_struct.bidder] == alice 
+    assert auction[auction_struct.ipfs_hash] == test_hash
+    assert auction[auction_struct.settled] is True
+    assert auction[auction_struct.bidder] == alice
 
 
 def test_multiple_auctions_different_ipfs(auction_house, deployer, auction_struct):

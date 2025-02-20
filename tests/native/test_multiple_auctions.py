@@ -2,7 +2,13 @@ import boa
 
 
 def test_auction_extension_near_end(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """Test auction extension when bid placed near end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -17,7 +23,9 @@ def test_auction_extension_near_end(
     initial_end = initial_auction[auction_struct.end_time]
 
     # Move to near end
-    time_to_end = initial_end - initial_auction[auction_struct.start_time] - 10  # 10 seconds before end
+    time_to_end = (
+        initial_end - initial_auction[auction_struct.start_time] - 10
+    )  # 10 seconds before end
     boa.env.time_travel(seconds=int(time_to_end))
 
     # Calculate next bid
@@ -34,7 +42,13 @@ def test_auction_extension_near_end(
 
 
 def test_auction_extension_not_near_end(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """Test auction not extended when bid placed well before end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -108,7 +122,13 @@ def test_bid_validation_too_low(
 
 
 def test_bid_increment_validation(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """Test minimum bid increment enforcement"""
     auction_id = auction_house_with_auction.auction_id()

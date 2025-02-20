@@ -12,7 +12,7 @@ def test_initial_state(
     default_duration,
     default_fee,
     precision,
-    auction_struct
+    auction_struct,
 ):
     """Test the initial state of the auction house after deployment"""
     assert auction_house.owner() == deployer
@@ -37,15 +37,20 @@ def test_create_auction(auction_house, deployer, auction_struct):
     auction = auction_house.auction_list(auction_id)
 
     # Access tuple values by index based on struct definition order
-    assert auction[auction_struct.auction_id] == 1  
-    assert auction[auction_struct.amount] == 0  
-    assert auction[auction_struct.start_time] > 0  
-    assert auction[auction_struct.end_time] == auction[auction_struct.start_time] + auction_house.default_duration()  
-    assert auction[auction_struct.bidder] == "0x0000000000000000000000000000000000000000"  
-    assert auction[auction_struct.settled] is False  
+    assert auction[auction_struct.auction_id] == 1
+    assert auction[auction_struct.amount] == 0
+    assert auction[auction_struct.start_time] > 0
+    assert (
+        auction[auction_struct.end_time]
+        == auction[auction_struct.start_time] + auction_house.default_duration()
+    )
+    assert auction[auction_struct.bidder] == "0x0000000000000000000000000000000000000000"
+    assert auction[auction_struct.settled] is False
 
 
-def test_create_bid(auction_house_with_auction, alice, payment_token, default_reserve_price, auction_struct):
+def test_create_bid(
+    auction_house_with_auction, alice, payment_token, default_reserve_price, auction_struct
+):
     """Test basic bid creation"""
     house = auction_house_with_auction
     auction_id = house.auction_id()
@@ -70,7 +75,9 @@ def test_create_bid(auction_house_with_auction, alice, payment_token, default_re
     auction = house.auction_list(auction_id)
     print(f"Post-bid auction state: {auction}")
 
-    assert auction[auction_struct.bidder] == alice, f"Expected bidder to be {alice}, got {auction[4]}"
+    assert (
+        auction[auction_struct.bidder] == alice
+    ), f"Expected bidder to be {alice}, got {auction[4]}"
     assert (
         auction[auction_struct.amount] == default_reserve_price
     ), f"Expected amount to be {default_reserve_price}, got {auction[1]}"
@@ -80,7 +87,13 @@ def test_create_bid(auction_house_with_auction, alice, payment_token, default_re
 
 
 def test_outbid(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
+    auction_house_with_auction,
+    alice,
+    bob,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
 ):
     """Test outbidding functionality"""
     house = auction_house_with_auction
@@ -121,7 +134,9 @@ def test_outbid(
     print(f"Pending returns for alice: {house.pending_returns(alice)}")
 
     assert auction[auction_struct.bidder] == bob, f"Expected bidder to be {bob}, got {auction[4]}"
-    assert auction[auction_struct.amount] == min_next_bid, f"Expected amount to be {min_next_bid}, got {auction[1]}"
+    assert (
+        auction[auction_struct.amount] == min_next_bid
+    ), f"Expected amount to be {min_next_bid}, got {auction[1]}"
     assert (
         house.pending_returns(alice) == default_reserve_price
     ), f"Expected alice to have her bid of {default_reserve_price} in pending returns"
@@ -160,7 +175,11 @@ def test_current_auctions(auction_house_with_auction, deployer, auction_struct):
     print(f"Second auction: start={second_auction[2]}, end={second_auction[3]}")
 
     # Travel to 1 second before first auction end
-    time_remaining_first_auction = int(first_auction[auction_struct.end_time]) - (int(first_auction[auction_struct.start_time]) + 1000) - 1
+    time_remaining_first_auction = (
+        int(first_auction[auction_struct.end_time])
+        - (int(first_auction[auction_struct.start_time]) + 1000)
+        - 1
+    )
     print(f"Time remaining until first auction ends: {time_remaining_first_auction}")
     boa.env.time_travel(seconds=time_remaining_first_auction)
 

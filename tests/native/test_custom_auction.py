@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_create_custom_auction(
@@ -11,7 +10,7 @@ def test_create_custom_auction(
     default_duration,
     ipfs_hash,
     auction_params_struct,
-    auction_struct
+    auction_struct,
 ):
     """Test creating a custom auction with non-default parameters"""
     # Custom parameters different from defaults
@@ -47,12 +46,19 @@ def test_create_custom_auction(
 
     # Verify auction parameters struct
     auction_params = auction[auction_struct.params]
-    assert auction_params[auction_params_struct.time_buffer] == custom_time_buffer, "Time buffer should match custom value"
-    assert auction_params[auction_params_struct.reserve_price] == custom_reserve_price, "Reserve price should match custom value"
     assert (
-        auction_params[auction_params_struct.min_bid_increment_percentage] == custom_min_bid_increment
+        auction_params[auction_params_struct.time_buffer] == custom_time_buffer
+    ), "Time buffer should match custom value"
+    assert (
+        auction_params[auction_params_struct.reserve_price] == custom_reserve_price
+    ), "Reserve price should match custom value"
+    assert (
+        auction_params[auction_params_struct.min_bid_increment_percentage]
+        == custom_min_bid_increment
     ), "Min bid increment percentage should match custom value"
-    assert auction_params[auction_params_struct.duration] == custom_duration, "Duration should match custom value"
+    assert (
+        auction_params[auction_params_struct.duration] == custom_duration
+    ), "Duration should match custom value"
 
 
 def test_create_custom_auction_only_owner(

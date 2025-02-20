@@ -24,7 +24,8 @@ def test_mint_works_without_nft(
     nft,
     payment_token,
     zero_address,
-    directory, auction_struct
+    directory,
+    auction_struct,
 ):
     house = auction_house_with_auction
     auction_id = house.auction_id()
@@ -54,7 +55,7 @@ def test_nft_mints_on_complete_auction(
     directory,
     payment_token,
     base_uri_prefix,
-    auction_struct
+    auction_struct,
 ):
     house = auction_house_with_auction
     with boa.env.prank(deployer):
@@ -91,7 +92,7 @@ def test_nft_id_matches_auction_id(
     nft,
     payment_token,
     directory,
- auction_struct
+    auction_struct,
 ):
     house = auction_house_with_auction
     with boa.env.prank(deployer):
