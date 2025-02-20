@@ -52,7 +52,7 @@ def test_non_owner_cannot_pause_unpause(auction_house, alice):
 
 
 def test_can_nullify_active_auction(
-    auction_house_with_auction, alice, payment_token, deployer, zero_address
+    auction_house_with_auction, alice, payment_token, deployer, zero_address, auction_struct
 ):
     house = auction_house_with_auction
     bid = house.default_reserve_price()
@@ -60,7 +60,7 @@ def test_can_nullify_active_auction(
     with boa.env.prank(alice):
         payment_token.approve(house, bid)
         house.create_bid(auction_id, bid)
-    assert house.auction_list(auction_id)[4] == alice
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
     assert house.auction_remaining_time(auction_id) > 0
 
     with boa.env.prank(deployer):
@@ -68,14 +68,14 @@ def test_can_nullify_active_auction(
 
     auction = house.auction_list(auction_id)
     assert house.auction_remaining_time(auction_id) == 0
-    assert auction[1] == 0
-    assert auction[4] == zero_address
-    assert auction[5] is True
+    assert auction[auction_struct.amount] == 0
+    assert auction[auction_struct.bidder] == zero_address
+    assert auction[auction_struct.settled] is True
     assert house.auction_pending_returns(auction_id, alice) == bid
 
 
 def test_winner_can_withdraw_from_nullified_auction(
-    auction_house_with_auction, alice, payment_token, deployer
+    auction_house_with_auction, alice, payment_token, deployer, auction_struct
 ):
     house = auction_house_with_auction
     bid = house.default_reserve_price()
@@ -83,7 +83,7 @@ def test_winner_can_withdraw_from_nullified_auction(
     with boa.env.prank(alice):
         payment_token.approve(house, bid)
         house.create_bid(auction_id, bid)
-    assert house.auction_list(auction_id)[4] == alice
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
 
     init_squid = payment_token.balanceOf(alice)
     with boa.env.prank(deployer):
@@ -95,14 +95,16 @@ def test_winner_can_withdraw_from_nullified_auction(
     assert payment_token.balanceOf(alice) == init_squid + bid
 
 
-def test_cannot_nullify_settled_auction(auction_house_with_auction, alice, payment_token, deployer):
+def test_cannot_nullify_settled_auction(auction_house_with_auction, alice, payment_token, deployer
+, auction_struct
+                                        ):
     house = auction_house_with_auction
     bid = house.default_reserve_price()
     auction_id = house.auction_id()
     with boa.env.prank(alice):
         payment_token.approve(house, bid)
         house.create_bid(auction_id, bid)
-    assert house.auction_list(auction_id)[4] == alice
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
 
     boa.env.time_travel(house.auction_remaining_time(auction_id) + 1)
     house.settle_auction(auction_id)
@@ -127,7 +129,7 @@ def test_cannot_nullify_settled_auction(auction_house_with_auction, alice, payme
 
 
 def test_can_nullify_when_paused(
-    auction_house_with_auction, alice, payment_token, deployer, zero_address
+    auction_house_with_auction, alice, payment_token, deployer, zero_address, auction_struct
 ):
     house = auction_house_with_auction
     bid = house.default_reserve_price()
@@ -135,7 +137,7 @@ def test_can_nullify_when_paused(
     with boa.env.prank(alice):
         payment_token.approve(house, bid)
         house.create_bid(auction_id, bid)
-    assert house.auction_list(auction_id)[4] == alice
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
 
     with boa.env.prank(deployer):
         house.pause()
@@ -146,9 +148,9 @@ def test_can_nullify_when_paused(
 
     auction = house.auction_list(auction_id)
     assert house.auction_remaining_time(auction_id) == 0
-    assert auction[1] == 0
-    assert auction[4] == zero_address
-    assert auction[5] is True
+    assert auction[auction_struct.amount] == 0
+    assert auction[auction_struct.bidder] == zero_address
+    assert auction[auction_struct.settled] is True
     assert house.auction_pending_returns(auction_id, alice) == bid
 
     with boa.env.prank(deployer):

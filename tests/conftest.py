@@ -301,12 +301,12 @@ def auction_struct():
     class AuctionFields:
         auction_id = 0
         amount = 1
-        start_time = 2
-        end_time = 3
-        bidder = 4
-        settled = 5
-        ipfs_hash = 6
-        start_block = 7
+        bidder = 2
+        start_block = 3
+        start_time = 4
+        end_time = 5
+        settled = 6
+        ipfs_hash = 7
         params = 8
 
     return AuctionFields

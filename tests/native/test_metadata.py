@@ -2,19 +2,19 @@ import boa
 import pytest
 
 
-def test_create_auction_without_ipfs(auction_house, deployer):
+def test_create_auction_without_ipfs(auction_house, deployer, auction_struct):
     """Test creating an auction without an IPFS hash"""
     with boa.env.prank(deployer):
         auction_house.create_new_auction("")
 
     auction = auction_house.auction_list(1)
     print(f"Auction state: {auction}")
-    assert auction[6] == ""  # ipfs_hash
-    assert auction[0] == 1  # auction_id
-    assert auction[5] is False  # settled
+    assert auction[auction_struct.ipfs_hash] == ""  # ipfs_hash
+    assert auction[auction_struct.auction_id] == 1  # auction_id
+    assert auction[auction_struct.settled] is False  # settled
 
 
-def test_create_auction_with_ipfs(auction_house, deployer):
+def test_create_auction_with_ipfs(auction_house, deployer, auction_struct):
     """Test creating an auction with an IPFS hash"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
 
@@ -23,12 +23,12 @@ def test_create_auction_with_ipfs(auction_house, deployer):
 
     auction = auction_house.auction_list(1)
     print(f"Auction state: {auction}")
-    assert auction[6] == test_hash  # ipfs_hash
-    assert auction[0] == 1  # auction_id
+    assert auction[auction_struct.ipfs_hash] == test_hash  # ipfs_hash
+    assert auction[auction_struct.auction_id] == 1  # auction_id
 
 
 def test_ipfs_hash_persists_after_bid(
-    auction_house, deployer, alice, payment_token, default_reserve_price
+    auction_house, deployer, alice, payment_token, default_reserve_price, auction_struct
 ):
     """Test that IPFS hash persists after bids are placed"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
@@ -47,13 +47,13 @@ def test_ipfs_hash_persists_after_bid(
 
     auction = auction_house.auction_list(1)
     print(f"Post-bid auction state: {auction}")
-    assert auction[6] == test_hash  # ipfs_hash
-    assert auction[1] == bid_amount  # amount
-    assert auction[4] == alice  # bidder
+    assert auction[auction_struct.ipfs_hash] == test_hash  # ipfs_hash
+    assert auction[auction_struct.amount] == bid_amount  # amount
+    assert auction[auction_struct.bidder] == alice  # bidder
 
 
 def test_ipfs_hash_persists_after_settlement(
-    auction_house, deployer, alice, payment_token, default_reserve_price
+    auction_house, deployer, alice, payment_token, default_reserve_price, auction_struct
 ):
     """Test that IPFS hash persists after auction settlement"""
     test_hash = "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN"
@@ -73,7 +73,7 @@ def test_ipfs_hash_persists_after_settlement(
 
     # Fast forward past auction end
     initial_auction = auction_house.auction_list(1)
-    boa.env.time_travel(initial_auction[3] + 1)  # end_time + 1
+    boa.env.time_travel(initial_auction[auction_struct.end_time] + 1)  
 
     # Settle auction
     with boa.env.prank(deployer):
@@ -81,12 +81,12 @@ def test_ipfs_hash_persists_after_settlement(
 
     auction = auction_house.auction_list(1)
     print(f"Post-settlement auction state: {auction}")
-    assert auction[6] == test_hash  # ipfs_hash
-    assert auction[5] is True  # settled
-    assert auction[4] == alice  # bidder
+    assert auction[auction_struct.ipfs_hash] == test_hash  
+    assert auction[auction_struct.settled] is True  
+    assert auction[auction_struct.bidder] == alice 
 
 
-def test_multiple_auctions_different_ipfs(auction_house, deployer):
+def test_multiple_auctions_different_ipfs(auction_house, deployer, auction_struct):
     """Test creating multiple auctions with different IPFS hashes"""
     test_hashes = [
         "QmX7L1eLwg9vZ4VBWwHx5KPByYdqhMDDWBJkV8oNJPpqbN",
@@ -106,7 +106,7 @@ def test_multiple_auctions_different_ipfs(auction_house, deployer):
     for i, expected_hash in enumerate(test_hashes, 1):
         auction = auction_house.auction_list(i)
         print(f"Auction {i} state: {auction}")
-        assert auction[6] == expected_hash  # ipfs_hash
+        assert auction[auction_struct.ipfs_hash] == expected_hash  # ipfs_hash
 
 
 # XXX

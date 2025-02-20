@@ -274,8 +274,8 @@ def test_eth_bid_to_amount(
         assert alice_final_bid > house.minimum_total_bid(auction_id)
         directory.create_bid(house, auction_id, alice_final_bid)
 
-    assert house.auction_list(auction_id)[1] == alice_final_bid
-    assert house.auction_list(auction_id)[4] == alice
+    assert house.auction_list(auction_id)[auction_struct.amount] == alice_final_bid
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
 
     with boa.env.prank(bob):
         big_bid = 42 * 10**18

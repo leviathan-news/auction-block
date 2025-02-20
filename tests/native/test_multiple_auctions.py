@@ -2,7 +2,7 @@ import boa
 
 
 def test_auction_extension_near_end(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test auction extension when bid placed near end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -14,10 +14,10 @@ def test_auction_extension_near_end(
         auction_house_with_auction.create_bid(auction_id, bid_amount)
 
     initial_auction = auction_house_with_auction.auction_list(auction_id)
-    initial_end = initial_auction[3]
+    initial_end = initial_auction[auction_struct.end_time]
 
     # Move to near end
-    time_to_end = initial_end - initial_auction[2] - 10  # 10 seconds before end
+    time_to_end = initial_end - initial_auction[auction_struct.start_time] - 10  # 10 seconds before end
     boa.env.time_travel(seconds=int(time_to_end))
 
     # Calculate next bid
@@ -30,11 +30,11 @@ def test_auction_extension_near_end(
         auction_house_with_auction.create_bid(auction_id, next_bid)
 
     final_auction = auction_house_with_auction.auction_list(auction_id)
-    assert final_auction[3] > initial_end
+    assert final_auction[auction_struct.end_time] > initial_end
 
 
 def test_auction_extension_not_near_end(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test auction not extended when bid placed well before end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -46,10 +46,10 @@ def test_auction_extension_not_near_end(
         auction_house_with_auction.create_bid(auction_id, bid_amount)
 
     initial_auction = auction_house_with_auction.auction_list(auction_id)
-    initial_end = initial_auction[3]
+    initial_end = initial_auction[auction_struct.end_time]
 
     # Move to middle of auction
-    time_to_move = (initial_end - initial_auction[2]) // 2
+    time_to_move = (initial_end - initial_auction[auction_struct.start_time]) // 2
     boa.env.time_travel(seconds=int(time_to_move))
 
     # Calculate next bid
@@ -62,7 +62,7 @@ def test_auction_extension_not_near_end(
         auction_house_with_auction.create_bid(auction_id, next_bid)
 
     final_auction = auction_house_with_auction.auction_list(auction_id)
-    assert final_auction[3] == initial_end
+    assert final_auction[auction_struct.end_time] == initial_end
 
 
 def test_bid_validation_wrong_id(
@@ -78,14 +78,14 @@ def test_bid_validation_wrong_id(
 
 
 def test_bid_validation_expired(
-    auction_house_with_auction, alice, payment_token, default_reserve_price
+    auction_house_with_auction, alice, payment_token, default_reserve_price, auction_struct
 ):
     """Test bid after auction end fails"""
     auction_id = auction_house_with_auction.auction_id()
 
     # Move past auction end
     auction = auction_house_with_auction.auction_list(auction_id)
-    time_to_end = auction[3] - auction[2] + 1
+    time_to_end = auction[auction_struct.end_time] - auction[auction_struct.start_time] + 1
     boa.env.time_travel(seconds=int(time_to_end))
 
     with boa.env.prank(alice):
@@ -108,7 +108,7 @@ def test_bid_validation_too_low(
 
 
 def test_bid_increment_validation(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test minimum bid increment enforcement"""
     auction_id = auction_house_with_auction.auction_id()
@@ -138,5 +138,5 @@ def test_bid_increment_validation(
         auction_house_with_auction.create_bid(auction_id, min_next_bid)
 
     final_auction = auction_house_with_auction.auction_list(auction_id)
-    assert final_auction[4] == bob
-    assert final_auction[1] == min_next_bid
+    assert final_auction[auction_struct.bidder] == bob
+    assert final_auction[auction_struct.amount] == min_next_bid

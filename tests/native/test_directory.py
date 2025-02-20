@@ -56,7 +56,7 @@ def test_active_auctions(directory, mock_auction_contract_1, mock_auction_contra
 
 
 def test_bid_through_directory(
-    deployer, alice, directory, auction_house, payment_token, default_reserve_price
+    deployer, alice, directory, auction_house, payment_token, default_reserve_price, auction_struct
 ):
     house = auction_house
     with boa.env.prank(deployer):
@@ -69,7 +69,7 @@ def test_bid_through_directory(
         payment_token.approve(directory, default_reserve_price)
         directory.create_bid(house.address, auction_id, default_reserve_price)
 
-    assert house.auction_list(auction_id)[4] == alice
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
     pass
 
 

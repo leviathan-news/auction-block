@@ -81,7 +81,7 @@ def test_bid_accounting_self_rebid(
 
 
 def test_bid_accounting_insufficient_total(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test attempts to bid with insufficient total (pending + new tokens)"""
     auction_id = auction_house_with_auction.auction_id()
@@ -114,11 +114,11 @@ def test_bid_accounting_insufficient_total(
 
         # Verify state unchanged
         assert auction_house_with_auction.pending_returns(alice) == default_reserve_price
-        assert auction_house_with_auction.auction_list(auction_id)[4] == bob  # Still winning
+        assert auction_house_with_auction.auction_list(auction_id)[auction_struct.bidder] == bob  # Still winning
 
 
 def test_bid_accounting_exact_returns_usage(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test bids that exactly use up pending returns"""
     auction_id = auction_house_with_auction.auction_id()
@@ -146,7 +146,7 @@ def test_bid_accounting_exact_returns_usage(
 
     # Verify state unchanged
     assert auction_house_with_auction.pending_returns(alice) == default_reserve_price
-    assert auction_house_with_auction.auction_list(auction_id)[4] == bob
+    assert auction_house_with_auction.auction_list(auction_id)[auction_struct.bidder] == bob
 
 
 def test_bid_accounting_multiple_pending_returns(

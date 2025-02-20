@@ -127,14 +127,15 @@ def test_minimum_bids_invalid_auction(auction_house):
         auction_house.minimum_additional_bid_for_user(999, boa.env.generate_address())
 
 
-def test_minimum_bids_settled_auction(auction_house_with_auction, deployer):
+def test_minimum_bids_settled_auction(auction_house_with_auction, deployer, auction_struct
+                                      ):
     """Test minimum bid calculations for settled auction"""
     house = auction_house_with_auction
     auction_id = house.auction_id()
 
     # Fast forward past auction end
     auction = house.auction_list(auction_id)
-    time_to_end = auction[3] - auction[2]
+    time_to_end = auction[auction_struct.end_time] - auction[auction_struct.start_time]
     boa.env.time_travel(seconds=time_to_end + 1)
 
     # Settle the auction

@@ -78,7 +78,9 @@ def test_settle_auction_with_single_bid(
     assert payment_token.balanceOf(fee_receiver) - fee_receiver_balance_before == fee
 
 
-def test_settle_auction_no_bids(auction_house_with_auction, deployer):
+def test_settle_auction_no_bids(auction_house_with_auction, deployer
+, auction_struct
+                                ):
     """Test settling an auction with no bids"""
     auction_id = auction_house_with_auction.auction_id()
 
@@ -104,8 +106,8 @@ def test_settle_auction_no_bids(auction_house_with_auction, deployer):
 
     # Verify auction was settled and new one created
     assert auction_house_with_auction.auction_id() == auction_id + 1
-    assert final_auction[5] is True  # settled
-    assert new_auction[0] == auction_id + 1  # new auction has correct ID
+    assert final_auction[auction_struct.settled] is True  
+    assert new_auction[auction_struct.auction_id] == auction_id + 1  # new auction has correct ID
 
 
 def test_settle_multiple_bids(
@@ -149,7 +151,9 @@ def test_settle_multiple_bids(
         auction_house_with_auction.withdraw(auction_id)
 
 
-def test_settle_auction_not_ended(auction_house_with_auction, deployer):
+def test_settle_auction_not_ended(auction_house_with_auction, deployer
+, auction_struct
+                                  ):
     """Test cannot settle auction before it ends"""
     auction_id = auction_house_with_auction.auction_id()
 
@@ -159,7 +163,7 @@ def test_settle_auction_not_ended(auction_house_with_auction, deployer):
 
 
 def test_auction_extension(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test auction gets extended when bid near end"""
     auction_id = auction_house_with_auction.auction_id()
@@ -176,7 +180,7 @@ def test_auction_extension(
 
     # Move to near end of auction
     auction = auction_house_with_auction.auction_list(auction_id)
-    time_to_move = auction[3] - auction[2] - 50  # end_time - start_time - 50 seconds
+    time_to_move = auction[auction_struct.end_time] - auction[auction_struct.start_time] - 50  # end_time - start_time - 50 seconds
     boa.env.time_travel(seconds=int(time_to_move))
 
     # Place bid near end
@@ -186,4 +190,4 @@ def test_auction_extension(
 
     # Check auction was extended
     new_auction = auction_house_with_auction.auction_list(auction_id)
-    assert new_auction[3] > auction[3]  # new end_time > old end_time
+    assert new_auction[auction_struct.end_time] > auction[auction_struct.end_time]  # new end_time > old end_time

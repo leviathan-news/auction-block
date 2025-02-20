@@ -44,7 +44,7 @@ def test_set_fee(auction_house, deployer, precision):
 
 
 def test_fee_collection(
-    auction_house_with_auction, deployer, alice, payment_token, default_reserve_price, precision
+    auction_house_with_auction, deployer, alice, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test that fees are properly collected during auction settlement"""
     house = auction_house_with_auction
@@ -62,7 +62,7 @@ def test_fee_collection(
 
     # Fast forward past auction end
     auction = house.auction_list(auction_id)
-    boa.env.time_travel(seconds=int(auction[3]) - int(auction[2]) + 100)
+    boa.env.time_travel(seconds=int(auction[auction_struct.end_time]) - int(auction[auction_struct.start_time]) + 100)
 
     # Record balances before settlement
     fee_receiver = house.fee_receiver()
@@ -89,7 +89,7 @@ def test_fee_collection(
 
 
 def test_zero_fee_settlement(
-    auction_house_with_auction, deployer, alice, payment_token, default_reserve_price
+    auction_house_with_auction, deployer, alice, payment_token, default_reserve_price, auction_struct
 ):
     """Test auction settlement with 0% fee"""
     house = auction_house_with_auction
@@ -106,7 +106,7 @@ def test_zero_fee_settlement(
 
     # Fast forward past auction end
     auction = house.auction_list(auction_id)
-    boa.env.time_travel(seconds=int(auction[3]) - int(auction[2]) + 100)
+    boa.env.time_travel(seconds=int(auction[auction_struct.end_time]) - int(auction[auction_struct.start_time]) + 100)
 
     # Record balances before settlement
     fee_receiver = house.fee_receiver()

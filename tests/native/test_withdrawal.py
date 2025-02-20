@@ -138,7 +138,7 @@ def test_withdraw_stale_multiple_users(
 
 
 def test_create_bid_with_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test using pending returns for a new bid"""
     auction_id = auction_house_with_auction.auction_id()
@@ -169,13 +169,13 @@ def test_create_bid_with_pending_returns(
         auction_house_with_auction.create_bid(auction_id, final_bid)
 
     auction = auction_house_with_auction.auction_list(auction_id)
-    assert auction[4] == alice  # bidder
-    assert auction[1] == final_bid  # amount
+    assert auction[auction_struct.bidder] == alice  # bidder
+    assert auction[auction_struct.amount] == final_bid  # amount
     assert auction_house_with_auction.pending_returns(alice) == 0  # Used up pending returns
 
 
 def test_create_bid_insufficient_pending_returns(
-    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+    auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision, auction_struct
 ):
     """Test bid fails when pending returns aren't enough"""
     auction_id = auction_house_with_auction.auction_id()
@@ -205,13 +205,14 @@ def test_create_bid_insufficient_pending_returns(
 
     # State should be unchanged
     auction = auction_house_with_auction.auction_list(auction_id)
-    assert auction[4] == bob  # still bob's bid
-    assert auction[1] == bob_bid  # amount unchanged
+    assert auction[auction_struct.bidder] == bob  # still bob's bid
+    assert auction[auction_struct.amount] == bob_bid  # amount unchanged
     assert auction_house_with_auction.pending_returns(alice) == initial_bid
 
 
 def test_prevent_bid_cycling_attack(
     auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
+,auction_struct
 ):
     """
     Test that the contract prevents bid cycling attacks by not allowing
@@ -254,8 +255,8 @@ def test_prevent_bid_cycling_attack(
 
     # Verify auction state remains unchanged
     auction = house.auction_list(auction_id)
-    assert auction[4] == bob, "Bob should still be winning bidder"
-    assert auction[1] == second_bid, "Bid amount should be unchanged"
+    assert auction[auction_struct.bidder] == bob, "Bob should still be winning bidder"
+    assert auction[auction_struct.amount] == second_bid, "Bid amount should be unchanged"
     assert house.pending_returns(alice) == initial_bid, "Pending returns should be unchanged"
 
     # Now end the auction and verify withdrawal works
@@ -520,13 +521,14 @@ def test_cannot_withdraw_twice(
 
 def test_auction_winner_cannot_withdraw(
     auction_house_dual_bid, alice, bob, payment_token, deployer, approval_flags
+,auction_struct
 ):
     house = auction_house_dual_bid
 
     auction_id = house.auction_id()
     auction_data = house.auction_list(auction_id)
 
-    assert auction_data[4] == bob  # Bob is winning!
+    assert auction_data[auction_struct.bidder] == bob  # Bob is winning!
     boa.env.time_travel(house.auction_remaining_time(auction_id) + 1)
 
     with boa.env.prank(bob):
@@ -552,13 +554,14 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     fee_receiver,
     user_mint_amount,
     precision,
+auction_struct
 ):
 
     # Audit initial state
     house = auction_house_dual_bid
     first_auction = house.auction_id()
     first_auction_bid_alice = house.auction_pending_returns(first_auction, alice)
-    first_auction_bid_bob = house.auction_list(first_auction)[1]
+    first_auction_bid_bob = house.auction_list(first_auction)[auction_struct.amount]
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
@@ -595,10 +598,10 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     # Confirm auction settled
     assert house.is_auction_live(first_auction) is False
     assert house.is_auction_live(second_auction) is False
-    assert house.auction_list(first_auction)[4] == bob
-    assert house.auction_list(second_auction)[4] == alice
-    assert house.auction_list(first_auction)[5] is True
-    assert house.auction_list(second_auction)[5] is True
+    assert house.auction_list(first_auction)[auction_struct.bidder] == bob
+    assert house.auction_list(second_auction)[auction_struct.bidder] == alice
+    assert house.auction_list(first_auction)[auction_struct.settled] is True
+    assert house.auction_list(second_auction)[auction_struct.settled] is True
 
     # Settle auctions and confirm pending
     alice_pending = house.auction_pending_returns(
@@ -615,8 +618,8 @@ def test_balances_correct_on_dual_auction_split_wins_withdraw_regular(
     with boa.env.prank(bob):
         house.withdraw(second_auction)
 
-    alice_total_payment = house.auction_list(second_auction)[1]
-    bob_total_payment = house.auction_list(first_auction)[1]
+    alice_total_payment = house.auction_list(second_auction)[auction_struct.amount]
+    bob_total_payment = house.auction_list(first_auction)[auction_struct.amount]
 
     # Calculate the expected fee and remaining amount for each auction
     alice_fee_amount = alice_total_payment * house.fee_percent() // precision
@@ -655,11 +658,12 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     fee_receiver,
     user_mint_amount,
     precision,
+    auction_struct
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
     first_auction_bid_alice = house.auction_pending_returns(first_auction, alice)
-    first_auction_bid_bob = house.auction_list(first_auction)[1]
+    first_auction_bid_bob = house.auction_list(first_auction)[auction_struct.amount]
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
@@ -692,10 +696,10 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     # Confirm auction settled
     assert house.is_auction_live(first_auction) is False
     assert house.is_auction_live(second_auction) is False
-    assert house.auction_list(first_auction)[4] == bob
-    assert house.auction_list(second_auction)[4] == alice
-    assert house.auction_list(first_auction)[5] is True
-    assert house.auction_list(second_auction)[5] is True
+    assert house.auction_list(first_auction)[auction_struct.bidder] == bob
+    assert house.auction_list(second_auction)[auction_struct.bidder] == alice
+    assert house.auction_list(first_auction)[auction_struct.settled] is True
+    assert house.auction_list(second_auction)[auction_struct.settled] is True
 
     # Settle auctions
     alice_pending = house.auction_pending_returns(
@@ -712,8 +716,8 @@ def test_balance_correct_on_dual_auction_split_wins_withdraw_multiple(
     with boa.env.prank(bob):
         house.withdraw_multiple([first_auction, second_auction])
 
-    alice_total_payment = house.auction_list(second_auction)[1]
-    bob_total_payment = house.auction_list(first_auction)[1]
+    alice_total_payment = house.auction_list(second_auction)[auction_struct.amount]
+    bob_total_payment = house.auction_list(first_auction)[auction_struct.amount]
 
     # Calculate the expected fee and remaining amount for each auction
     alice_fee_amount = alice_total_payment * house.fee_percent() // precision
@@ -754,6 +758,7 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     fee_receiver,
     user_mint_amount,
     precision,
+    auction_struct
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
@@ -792,10 +797,10 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     # Confirm auction settled
     assert house.is_auction_live(first_auction) is False
     assert house.is_auction_live(second_auction) is False
-    assert house.auction_list(first_auction)[4] == bob
-    assert house.auction_list(second_auction)[4] == bob
-    assert house.auction_list(first_auction)[5] is True
-    assert house.auction_list(second_auction)[5] is True
+    assert house.auction_list(first_auction)[auction_struct.bidder] == bob
+    assert house.auction_list(second_auction)[auction_struct.bidder] == bob
+    assert house.auction_list(first_auction)[auction_struct.settled] is True
+    assert house.auction_list(second_auction)[auction_struct.settled] is True
 
     # Confirm pending
     alice_pending = house.auction_pending_returns(
@@ -814,7 +819,7 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
             house.withdraw_multiple([first_auction, second_auction])
 
     alice_total_payment = 0
-    bob_total_payment = house.auction_list(first_auction)[1] + house.auction_list(second_auction)[1]
+    bob_total_payment = house.auction_list(first_auction)[auction_struct.amount] + house.auction_list(second_auction)[auction_struct.amount]
 
     # Calculate the expected fee and remaining amount for each auction
     alice_fee_amount = alice_total_payment * house.fee_percent() // precision
@@ -852,11 +857,12 @@ def test_no_withdraw_regular_without_settlement(
     approval_flags,
     fee_receiver,
     user_mint_amount,
+    auction_struct
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
     first_auction_bid_alice = house.auction_pending_returns(first_auction, alice)
-    first_auction_bid_bob = house.auction_list(first_auction)[1]
+    first_auction_bid_bob = house.auction_list(first_auction)[auction_struct.amount]
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
@@ -887,10 +893,10 @@ def test_no_withdraw_regular_without_settlement(
     # Confirm auction unsettled
     assert house.is_auction_live(first_auction) is False
     assert house.is_auction_live(second_auction) is False
-    assert house.auction_list(first_auction)[4] == bob
-    assert house.auction_list(second_auction)[4] == alice
-    assert house.auction_list(first_auction)[5] is False
-    assert house.auction_list(second_auction)[5] is False
+    assert house.auction_list(first_auction)[auction_struct.bidder] == bob
+    assert house.auction_list(second_auction)[auction_struct.bidder] == alice
+    assert house.auction_list(first_auction)[auction_struct.settled] is False
+    assert house.auction_list(second_auction)[auction_struct.settled] is False
 
     # Confirm pending
     alice_pending = house.auction_pending_returns(
@@ -946,11 +952,12 @@ def test_no_withdraw_multiple_without_settlement(
     approval_flags,
     fee_receiver,
     user_mint_amount,
+    auction_struct
 ):
     house = auction_house_dual_bid
     first_auction = house.auction_id()
     first_auction_bid_alice = house.auction_pending_returns(first_auction, alice)
-    first_auction_bid_bob = house.auction_list(first_auction)[1]
+    first_auction_bid_bob = house.auction_list(first_auction)[auction_struct.amount]
 
     init_alice = payment_token.balanceOf(alice)
     init_bob = payment_token.balanceOf(bob)
@@ -981,10 +988,10 @@ def test_no_withdraw_multiple_without_settlement(
     # Confirm auction unsettled
     assert house.is_auction_live(first_auction) is False
     assert house.is_auction_live(second_auction) is False
-    assert house.auction_list(first_auction)[4] == bob
-    assert house.auction_list(second_auction)[4] == alice
-    assert house.auction_list(first_auction)[5] is False
-    assert house.auction_list(second_auction)[5] is False
+    assert house.auction_list(first_auction)[auction_struct.bidder] == bob
+    assert house.auction_list(second_auction)[auction_struct.bidder] == alice
+    assert house.auction_list(first_auction)[auction_struct.settled] is False
+    assert house.auction_list(second_auction)[auction_struct.settled] is False
 
     # Settle auctions
     alice_pending = house.auction_pending_returns(

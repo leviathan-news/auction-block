@@ -176,7 +176,7 @@ def test_withdraw_multiple_permission_check(
 
 
 def test_successful_overbid_through_directory(
-    auction_house_with_auction, alice, bob, payment_token, directory, precision
+    auction_house_with_auction, alice, bob, payment_token, directory, precision, auction_struct
 ):
     """Test that directory correctly handles bids above minimum"""
     house = auction_house_with_auction
@@ -192,8 +192,8 @@ def test_successful_overbid_through_directory(
 
     # Verify initial bid was placed
     auction = house.auction_list(auction_id)
-    assert auction[4] == alice, "Initial bid not placed correctly"
-    assert auction[1] == reserve_price, "Initial bid amount incorrect"
+    assert auction[auction_struct.bidder] == alice, "Initial bid not placed correctly"
+    assert auction[auction_struct.amount] == reserve_price, "Initial bid amount incorrect"
 
     # Calculate minimum bid increment
     increment_percentage = house.default_min_bid_increment_percentage()
@@ -211,8 +211,8 @@ def test_successful_overbid_through_directory(
 
     # Verify bob's bid was successful
     auction_after = house.auction_list(auction_id)
-    assert auction_after[4] == bob, "Overbid not placed correctly"
-    assert auction_after[1] == overbid_amount, "Overbid amount incorrect"
+    assert auction_after[auction_struct.bidder] == bob, "Overbid not placed correctly"
+    assert auction_after[auction_struct.amount] == overbid_amount, "Overbid amount incorrect"
 
     # Verify bob's balance decreased by the overbid amount
     bob_balance_after = payment_token.balanceOf(bob)
@@ -234,8 +234,8 @@ def test_successful_overbid_through_directory(
 
     # Verify bid was increased
     auction_after_increase = house.auction_list(auction_id)
-    assert auction_after_increase[4] == bob, "Bid increase failed"
-    assert auction_after_increase[1] == new_bid_amount, "New bid amount incorrect"
+    assert auction_after_increase[auction_struct.bidder] == bob, "Bid increase failed"
+    assert auction_after_increase[auction_struct.amount] == new_bid_amount, "New bid amount incorrect"
 
     # Verify only the difference was transferred
     bob_balance_after_increase = payment_token.balanceOf(bob)
@@ -248,7 +248,7 @@ def test_successful_overbid_through_directory(
 
 
 def test_create_bid_with_token_prevents_increasing_own_bid(
-    auction_house_with_auction, alice, payment_token, weth, mock_trader, directory, precision
+    auction_house_with_auction, alice, payment_token, weth, mock_trader, directory, precision, auction_struct
 ):
     """
     Test that create_bid_with_token prevents increasing your own winning bid
@@ -271,7 +271,7 @@ def test_create_bid_with_token_prevents_increasing_own_bid(
         )
 
     # Try to increase own bid
-    current_bid = house.auction_list(auction_id)[1]  # current bid amount
+    current_bid = house.auction_list(auction_id)[auction_struct.amount]  # current bid amount
     increment = house.default_min_bid_increment_percentage()
     next_min_bid = current_bid + (current_bid * increment // precision)
 
@@ -290,13 +290,13 @@ def test_create_bid_with_token_prevents_increasing_own_bid(
         )
 
     # Verify bid was increased
-    bid_after = house.auction_list(auction_id)[1]
+    bid_after = house.auction_list(auction_id)[auction_struct.amount]
     assert bid_after == current_bid + expected_next_payment, "Bid should have increased"
     assert weth.balanceOf(alice) == alice_init - additional_weth
 
 
 def test_create_bid_with_token_allows_increasing_own_bid(
-    auction_house_with_auction, alice, payment_token, weth, mock_trader, directory, precision
+    auction_house_with_auction, alice, payment_token, weth, mock_trader, directory, precision, auction_struct
 ):
     """Test that create_bid_with_token allows users to increase their own bids"""
 
@@ -331,8 +331,8 @@ def test_create_bid_with_token_allows_increasing_own_bid(
 
     # Check if initial bid was placed successfully
     if initial_bid_successful:
-        current_bid = house.auction_list(auction_id)[1]
-        initial_bidder = house.auction_list(auction_id)[4]
+        current_bid = house.auction_list(auction_id)[auction_struct.amount]
+        initial_bidder = house.auction_list(auction_id)[auction_struct.bidder]
         assert (
             current_bid >= expected_payment
         ), f"Initial bid amount incorrect: {current_bid} < {expected_payment}"
