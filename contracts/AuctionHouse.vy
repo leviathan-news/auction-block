@@ -83,9 +83,10 @@ interface AuctionDirectory:
 struct Auction:
     auction_id: uint256
     amount: uint256
+    bidder: address
+    start_block: uint256
     start_time: uint256
     end_time: uint256
-    bidder: address
     settled: bool
     ipfs_hash: String[46]
     params: AuctionParams
@@ -621,9 +622,10 @@ def nullify_auction(auction_id: uint256):
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=0,
+        bidder=empty(address),
+        start_block=_auction.start_block,
         start_time=_auction.start_time,
         end_time=block.timestamp - 1,
-        bidder=empty(address),
         settled=True,
         ipfs_hash=_auction.ipfs_hash,
         params=_auction.params,
@@ -736,9 +738,10 @@ def _create_auction(ipfs_hash: String[46], params: AuctionParams) -> uint256:
     self.auction_list[_auction_id] = Auction(
         auction_id=_auction_id,
         amount=0,
+        bidder=empty(address),
+        start_block=block.number,
         start_time=_start_time,
         end_time=_end_time,
-        bidder=empty(address),
         settled=False,
         ipfs_hash=ipfs_hash,
         params=params,
@@ -758,9 +761,10 @@ def _settle_auction(auction_id: uint256):
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=_auction.amount,
+        bidder=_auction.bidder,
+        start_block=_auction.start_block,
         start_time=_auction.start_time,
         end_time=_auction.end_time,
-        bidder=_auction.bidder,
         settled=True,
         ipfs_hash=_auction.ipfs_hash,
         params=_auction.params,
@@ -862,9 +866,10 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
         amount=total_bid,
+        bidder=bidder,
+        start_block=_auction.start_block,
         start_time=_auction.start_time,
         end_time=_end_time,
-        bidder=bidder,
         settled=_auction.settled,
         ipfs_hash=_auction.ipfs_hash,
         params=_auction.params,
