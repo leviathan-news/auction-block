@@ -47,7 +47,7 @@ def test_mock_trader_basic(auction_house, mock_trader, payment_token, alice, moc
 
 
 def test_mock_zap_bid_with_token(
-    auction_house, mock_trader, payment_token, alice, weth, directory, approval_flags
+    auction_house, mock_trader, payment_token, alice, weth, directory, approval_flags, auction_struct
 ):
     """Test bidding using mock trader"""
     owner = auction_house.owner()
@@ -70,8 +70,8 @@ def test_mock_zap_bid_with_token(
 
     # Verify auction state
     auction = auction_house.auction_list(auction_id)
-    assert auction[4] == alice  # bidder
-    assert auction[1] == expected_payment  # amount
+    assert auction[auction_struct.bidder] == alice  # bidder
+    assert auction[auction_struct.amount] == expected_payment  # amount
 
 
 def test_mock_zap_bid_slippage_protection(
@@ -134,7 +134,7 @@ def test_trading_views_in_directory(directory, payment_token, weth, mock_trader,
 
 
 def test_mock_bid_with_token_in_directory(
-    auction_house, directory, mock_trader, payment_token, alice, weth
+    auction_house, directory, mock_trader, payment_token, alice, weth, auction_struct
 ):
     """Test bidding using mock trader"""
     owner = directory.owner()
@@ -156,8 +156,8 @@ def test_mock_bid_with_token_in_directory(
 
     # Verify auction state
     auction = auction_house.auction_list(auction_id)
-    assert auction[4] == alice  # bidder
-    assert auction[1] == expected_payment  # amount
+    assert auction[auction_struct.bidder] == alice  
+    assert auction[auction_struct.amount] == expected_payment  
 
 
 def test_mock_bid_slippage_protection_in_directory(
@@ -251,7 +251,7 @@ def test_equal_bid_with_token_directory(
 
 
 def test_eth_bid_to_amount(
-    auction_house_with_auction, directory, alice, bob, weth, mock_trader, payment_token, precision
+    auction_house_with_auction, directory, alice, bob, weth, mock_trader, payment_token, precision, auction_struct, auction_params_struct
 ):
     owner = directory.owner()
     with boa.env.prank(owner):
@@ -283,7 +283,7 @@ def test_eth_bid_to_amount(
         current_bid = house.auction_bid_by_user(auction_id, bob)
         assert current_bid == bob_first_bid
         needed_bid = house.minimum_additional_bid_for_user(auction_id, bob)
-        pct = house.auction_list(auction_id)[7][2] / precision
+        pct = house.auction_list(auction_id)[auction_struct.params][auction_params_struct.min_bid_increment_percentage] / precision
         assert current_bid + needed_bid == alice_final_bid * (1 + pct)
 
         needed_dy = big_bid - current_bid
@@ -291,6 +291,6 @@ def test_eth_bid_to_amount(
 
         directory.create_bid_with_token(house, auction_id, needed_weth, weth, big_bid)
 
-        assert house.auction_list(auction_id)[4] == bob
-        assert house.auction_list(auction_id)[1] >= big_bid
-        assert house.auction_list(auction_id)[1] < big_bid * 1.02
+        assert house.auction_list(auction_id)[auction_struct.bidder] == bob
+        assert house.auction_list(auction_id)[auction_struct.amount] >= big_bid
+        assert house.auction_list(auction_id)[auction_struct.amount] < big_bid * 1.02

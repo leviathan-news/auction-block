@@ -297,6 +297,32 @@ def approval_flags():
 
 
 @pytest.fixture(scope="session")
+def auction_struct():
+    class AuctionFields:
+        auction_id = 0
+        amount = 1
+        start_time = 2
+        end_time = 3
+        bidder = 4
+        settled = 5
+        ipfs_hash = 6
+        start_block = 7
+        params = 8
+
+    return AuctionFields
+
+
+@pytest.fixture(scope="session")
+def auction_params_struct():
+    class AuctionParamsFields:
+        time_buffer = 0
+        reserve_price = 1
+        min_bid_increment_percentage = 2
+        duration = 3
+
+    return AuctionParamsFields
+
+@pytest.fixture(scope="session")
 def nft_contract():
     return boa.load_partial("contracts/AuctionNFT.vy")
 

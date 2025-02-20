@@ -59,7 +59,7 @@ def test_custom_auction_max_duration_constraint(auction_house):
     suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=50
 )
 def test_custom_auction_parameter_generation(
-    auction_house, time_buffer, reserve_price, min_bid_increment, duration
+    auction_house, time_buffer, reserve_price, min_bid_increment, duration, auction_struct, auction_params_struct
 ):
     """
     Hypothesis-based testing of custom auction parameter generation
@@ -75,12 +75,11 @@ def test_custom_auction_parameter_generation(
 
         # Verify auction was created with correct parameters
         auction = auction_house.auction_list(auction_id)
-
-        # Index 7 contains the auction params tuple
-        assert auction[7][0] == time_buffer
-        assert auction[7][1] == reserve_price
-        assert auction[7][2] == min_bid_increment
-        assert auction[7][3] == duration
+        params = auction[auction_struct.params]
+        assert params[auction_params_struct.time_buffer] == time_buffer
+        assert params[auction_params_struct.reserve_price] == reserve_price
+        assert params[auction_params_struct.min_bid_increment_percentage] == min_bid_increment
+        assert params[auction_params_struct.duration] == duration
 
 
 @pytest.mark.skip()
