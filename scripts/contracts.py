@@ -4,7 +4,7 @@ from typing import Callable, List
 
 @dataclass
 class ContractDefinition:
-    name: str  # Contract name (e.g., "AuctionBlock")
+    name: str  # Contract name (e.g., "AuctionHouse")
     file_path: str  # Path to contract file
     constructor_types: List[str]  # Constructor parameter types
     deployment_order: int  # Order in which contracts should be deployed
@@ -16,8 +16,8 @@ class ContractDefinition:
 
 CONTRACTS = {
     "auction_house": ContractDefinition(
-        name="AuctionBlock",
-        file_path="contracts/AuctionBlock.vy",
+        name="AuctionHouse",
+        file_path="contracts/AuctionHouse.vy",
         constructor_types=[
             "address",
             "address",
