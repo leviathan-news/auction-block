@@ -286,7 +286,7 @@ def test_eth_bid_to_amount(
         directory.create_bid(house, auction_id, bob_first_bid)
 
     with boa.env.prank(alice):
-        alice_final_bid = 10 * 10**18
+        alice_final_bid = 10 * bob_first_bid
         assert alice_final_bid > house.minimum_total_bid(auction_id)
         directory.create_bid(house, auction_id, alice_final_bid)
 
@@ -294,18 +294,16 @@ def test_eth_bid_to_amount(
     assert house.auction_list(auction_id)[auction_struct.bidder] == alice
 
     with boa.env.prank(bob):
-        big_bid = 42 * 10**18
+        big_bid = 42 * alice_final_bid
         weth.approve(directory, 2**256 - 1)
         current_bid = house.auction_bid_by_user(auction_id, bob)
         assert current_bid == bob_first_bid
         needed_bid = house.minimum_additional_bid_for_user(auction_id, bob)
-        pct = (
-            house.auction_list(auction_id)[auction_struct.params][
-                auction_params_struct.min_bid_increment_percentage
-            ]
-            / precision
-        )
-        assert current_bid + needed_bid == alice_final_bid * (1 + pct)
+        pct = house.auction_list(auction_id)[auction_struct.params][
+            auction_params_struct.min_bid_increment_percentage
+        ]
+        total_required = alice_final_bid * (precision + pct) // precision
+        assert (bob_first_bid + needed_bid) == total_required
 
         needed_dy = big_bid - current_bid
         needed_weth = directory.safe_get_dx(weth, needed_dy)

@@ -410,7 +410,7 @@ def mock_pool(mock_pool_contract, payment_token, weth, fork_mode):
 
     else:
         weth._mint_for_testing(pool, eth_amount)
-    payment_token._mint_for_testing(pool, eth_amount)
+    payment_token._mint_for_testing(pool, 1000 * eth_amount)
 
     return pool
 

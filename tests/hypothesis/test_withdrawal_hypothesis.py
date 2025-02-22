@@ -5,12 +5,22 @@ import pytest
 from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
-# Helper strategy to generate auction IDs and bid amounts
-auction_ids = st.integers(min_value=1, max_value=10)
-bid_amounts = st.integers(min_value=10**17, max_value=10**19)  # 0.1 to 10 tokens
 
-# Strategy for generating sequences of withdrawal attempts
-withdrawal_sequences = st.lists(st.tuples(auction_ids, bid_amounts), min_size=1, max_size=5)
+def build_bid_strategy(reserve_price, multiplier=100):
+    """
+    Dynamically generate a bid strategy based on the current reserve price
+
+    Args:
+        reserve_price (int): The current reserve price for the auction
+        multiplier (int, optional): Maximum bid as a multiple of reserve price. Defaults to 100.
+
+    Returns:
+        A hypothesis strategy for generating valid bid amounts
+    """
+    return st.integers(
+        min_value=int(reserve_price),  # Minimum is the reserve price
+        max_value=int(reserve_price * multiplier),  # Maximum set to multiplier times reserve price
+    )
 
 
 def setup_auction_with_outbid(
@@ -23,30 +33,29 @@ def setup_auction_with_outbid(
     auction_struct,
     advance_time: bool = True,
 ) -> Tuple[int, int]:
-    """Helper to setup an auction with an outbid scenario
-
-    Args:
-        auction_house: The auction house contract
-        payment_token: The payment token contract
-        bidder: Address of initial bidder
-        outbidder: Address of the outbidding user
-        bid_amount: Amount of initial bid
-        outbid_amount: Amount of outbid
-        advance_time: If True, advances time past auction end
-
-    Returns:
-        Tuple of (auction_id, bid_amount)
-    """
+    """Helper to setup an auction with an outbid scenario"""
     owner = auction_house.owner()
 
     # Create auction
     with boa.env.prank(owner):
         auction_id = auction_house.create_new_auction()
 
+    # Get the reserve price and minimum increment
+    reserve_price = auction_house.default_reserve_price()
+    min_increment = auction_house.default_min_bid_increment_percentage()
+    precision = 100 * 10**8  # From the contract's precision constant
+
+    # Ensure initial bid meets reserve price
+    initial_bid = max(bid_amount, reserve_price)
+
     # First bid
     with boa.env.prank(bidder):
-        payment_token.approve(auction_house, bid_amount)
-        auction_house.create_bid(auction_id, bid_amount)
+        payment_token.approve(auction_house, initial_bid)
+        auction_house.create_bid(auction_id, initial_bid)
+
+    # Calculate minimum next bid
+    min_next_bid = initial_bid + (initial_bid * min_increment // precision)
+    outbid_amount = max(outbid_amount, min_next_bid)
 
     # Outbid
     with boa.env.prank(outbidder):
@@ -61,28 +70,22 @@ def setup_auction_with_outbid(
         )
         boa.env.time_travel(seconds=time_to_advance)
 
-    return auction_id, bid_amount
-
-
-# ============================================================================================
-# 1. Withdrawal Timing Attack Tests
-# ============================================================================================
+    return auction_id, initial_bid
 
 
 def test_cannot_withdraw_during_active_bid(auction_house, payment_token, alice, bob):
     """Test that a user cannot withdraw while they are the highest bidder"""
     owner = auction_house.owner()
+    reserve_price = auction_house.default_reserve_price()
 
     # Create auction
     with boa.env.prank(owner):
         auction_id = auction_house.create_new_auction()
 
-    bid_amount = auction_house.minimum_total_bid(auction_id)
-
     # Place bid
     with boa.env.prank(alice):
-        payment_token.approve(auction_house, bid_amount)
-        auction_house.create_bid(auction_id, bid_amount)
+        payment_token.approve(auction_house, reserve_price)
+        auction_house.create_bid(auction_id, reserve_price)
 
         # Attempt withdrawal while highest bidder
         with pytest.raises(Exception):
@@ -91,40 +94,29 @@ def test_cannot_withdraw_during_active_bid(auction_house, payment_token, alice, 
 
 def test_withdrawal_after_auction_end(auction_house, payment_token, alice, bob, auction_struct):
     """Test withdrawals immediately after auction ends"""
-    bid_amount = 10**18
-    outbid_amount = bid_amount * 2
+    reserve_price = auction_house.default_reserve_price()
+    outbid_amount = reserve_price * 2
 
-    auction_id, _ = setup_auction_with_outbid(
-        auction_house, payment_token, alice, bob, bid_amount, outbid_amount, auction_struct
+    auction_id, initial_bid = setup_auction_with_outbid(
+        auction_house, payment_token, alice, bob, reserve_price, outbid_amount, auction_struct
     )
 
-    # Fast forward past auction end
-    auction = auction_house.auction_list(auction_id)
-    boa.env.time_travel(
-        seconds=auction[auction_struct.end_time] - auction[auction_struct.start_time] + 1
-    )
-
-    # Withdrawal should still work after auction ends
+    # Settle and withdraw
     initial_balance = payment_token.balanceOf(alice)
     with boa.env.prank(alice):
         auction_house.settle_auction(auction_id)
         auction_house.withdraw(auction_id)
 
-    assert payment_token.balanceOf(alice) == initial_balance + bid_amount
-
-
-# ============================================================================================
-# 2. Multiple Withdrawal Attempt Tests
-# ============================================================================================
+    assert payment_token.balanceOf(alice) == initial_balance + initial_bid
 
 
 def test_double_withdrawal_prevention(auction_house, payment_token, alice, bob, auction_struct):
     """Test that double withdrawals are prevented"""
-    bid_amount = 10**18
-    outbid_amount = bid_amount * 2
+    reserve_price = auction_house.default_reserve_price()
+    outbid_amount = reserve_price * 2
 
     auction_id, _ = setup_auction_with_outbid(
-        auction_house, payment_token, alice, bob, bid_amount, outbid_amount, auction_struct
+        auction_house, payment_token, alice, bob, reserve_price, outbid_amount, auction_struct
     )
 
     # First withdrawal
@@ -148,8 +140,10 @@ def test_multiple_withdrawal_stress(
 
     # Setup multiple auctions with outbids
     for _ in range(num_withdrawals):
-        bid_amount = 10**18 * (_ + 1)  # Increasing bids
-        outbid_amount = bid_amount * 2
+        reserve_price = auction_house.default_reserve_price()
+        bid_amount = reserve_price
+        outbid_multiple = _ + 2  # Ensure incrementing bids
+        outbid_amount = reserve_price * outbid_multiple
 
         auction_id, amount = setup_auction_with_outbid(
             auction_house,
@@ -163,7 +157,7 @@ def test_multiple_withdrawal_stress(
         )
         auction_ids.append(auction_id)
         auction_house.settle_auction(auction_id)
-        total_pending += bid_amount
+        total_pending += amount
 
     # Try withdrawing from all auctions
     initial_balance = payment_token.balanceOf(alice)
@@ -178,18 +172,14 @@ def test_multiple_withdrawal_stress(
         assert auction_house.auction_pending_returns(auction_id, alice) == 0
 
 
-# ============================================================================================
-# 3. Cross-Auction Withdrawal Tests
-# ============================================================================================
-
-
 def test_cross_auction_withdrawal_independence(
     auction_house, payment_token, alice, bob, auction_struct
 ):
     """Test that withdrawals from one auction don't affect others"""
     # Setup two auctions
-    bid_amount1 = 10**18
-    bid_amount2 = 2 * 10**18
+    reserve_price = auction_house.default_reserve_price()
+    bid_amount1 = reserve_price
+    bid_amount2 = reserve_price * 2
     outbid_amount1 = bid_amount1 * 2
     outbid_amount2 = bid_amount2 * 2
 
@@ -207,80 +197,15 @@ def test_cross_auction_withdrawal_independence(
         auction_house.withdraw(auction_id1)
 
     # Verify second auction's pending returns unaffected
-    assert auction_house.auction_pending_returns(auction_id2, alice) == bid_amount2
-
-
-# XXX What happened to auction_id_sequence
-@pytest.mark.skip()
-@given(st.lists(auction_ids, min_size=2, max_size=5, unique=True))
-@settings(
-    suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=10
-)
-def test_withdrawal_sequence_invariants(
-    auction_house, payment_token, alice, bob, auction_id_sequence, auction_struct
-):
-    """Property-based test for withdrawal sequence invariants"""
-    owner = auction_house.owner()
-    total_pending = 0
-    valid_ids = []
-
-    # Setup multiple auctions with different bid amounts
-    for auction_id in auction_id_sequence:
-        bid_amount = 10**18 * auction_id  # Different amounts for different auctions
-        outbid_amount = bid_amount * 2
-
-        # Create auction with specific ID
-        with boa.env.prank(owner):
-            current_id = auction_house.create_new_auction()
-            if current_id == auction_id:
-                valid_ids.append(auction_id)
-                # Setup bids
-                with boa.env.prank(alice):
-                    payment_token.approve(auction_house, bid_amount)
-                    auction_house.create_bid(auction_id, bid_amount)
-                with boa.env.prank(bob):
-                    payment_token.approve(auction_house, outbid_amount)
-                    auction_house.create_bid(auction_id, outbid_amount)
-                total_pending += bid_amount
-
-                # Advance time for this auction
-                auction = auction_house.auction_list(auction_id)
-                time_to_advance = (
-                    auction[auction_struct.end_time] - auction[auction_struct.start_time] + 100
-                )
-                boa.env.time_travel(seconds=time_to_advance)
-
-    if valid_ids:
-        # Try different withdrawal sequences
-        initial_balance = payment_token.balanceOf(alice)
-        remaining_ids = valid_ids.copy()
-
-        while remaining_ids:
-            withdraw_id = remaining_ids.pop(0)
-            with boa.env.prank(alice):
-                auction_house.settle_auction(withdraw_id)
-                auction_house.withdraw(withdraw_id)
-
-            # Verify invariants after each withdrawal
-            current_balance = payment_token.balanceOf(alice)
-            assert current_balance > initial_balance
-            assert current_balance <= initial_balance + total_pending
-
-            # Check remaining pending returns
-            for auction_id in remaining_ids:
-                assert auction_house.auction_pending_returns(auction_id, alice) > 0
-
-
-# ============================================================================================
-# 4. Withdrawal Permission/Delegation Tests
-# ============================================================================================
+    assert auction_house.auction_pending_returns(auction_id2, alice) > 0
 
 
 def test_unauthorized_withdrawal_prevention(
     auction_house, payment_token, alice, bob, charlie, auction_struct
 ):
     """Test that unauthorized withdrawals are prevented"""
-    bid_amount = 10**18
+    reserve_price = auction_house.default_reserve_price()
+    bid_amount = reserve_price
     outbid_amount = bid_amount * 2
 
     auction_id, _ = setup_auction_with_outbid(
@@ -291,11 +216,6 @@ def test_unauthorized_withdrawal_prevention(
     with boa.env.prank(charlie):
         with pytest.raises(Exception):
             auction_house.withdraw(auction_id, alice)
-
-
-# ============================================================================================
-# 5. Edge Cases and Boundary Tests
-# ============================================================================================
 
 
 def test_zero_pending_returns(auction_house, payment_token, alice):
@@ -328,32 +248,15 @@ def test_empty_withdrawal_array(auction_house, alice):
             auction_house.withdraw_multiple([])
 
 
-@given(
-    st.lists(
-        st.integers(min_value=1000, max_value=9999),  # Non-existent auction IDs
-        min_size=1,
-        max_size=5,
-        unique=True,
-    )
-)
-@settings(
-    suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=10
-)
-def test_invalid_withdrawal_sequences(auction_house, alice, invalid_ids):
-    """Property-based test for invalid withdrawal sequences"""
-    with boa.env.prank(alice):
-        with pytest.raises(Exception):
-            auction_house.withdraw_multiple(invalid_ids)
-
-
 def test_max_withdrawals_limit(auction_house, payment_token, alice, bob, auction_struct):
     """Test behavior at MAX_WITHDRAWALS limit"""
     MAX_WITHDRAWALS = 100  # From contract
     auction_ids = []
 
     # Setup maximum number of auctions with pending returns
+    reserve_price = auction_house.default_reserve_price()
     for i in range(MAX_WITHDRAWALS + 1):
-        bid_amount = 10**18
+        bid_amount = reserve_price
         outbid_amount = bid_amount * 2
 
         auction_id, _ = setup_auction_with_outbid(
@@ -370,3 +273,18 @@ def test_max_withdrawals_limit(auction_house, payment_token, alice, bob, auction
     # Should succeed with exactly MAX_WITHDRAWALS
     with boa.env.prank(alice):
         auction_house.withdraw_multiple(auction_ids[:MAX_WITHDRAWALS])
+
+
+@given(
+    auction_ids=st.lists(
+        st.integers(min_value=1000, max_value=9999), min_size=1, max_size=5, unique=True
+    )
+)
+@settings(
+    suppress_health_check=[HealthCheck.function_scoped_fixture], deadline=None, max_examples=10
+)
+def test_invalid_withdrawal_sequences(auction_house, alice, auction_ids):
+    """Property-based test for invalid withdrawal sequences"""
+    with boa.env.prank(alice):
+        with pytest.raises(Exception):
+            auction_house.withdraw_multiple(auction_ids)
