@@ -149,3 +149,52 @@ def test_nft_not_publicly_callable(alice, auction_house, nft):
     with boa.env.prank(alice):
         with boa.reverts("erc721: access is denied"):
             nft.safe_mint(alice, auction_house, 1)
+
+
+def test_no_nft_mint_on_nullified_auction(
+    auction_house_with_auction, alice, payment_token, deployer, zero_address, auction_struct, nft
+):
+    house = auction_house_with_auction
+    bid = house.default_reserve_price()
+    auction_id = house.auction_id()
+    with boa.env.prank(alice):
+        payment_token.approve(house, bid)
+        house.create_bid(auction_id, bid)
+    assert house.auction_list(auction_id)[auction_struct.bidder] == alice
+    assert house.auction_remaining_time(auction_id) > 0
+
+    with boa.env.prank(deployer):
+        house.nullify_auction(auction_id)
+
+    auction = house.auction_list(auction_id)
+    assert house.auction_remaining_time(auction_id) == 0
+    assert auction[auction_struct.amount] == 0
+    assert auction[auction_struct.bidder] == zero_address
+    assert auction[auction_struct.settled] is True
+    assert house.auction_pending_returns(auction_id, alice) == bid
+
+    nft_bal = nft.totalSupply()
+    with boa.reverts("settled"):
+        house.settle_auction(auction_id)
+    assert nft.totalSupply() == nft_bal
+    assert house.auction_list(auction_id)[auction_struct.settled] is True
+
+
+def test_no_nft_mint_on_unbid_auction(
+    auction_house_with_auction, payment_token, deployer, zero_address, auction_struct, nft
+):
+    house = auction_house_with_auction
+
+    auction_id = house.auction_id()
+    boa.env.time_travel(seconds=house.auction_remaining_time(auction_id) + 1)
+
+    auction = house.auction_list(auction_id)
+    assert house.auction_remaining_time(auction_id) == 0
+    assert auction[auction_struct.amount] == 0
+    assert auction[auction_struct.bidder] == zero_address
+    assert auction[auction_struct.settled] is False
+
+    nft_bal = nft.totalSupply()
+    house.settle_auction(auction_id)
+    assert nft.totalSupply() == nft_bal
+    assert house.auction_list(auction_id)[auction_struct.settled] is True

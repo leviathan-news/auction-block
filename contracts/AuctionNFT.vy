@@ -262,8 +262,13 @@ _all_tokens: DynArray[uint256, max_value(uint64)]
 _all_tokens_index: HashMap[uint256, uint256]
 
 
-# @dev Mapping from address to auction ID to token ID.
-auction_to_token: public(HashMap[address, HashMap[uint256, uint256]])
+# @dev Mapping from address to token ID to auction ID.
+struct AuctionInfo:
+    contract_address: address
+    auction_id: uint256
+
+
+token_to_auction: public(HashMap[uint256, AuctionInfo])
 
 
 # @dev An `uint256` counter variable that sets
@@ -603,7 +608,9 @@ def safe_mint(
     # increments above are checked for an overflow, this is
     # no longer even theoretically possible.
     self._safe_mint(owner, token_id, b"")
-    self.auction_to_token[contract_address][auction_id] = token_id
+    self.token_to_auction[token_id] = AuctionInfo(
+        contract_address=contract_address, auction_id=auction_id
+    )
     log IERC4906.MetadataUpdate(token_id)
     return token_id
 
@@ -690,6 +697,27 @@ def DOMAIN_SEPARATOR() -> bytes32:
     @return bytes32 The 32-byte domain separator.
     """
     return eip712_domain_separator._domain_separator_v4()
+
+
+@external
+@view
+def auction_to_token(auction_house: address, auction_id: uint256) -> uint256:
+    """
+    @notice Find the token id given an auction
+    @dev Iterates through all tokens and checks token_to_auction
+    @param auction_house Auction contract that issues the token
+    @param auction_id The auction_id from the auction contract
+    @return token_id The token id matching the auction contract and id or 0 on error
+    """
+    matching_id: uint256 = 0
+    for _token: uint256 in self._all_tokens:
+        if (
+            self.token_to_auction[_token].contract_address == auction_house
+            and self.token_to_auction[_token].auction_id == auction_id
+        ):
+            matching_id = _token
+            break
+    return matching_id
 
 
 @external

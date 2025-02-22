@@ -225,14 +225,17 @@ def __init__(
     self.fee_receiver = fee_receiver
     self.fee_percent = 5 * 10**8  # 5%
 
-    # Duration 1 hour
-    self.default_duration = 3600
-    # Time buffer 5 minutes
-    self.default_time_buffer = 300
-    # Reserve price of 0.2 SQUID
-    self.default_reserve_price = 10**18 // 5
-    # Bid must be 2% higher
-    self.default_min_bid_increment_percentage = 2 * 10**8  # 2%
+    # Duration 1 day
+    self.default_duration = 3600 * 24
+
+    # Time buffer 1 hour
+    self.default_time_buffer = 3600
+
+    # Reserve price of 1000 SQUID
+    self.default_reserve_price = 1000 * 10**18
+
+    # Bid must be 5% higher
+    self.default_min_bid_increment_percentage = 5 * 10**8
 
 
 # ============================================================================================
@@ -784,7 +787,9 @@ def _settle_auction(auction_id: uint256):
             ownable.owner, remaining_amount, default_return_value=True
         ), "!owner transfer"
 
-    if self.authorized_directory.address != empty(address):
+    if self.authorized_directory.address != empty(
+        address
+    ) and _auction.bidder != empty(address):
         extcall self.authorized_directory.mint_nft(_auction.bidder, auction_id)
 
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
