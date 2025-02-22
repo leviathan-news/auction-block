@@ -13,10 +13,10 @@ TEST_POOL_ADDR = "0x3ff0c368af361ff01906f75a7750480d1e2d7aa9"
 WETH_ADDR = "0x980b62da83eff3d4576c647993b0c1d7faf17c73"
 
 # Default auction parameters
-DEFAULT_TIME_BUFFER = 300  # 5 minutes
-DEFAULT_RESERVE_PRICE = int(0.2 * 10**18)  # 0.2 tokens
-DEFAULT_MIN_BID_INCREMENT = 2 * 10**8  # 2%
-DEFAULT_DURATION = 3600  # 1 hour
+DEFAULT_TIME_BUFFER = 3600  # 1 hour
+DEFAULT_RESERVE_PRICE = int(1000 * 10**18)  # 1000 tokens
+DEFAULT_MIN_BID_INCREMENT = 5 * 10**8  # 5$
+DEFAULT_DURATION = 24 * 3600  # 1 day
 DEFAULT_SPLIT_PERCENTAGE = 100 * 10**8  # 100%
 DEFAULT_FEE = 5 * 10**8  # 5%
 PRECISION = 100 * 10**8
@@ -136,7 +136,7 @@ def trading_pool(env, fork_mode):
 
 @pytest.fixture(scope="session")
 def user_mint_amount():
-    return 1_000 * 10**18
+    return 1_000_000 * 10**18
 
 
 @pytest.fixture(scope="session")
@@ -151,8 +151,8 @@ def make_user(payment_token, env, fork_mode, weth, user_mint_amount):
 
     def _make_user():
         addr = boa.env.generate_address()
-        payment_token._mint_for_testing(addr, 1_000 * 10**18)
-        weth._mint_for_testing(addr, 1_000 * 10**18)
+        payment_token._mint_for_testing(addr, 1_000_000 * 10**18)
+        weth._mint_for_testing(addr, user_mint_amount * 10**18)
         return addr
 
     if fork_mode:
