@@ -2,7 +2,7 @@
 
 """
 @title Squid Price Oracle
-@author Leviathan
+@author https://github.com/leviathan-news/auction-block
 @license MIT
 @notice Indicative token price
 @dev An artifact for frontend display, not robust enough for onchain usage!

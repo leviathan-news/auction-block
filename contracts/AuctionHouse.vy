@@ -2,7 +2,7 @@
 
 """
 @title Auction House
-@author Leviathan News
+@author https://github.com/leviathan-news/auction-block
 @license MIT
 @notice Core auction contract implementing English auction mechanics with extensions
 @dev Implements:
@@ -40,7 +40,6 @@
                      ++++     +++++++     +++++
                        +++      +++++++    +++
                                      ++    +
-"
 """
 
 

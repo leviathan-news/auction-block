@@ -2,7 +2,7 @@
 
 """
 @title Auction Directory
-@author Leviathan News
+@author https://github.com/leviathan-news/auction-block
 @license MIT
 @notice Central registry and interface for Leviathan auction system
 @dev Core contract providing:

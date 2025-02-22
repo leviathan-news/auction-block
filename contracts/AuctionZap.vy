@@ -2,7 +2,7 @@
 
 """
 @title WETH Auction Zap
-@author Leviathan News
+@author https://github.com/leviathan-news/auction-block
 @license MIT
 @notice Facilitates token swaps and bidding for Leviathan auction system
 @dev Provides core functionality for:
