@@ -1,0 +1,128 @@
+network: FRAXTAL
+fork: false
+deployment_timestamp: '2025-02-22T07:34:28.063660'
+contracts:
+  auction_house:
+    name: AuctionHouse
+    address: !!python/object/new:boa.util.abi.Address
+      args:
+      - '0x141C1C16237439c645033586f0CB85A271f0016F'
+      state: !!python/tuple
+      - null
+      - canonical_address: !!binary |
+          FBwcFiN0OcZFAzWG8MuFonHwAW8=
+    constructor_arguments: '0x0000000000000000000000006e58089d8e8f664823d26454f49a5a0f2ff697fe000000000000000000000000bd4ab1139f2f6361f927b8552c3b97fe81f0b528'
+    deployment_parameters:
+      payment_token: '0x6e58089d8e8f664823d26454f49a5a0f2ff697fe'
+      fee_receiver: '0xBd4ab1139F2F6361f927b8552C3b97Fe81f0B528'
+    contract_state:
+      owner: !!python/object/new:boa.util.abi.Address
+        args:
+        - '0xccBF601eB2f5AA2D5d68b069610da6F1627D485d'
+        state: !!python/tuple
+        - null
+        - canonical_address: !!binary |
+            zL9gHrL1qi1daLBpYQ2m8WJ9SF0=
+      paused: false
+      auction_id: !!python/object/new:boa.contracts.vyper.vyper_contract.int_wrapper
+        args:
+        - 0
+        state:
+          _vyper_type: !!python/object:vyper.semantics.types.primitives.IntegerT
+            members: {}
+            _is_signed: false
+            _bits: 256
+            is_signed: false
+            bits: 256
+            _id: uint256
+            abi_type: !!python/object:vyper.abi_types.ABI_GIntM
+              m_bits: 256
+              signed: false
+            ast_bounds: !!python/tuple
+            - 0
+            - 115792089237316195423570985008687907853269984665640564039457584007913129639935
+            _invalid_ops: !!python/tuple
+            - !!python/name:vyper.ast.nodes.Not ''
+            - !!python/name:vyper.ast.nodes.Div ''
+            - !!python/name:vyper.ast.nodes.USub ''
+            _as_darray: true
+    artifacts:
+      vyper_output: artifacts/20250222_AuctionHouse_0x141c_vyper_output.json
+  directory:
+    name: AuctionDirectory
+    address: !!python/object/new:boa.util.abi.Address
+      args:
+      - '0xd94b2a644b6130B0F14B4fA39b85A5fac450849A'
+      state: !!python/tuple
+      - null
+      - canonical_address: !!binary |
+          2UsqZEthMLDxS0+jm4Wl+sRQhJo=
+    constructor_arguments: '0x0000000000000000000000006e58089d8e8f664823d26454f49a5a0f2ff697fe'
+    deployment_parameters:
+      payment_token: '0x6e58089d8e8f664823d26454f49a5a0f2ff697fe'
+    contract_state:
+      owner: !!python/object/new:boa.util.abi.Address
+        args:
+        - '0xccBF601eB2f5AA2D5d68b069610da6F1627D485d'
+        state: !!python/tuple
+        - null
+        - canonical_address: !!binary |
+            zL9gHrL1qi1daLBpYQ2m8WJ9SF0=
+      paused: false
+    artifacts:
+      vyper_output: artifacts/20250222_AuctionDirectory_0xd94b_vyper_output.json
+  nft:
+    name: AuctionNFT
+    address: !!python/object/new:boa.util.abi.Address
+      args:
+      - '0x4C62740Ed0bFc8b2AFC53ad70919a964b9BEF7e2'
+      state: !!python/tuple
+      - null
+      - canonical_address: !!binary |
+          TGJ0DtC/yLKvxTrXCRmpZLm+9+I=
+    constructor_arguments: '0x00000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000001c000000000000000000000000000000000000000000000000000000000000000154c657669617468616e2041756374696f6e204e4654000000000000000000000000000000000000000000000000000000000000000000000000000000000000055351554944000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002b68747470733a2f2f6170692e6c657669617468616e6e6577732e78797a2f6170692f76312f696d6167652f00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000154c657669617468616e2041756374696f6e204e4654000000000000000000000000000000000000000000000000000000000000000000000000000000000000013100000000000000000000000000000000000000000000000000000000000000'
+    deployment_parameters:
+      name: Leviathan Auction NFT
+      symbol: SQUID
+      base_uri: https://api.leviathannews.xyz/api/v1/image/
+      name_eip: Leviathan Auction NFT
+      version_eip: '1'
+    contract_state: {}
+    artifacts:
+      vyper_output: artifacts/20250222_AuctionNFT_0x4c62_vyper_output.json
+  trader:
+    name: AuctionZap
+    address: !!python/object/new:boa.util.abi.Address
+      args:
+      - '0x6a19faB4847125DCB6eCCb822974714a31138274'
+      state: !!python/tuple
+      - null
+      - canonical_address: !!binary |
+          ahn6tIRxJdy27MuCKXRxSjETgnQ=
+    constructor_arguments: '0x0000000000000000000000006e58089d8e8f664823d26454f49a5a0f2ff697fe000000000000000000000000fc00000000000000000000000000000000000006000000000000000000000000277fa53c8a53c880e0625c92c92a62a9f60f3f0400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001'
+    deployment_parameters:
+      payment_token: '0x6e58089d8e8f664823d26454f49a5a0f2ff697fe'
+      weth_address: '0xfc00000000000000000000000000000000000006'
+      pool_address: '0x277fa53c8a53c880e0625c92c92a62a9f60f3f04'
+      indices:
+      - 0
+      - 1
+    contract_state: {}
+    artifacts:
+      vyper_output: artifacts/20250222_AuctionZap_0x6a19_vyper_output.json
+  oracle:
+    name: AuctionOracle
+    address: !!python/object/new:boa.util.abi.Address
+      args:
+      - '0x117E881984874615ab38e68948473e8ABa90efc2'
+      state: !!python/tuple
+      - null
+      - canonical_address: !!binary |
+          EX6IGYSHRhWrOOaJSEc+irqQ78I=
+    constructor_arguments: '0x000000000000000000000000277fa53c8a53c880e0625c92c92a62a9f60f3f04000000000000000000000000a0d3911349e701a1f49c1ba2dda34b4ce9636569'
+    deployment_parameters:
+      squid_price: '0x277fa53c8a53c880e0625c92c92a62a9f60f3f04'
+      eth_price: '0xa0d3911349e701a1f49c1ba2dda34b4ce9636569'
+    contract_state: {}
+    artifacts:
+      vyper_output: artifacts/20250222_AuctionOracle_0x117e_vyper_output.json

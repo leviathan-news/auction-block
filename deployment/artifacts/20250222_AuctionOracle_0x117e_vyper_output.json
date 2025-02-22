@@ -1,0 +1,21 @@
+{
+  "language": "Vyper",
+  "sources": {
+    "contracts/AuctionOracle.vy": {
+      "content": "# @version 0.4.0\n\n\"\"\"\n@title Squid Price Oracle\n@author https://github.com/leviathan-news/auction-block\n@license MIT\n@notice Indicative token price\n@dev An artifact for frontend display, not robust enough for onchain usage!\n\n                            ####++++++++\n                       #+++++++++####+++##++\n                     #########+++-++##++-..\n                      ....++++#++++++#+++-....\n                 ++++++----+++++++++++++++++-..-++##\n                  ...-+++++++++++++++++++++++++++#####\n              +++-....+#+++++++++++++++++++++++++######\n          +++++++++++++++++++++++++++++++-+++++++++++++++++\n        ++#########++++++++----+++--++----+++++++########++++\n      ###############+++++-.-------------..+++++#############++\n     ##########++++###++++.  .---------.  .+++++++++-+++  ######\n     ########  ....--+++++.   .-------..  .++++++++++#+++#+ ####\n    ########  ..--+++++++++....-------....+++++++####+++++## ###\n     ######   +++++++++++++++-+-----+-++-+-++++++#######++++\n     #####   +#######+#+++++++++-+-++-++++++++++++---+#####++\n      ####  ++####+----+++++++++++++++++++++++++++++-  #####++\n       ###  +###+.....-+++++++++++++++++++++++++###+++  +###++\n            ++##+....-+++++#+++++++++++++#++++----+##++  +####+\n            +###  ..-+#####++++++++++++++##+++-....##++   ####\n            ++##   ++####+-++++##+##+++++++###++-+  +++  #####\n             +##+  +####-..+++####++###++-.-+###+++ ++   ###\n               +#  +####-..++#####--+###++--  +#++++\n                   ++###   +++####+..-+###+++   ++++\n                    ++#++   ++++###+     +#+++  +++\n                     ++++     +++++++     +++++\n                       +++      +++++++    +++\n                                     ++    +\n\"\"\"\n\n# ============================================================================================\n# \ud83e\udde9 Interfaces\n# ============================================================================================\n\ninterface Oracle:\n    def price_oracle() -> uint256: view\n\n\ninterface OracleWithArguments:\n    def price_oracle(k: uint256) -> uint256: view\n\n\n# ============================================================================================\n# \ud83d\udcbe Storage\n# ============================================================================================\n\nsquid_eth_pool: public(Oracle)\neth_usd_pool: public(OracleWithArguments)\n\n\n# ============================================================================================\n# \ud83d\udea7 Constructor\n# ============================================================================================\n\n@deploy\ndef __init__(squid_eth_pool: Oracle, eth_usd_pool: OracleWithArguments):\n    self.squid_eth_pool = squid_eth_pool\n    self.eth_usd_pool = eth_usd_pool\n\n\n# ============================================================================================\n# \ud83d\udc40 View functions\n# ============================================================================================\n\n@external\n@view\ndef eth_price_usd() -> uint256:\n    return staticcall self.eth_usd_pool.price_oracle(0)\n\n\n@external\n@view\ndef squid_price_eth() -> uint256:\n    return staticcall self.squid_eth_pool.price_oracle()\n\n\n@external\n@view\ndef price_usd() -> uint256:\n    \"\"\"\n    @notice Returns the USD price of the payment token\n    @dev Uses the pool's price oracle (price in ETH terms) and the ETH/USD price oracle\n         Both values are in 10**18 scale, so proper scaling is applied to avoid overflow\n    @return Price of the payment token in USD (10**18 precision)\n    \"\"\"\n    squid_price_eth: uint256 = staticcall self.squid_eth_pool.price_oracle()\n    eth_price_usd: uint256 = staticcall self.eth_usd_pool.price_oracle(0)\n\n    return (squid_price_eth * eth_price_usd) // 10**18\n",
+      "sha256sum": "239d67d3790a449d2486f9bfd1606bdf5b561de29399f07b974aea5a5956652d"
+    }
+  },
+  "settings": {
+    "outputSelection": {
+      "contracts/AuctionOracle.vy": [
+        "*"
+      ]
+    },
+    "search_paths": [
+      "."
+    ]
+  },
+  "compiler_version": "v0.4.0+commit.e9db8d9",
+  "integrity": "96babf4600422506cd74ddaf9bbd2e6a65fd74024885dbb9913f78875555e9f9"
+}
