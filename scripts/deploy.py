@@ -75,7 +75,7 @@ def main():
         }
         deployments["oracle"] = deploy_contract(CONTRACTS["oracle"], oracle_params)
         directory.set_payment_token_oracle(deployments["oracle"]["instance"])
-        house.transfer_ownership("0x5245Cf2b253556D88bF6f783a88229648F957942")
+        #house.transfer_ownership("0x5245Cf2b253556D88bF6f783a88229648F957942")
     else:
         print(f"Oracle not set up for {config.network} -- skipping")
 
@@ -90,6 +90,7 @@ def main():
 
     # Set NFT contract
     directory.set_nft(nft.address)
+    nft.set_minter(directory)
 
     # Configure trading if enabled
     if config.use_external_tokens and "trader" in deployments:
