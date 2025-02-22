@@ -16,7 +16,7 @@ def main():
     # Configuration
     config = DeploymentConfig(
         network=Network.ARB_SEPOLIA,
-        fork_mode=False,
+        fork_mode=True,
         deploy_mode=True,
         use_external_tokens=True,
         ipfs_hash="QmQgjigqoR9SRj4bUUNrQ71Kg63Musuyik22eHoAG29w1T",
@@ -90,7 +90,7 @@ def main():
 
     # Set NFT contract
     directory.set_nft(nft.address)
-    nft.set_minter(directory)
+    nft.set_minter(directory, True)
 
     # Configure trading if enabled
     if config.use_external_tokens and "trader" in deployments:
