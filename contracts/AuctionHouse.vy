@@ -442,8 +442,6 @@ def withdraw(
     """
     pausable._check_unpaused()
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
-    assert self._is_auction_live(auction_id) == False, "!inactive"
-    assert self._is_auction_settled(auction_id), "!settled"
 
     pending: uint256 = self.auction_pending_returns[auction_id][on_behalf_of]
     assert pending > 0, "!pending"
@@ -475,15 +473,7 @@ def withdraw_multiple(
     pausable._check_unpaused()
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     total_pending: uint256 = 0
-    settled_auction_exists: bool = False
     for auction_id: uint256 in auction_ids:
-        if self._is_auction_live(auction_id):
-            continue
-
-        if not self._is_auction_settled(auction_id):
-            continue
-
-        settled_auction_exists = True
         pending: uint256 = self.auction_pending_returns[auction_id][
             on_behalf_of
         ]
@@ -491,7 +481,6 @@ def withdraw_multiple(
             total_pending += pending
             self.auction_pending_returns[auction_id][on_behalf_of] = 0
             log Withdraw(auction_id, on_behalf_of, msg.sender, pending)
-    assert settled_auction_exists, "!settled"
     assert total_pending > 0, "!pending"
     assert extcall self.payment_token.transfer(
         on_behalf_of, total_pending, default_return_value=True
