@@ -599,6 +599,36 @@ def create_custom_auction(
 
 
 @external
+@nonreentrant
+def create_custom_auction_by_deadline(
+    time_buffer: uint256,
+    reserve_price: uint256,
+    min_bid_increment_percentage: uint256,
+    deadline: uint256,
+    ipfs_hash: String[46] = "",
+) -> uint256:
+    """
+    @dev Create a new auction with custom parameters instead of defaults
+    @param ipfs_hash The IPFS hash of the auction metadata
+    @return New auction id
+    """
+    pausable._check_unpaused()
+    if msg.sender != ownable.owner:
+        assert self.auction_managers[msg.sender] == True, "!manager"
+    assert deadline > block.timestamp, "!deadline"
+
+    return self._create_auction(
+        ipfs_hash,
+        AuctionParams(
+            time_buffer=time_buffer,
+            reserve_price=reserve_price,
+            min_bid_increment_percentage=min_bid_increment_percentage,
+            duration=deadline - block.timestamp,
+        ),
+    )
+
+
+@external
 def nullify_auction(auction_id: uint256):
     """
     @notice Emergency function to cancel an auction
