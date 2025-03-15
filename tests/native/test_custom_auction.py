@@ -71,7 +71,7 @@ def test_create_custom_auction_only_owner(
 ):
     """Test that only the owner can create a custom auction"""
     with boa.env.prank(alice):
-        with boa.reverts("!owner"):
+        with boa.reverts("!manager"):
             auction_house.create_custom_auction(
                 default_time_buffer,
                 default_reserve_price,
@@ -79,3 +79,69 @@ def test_create_custom_auction_only_owner(
                 default_duration,
                 "",
             )
+
+
+def test_can_authorize_auction_manager(auction_house, alice, deployer):
+    curr_auction = auction_house.auction_id()
+    with boa.env.prank(deployer):
+        auction_house.set_auction_manager(alice, True)
+    
+    with boa.env.prank(alice):
+        auction_house.create_new_auction()
+
+    assert curr_auction + 1 == auction_house.auction_id()
+
+
+def test_can_authorize_auction_manager_custom_auction(auction_house, alice, deployer):
+    curr_auction = auction_house.auction_id()
+    with boa.env.prank(deployer):
+        auction_house.set_auction_manager(alice, True)
+    
+    with boa.env.prank(alice):
+        auction_house.create_custom_auction(
+                auction_house.default_time_buffer(),
+                auction_house.default_reserve_price(),
+                auction_house.default_min_bid_increment_percentage(),
+                auction_house.default_duration()
+                )
+
+    assert curr_auction + 1 == auction_house.auction_id()
+
+def test_can_disable_auction_manager(auction_house, alice, deployer):
+    curr_auction = auction_house.auction_id()
+    with boa.env.prank(deployer):
+        auction_house.set_auction_manager(alice, True)
+    
+    with boa.env.prank(alice):
+        auction_house.create_new_auction()
+
+    assert curr_auction + 1 == auction_house.auction_id()
+    
+    with boa.env.prank(deployer):
+        auction_house.set_auction_manager(alice, False)
+    
+    with boa.env.prank(alice):
+        with boa.reverts("!manager"):
+            auction_house.create_new_auction()
+
+    assert curr_auction + 1 == auction_house.auction_id()
+
+def test_rando_cannot_designate_auction_manager(auction_house, alice, bob):
+    
+    curr_auction = auction_house.auction_id()
+    with boa.env.prank(alice):
+        with boa.reverts("!owner"):
+            auction_house.set_auction_manager(alice, True)
+        with boa.reverts("!owner"):
+            auction_house.set_auction_manager(bob, True)
+    
+    with boa.env.prank(alice):
+        with boa.reverts("!manager"):
+            auction_house.create_new_auction()
+
+    with boa.env.prank(bob):
+        with boa.reverts("!manager"):
+            auction_house.create_new_auction()
+
+
+    assert curr_auction == auction_house.auction_id()

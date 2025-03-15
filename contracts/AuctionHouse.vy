@@ -1,7 +1,7 @@
 # @version 0.4.0
 
 """
-@title Auction House
+@title Auction House v2
 @author https://github.com/leviathan-news/auction-block
 @license MIT
 @notice Core auction contract implementing English auction mechanics with extensions
@@ -11,6 +11,7 @@
      - Fee distribution system
      - Emergency controls (pause/nullify)
      - Delegated bidding permissions
+     v2 adds Auction Managers, early withdrawals, duration or deadline creation
 
 
                             ####++++++++
@@ -195,6 +196,7 @@ auction_id: public(uint256)
 
 # User settings: user -> caller -> status
 approved_caller: public(HashMap[address, HashMap[address, ApprovalStatus]])
+auction_managers: public(HashMap[address, bool])
 
 # Tokens
 payment_token: public(IERC20)
@@ -572,7 +574,9 @@ def create_new_auction(ipfs_hash: String[46] = "") -> uint256:
     @return New auction id
     """
     pausable._check_unpaused()
-    ownable._check_owner()
+    if msg.sender != ownable.owner:
+        assert self.auction_managers[msg.sender] == True, "!manager"
+
     return self._create_auction(ipfs_hash, self._default_auction_params())
 
 
@@ -591,7 +595,9 @@ def create_custom_auction(
     @return New auction id
     """
     pausable._check_unpaused()
-    ownable._check_owner()
+    if msg.sender != ownable.owner:
+        assert self.auction_managers[msg.sender] == True, "!manager"
+
     return self._create_auction(
         ipfs_hash,
         AuctionParams(
@@ -681,6 +687,16 @@ def set_approved_directory(directory_address: address):
     self.authorized_directory = AuctionDirectory(directory_address)
     log DirectorySet(directory_address)
 
+
+@external
+def set_auction_manager(manager_address: address, status: bool):
+    """
+    @notice Authorize address to create auctions
+    @param manager_address Address to designate
+    @param status True to allow auction management
+    """
+    ownable._check_owner()
+    self.auction_managers[manager_address] = status
 
 @external
 def recover_erc20(token_addr: address, amount: uint256):

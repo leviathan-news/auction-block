@@ -2,7 +2,7 @@ import boa
 
 
 def test_non_owner_cannot_create_auction(auction_house, alice):
-    with boa.env.prank(alice), boa.reverts("!owner"):
+    with boa.env.prank(alice), boa.reverts("!manager"):
         auction_house.create_new_auction()
 
 
