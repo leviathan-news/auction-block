@@ -1,5 +1,5 @@
 import boa
-import pytest
+
 
 def test_withdraw_stale(
     auction_house_with_auction,
@@ -307,7 +307,6 @@ def test_prevent_bid_cycling_attack_with_early_withdrawal(
 
     # Initial state tracking
     initial_balance_alice = payment_token.balanceOf(alice)
-    initial_balance_bob = payment_token.balanceOf(bob)
 
     # Calculate bid amounts
     initial_bid = default_reserve_price
@@ -338,7 +337,9 @@ def test_prevent_bid_cycling_attack_with_early_withdrawal(
         house.withdraw(auction_id)
 
     # Verify Alice got her funds back
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice should have received her initial balance back"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice should have received her initial balance back"
     assert house.pending_returns(alice) == 0, "Alice's pending returns should be cleared"
 
     # Step 4: Alice attempts to use the same funds for a bid cycling attack
@@ -374,6 +375,7 @@ def test_prevent_bid_cycling_attack_with_early_withdrawal(
 
     # Verify Bob now has pending returns
     assert house.pending_returns(bob) == bob_bid, "Bob should have pending returns"
+
 
 def test_allow_withdrawal_during_active_auction(
     auction_house_with_auction, alice, bob, payment_token, default_reserve_price, precision
@@ -413,7 +415,7 @@ def test_allow_withdrawal_during_active_auction(
 
     # Double-check Alice could withdraw by verifying her balance has changed
     assert (
-        payment_token.balanceOf(alice) == initial_balance_alice 
+        payment_token.balanceOf(alice) == initial_balance_alice
     ), "User was able to withdraw during active auction!"
 
     # Now properly end the auction
@@ -427,9 +429,7 @@ def test_allow_withdrawal_during_active_auction(
             house.withdraw(auction_id)
 
     # Verify withdrawal worked after auction ended
-    assert (
-        payment_token.balanceOf(alice) == initial_balance_alice
-    ), "Withdrawal succeeded"
+    assert payment_token.balanceOf(alice) == initial_balance_alice, "Withdrawal succeeded"
 
 
 def test_prevent_multi_auction_withdrawal_manipulation(
@@ -574,6 +574,7 @@ def test_boundary_condition_end_time(auction_house_dual_bid):
     boa.env.time_travel(1)
     assert house.is_auction_live(auction_id) is False
 
+
 def test_can_withdraw_before_auction_ends(auction_house_dual_bid, alice, payment_token):
     house = auction_house_dual_bid
     auction_id = house.auction_id()
@@ -616,6 +617,7 @@ def test_cannot_withdraw_twice(
 
     assert payment_token.balanceOf(alice) == init_alice + house.default_reserve_price()
     assert payment_token.balanceOf(house) == init_house - house.default_reserve_price()
+
 
 def test_auction_winner_cannot_withdraw(
     auction_house_dual_bid, alice, bob, payment_token, deployer, approval_flags, auction_struct
@@ -945,6 +947,7 @@ def test_auction_settlement_throws_for_withdraw_all_on_bob_sweep(
     assert final_fee_receiver == init_fee_receiver + alice_fee_amount + bob_fee_amount
     assert final_house == 0
 
+
 def test_can_withdraw_regular_without_settlement(
     auction_house_dual_bid,
     alice,
@@ -1005,7 +1008,7 @@ def test_can_withdraw_regular_without_settlement(
     assert alice_pending == first_auction_bid_alice
     assert bob_pending == second_auction_bid_bob
 
-    # Would generally work pre-settlement 
+    # Would generally work pre-settlement
     with boa.env.anchor():
         with boa.env.prank(alice):
             house.withdraw(first_auction)
@@ -1117,7 +1120,6 @@ def test_no_withdraw_multiple_without_settlement(
         assert payment_token.balanceOf(alice) == presettle_balance_alice + alice_pending
         assert payment_token.balanceOf(bob) == presettle_balance_bob + bob_pending
 
-
     # Calculate the expected fee and remaining amount for each auction
     final_alice = payment_token.balanceOf(alice)
     final_bob = payment_token.balanceOf(bob)
@@ -1143,6 +1145,7 @@ def test_no_withdraw_multiple_without_settlement(
         + second_auction_bid_alice
         + second_auction_bid_bob
     )
+
 
 def test_withdrawal_security_with_rebidding(
     auction_house_with_auction,
@@ -1207,7 +1210,9 @@ def test_withdrawal_security_with_rebidding(
         total_withdrawn += withdrawn
 
     # Verify Alice got her money back
-    assert payment_token.balanceOf(alice) == initial_balance, "Alice should have received her funds back"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance
+    ), "Alice should have received her funds back"
     assert house.pending_returns(alice) == 0, "Alice should have no pending returns"
 
     # Step 4: Alice re-enters with a higher bid
@@ -1232,7 +1237,9 @@ def test_withdrawal_security_with_rebidding(
         house.create_bid(auction_id, charlie_bid)
 
     # Verify Alice now has pending returns
-    assert house.pending_returns(alice) == alice_second_bid, "Alice should have her second bid in pending returns"
+    assert (
+        house.pending_returns(alice) == alice_second_bid
+    ), "Alice should have her second bid in pending returns"
 
     # Step 6: Alice withdraws again
     with boa.env.prank(alice):
@@ -1241,14 +1248,20 @@ def test_withdrawal_security_with_rebidding(
 
     # This is the critical check: Alice shouldn't be able to withdraw more than she deposited
     assert total_withdrawn <= total_deposited, "Alice should not withdraw more than deposited"
-    assert total_withdrawn == total_deposited, "Alice should be able to withdraw exactly what she deposited"
+    assert (
+        total_withdrawn == total_deposited
+    ), "Alice should be able to withdraw exactly what she deposited"
 
     # Verify Alice has no pending returns
-    assert house.pending_returns(alice) == 0, "Alice should have no pending returns after withdrawal"
+    assert (
+        house.pending_returns(alice) == 0
+    ), "Alice should have no pending returns after withdrawal"
 
     # Final check - verify Alice's balance is correct (initial + new tokens - net deposits)
     expected_balance = initial_balance + alice_second_bid - (total_deposited - total_withdrawn)
-    assert payment_token.balanceOf(alice) == expected_balance, "Alice's balance should match expected"
+    assert (
+        payment_token.balanceOf(alice) == expected_balance
+    ), "Alice's balance should match expected"
 
 
 def test_prevent_double_withdrawal_attack(
@@ -1269,70 +1282,78 @@ def test_prevent_double_withdrawal_attack(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Initial state tracking
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Calculate bid amounts
     initial_bid = default_reserve_price
     min_increment = house.default_min_bid_increment_percentage()
     second_bid = initial_bid + (initial_bid * min_increment // precision)
-    
+
     # Step 1: Alice makes initial bid
     with boa.env.prank(alice):
         payment_token.approve(house.address, initial_bid)
         house.create_bid(auction_id, initial_bid)
-    
+
     # Step 2: Bob outbids Alice
     with boa.env.prank(bob):
         payment_token.approve(house.address, second_bid)
         house.create_bid(auction_id, second_bid)
-    
+
     # Verify Alice has pending returns
     pending_returns = house.pending_returns(alice)
     assert pending_returns == initial_bid, "Alice should have pending returns"
-    
+
     # Step 3: Alice withdraws her pending returns
     with boa.env.prank(alice):
         house.withdraw(auction_id)
-    
+
     # Verify Alice received her funds
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice should have received her funds back"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice should have received her funds back"
     assert house.pending_returns(alice) == 0, "Alice's pending returns should be cleared"
-    
+
     # Step 4: Alice attempts to withdraw again - should fail
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
-    
+
     # Step 5: Create a second auction to test if Alice can withdraw from wrong auction
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw_multiple([auction_id])
-    
+
     # Verify Alice's balance hasn't changed from the initial withdrawal
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's balance should remain unchanged after failed withdrawal attempts"
-    
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's balance should remain unchanged after failed withdrawal attempts"
+
     # Step 6: Fast forward past auction end time to see if time affects withdrawal ability
     expiry_time = house.auction_remaining_time(auction_id) + 1
     boa.env.time_travel(seconds=expiry_time)
-    
+
     # Step 7: Try to withdraw again after auction ends
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
-    
+
     # Verify Alice's balance is still the same
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's balance should remain unchanged"
-    
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's balance should remain unchanged"
+
     # Step 8: Try to withdraw after auction is settled
     house.settle_auction(auction_id)
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
-    
+
     # Final verification that balance is unchanged
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's balance should remain unchanged after all withdrawal attempts"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's balance should remain unchanged after all withdrawal attempts"
 
 
 def test_prevent_front_running_withdrawal_attack(
@@ -1356,20 +1377,20 @@ def test_prevent_front_running_withdrawal_attack(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Initial state tracking
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Calculate bid amounts
     initial_bid = default_reserve_price
     min_increment = house.default_min_bid_increment_percentage()
     second_bid = initial_bid + (initial_bid * min_increment // precision)
-    
+
     # Step 1: Alice makes initial bid
     with boa.env.prank(alice):
         payment_token.approve(house.address, initial_bid)
         house.create_bid(auction_id, initial_bid)
-    
+
     # Step 2: In a real blockchain, this would be simulating Alice front-running Bob's transaction
     # We'll use a snapshot to simulate this sequence of events
     with boa.env.anchor():
@@ -1377,40 +1398,47 @@ def test_prevent_front_running_withdrawal_attack(
         with boa.env.prank(alice):
             with boa.reverts("!pending"):  # Should fail because Alice is the highest bidder
                 house.withdraw(auction_id)
-        
+
         # Alice's balance should be unchanged
-        assert payment_token.balanceOf(alice) == initial_balance_alice - initial_bid, "Alice's balance should remain unchanged"
-    
+        assert (
+            payment_token.balanceOf(alice) == initial_balance_alice - initial_bid
+        ), "Alice's balance should remain unchanged"
+
     # Step 3: Bob outbids Alice
     with boa.env.prank(bob):
         payment_token.approve(house.address, second_bid)
         house.create_bid(auction_id, second_bid)
-    
+
     # Step 4: Verify Alice now has pending returns
-    assert house.pending_returns(alice) == initial_bid, "Alice should have pending returns after being outbid"
-    
+    assert (
+        house.pending_returns(alice) == initial_bid
+    ), "Alice should have pending returns after being outbid"
+
     # Step 5: Alice withdraws her pending returns legitimately
     with boa.env.prank(alice):
         house.withdraw(auction_id)
-    
+
     # Verify Alice received her funds
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice should have received her funds back"
-    
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice should have received her funds back"
+
     # Verify auction state is still correct
     auction = house.auction_list(auction_id)
     assert auction[auction_struct.bidder] == bob, "Bob should still be the highest bidder"
     assert auction[auction_struct.amount] == second_bid, "Bid amount should remain unchanged"
-    
+
     # Simulate another front-running attempt by Alice
-    higher_bid = second_bid + (second_bid * min_increment // precision)
-    
     # Step 6: Alice tries to withdraw again (would be front-running if this was a real pending tx)
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
-    
+
     # Final verification
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's balance should remain unchanged after failed withdrawal attempt"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's balance should remain unchanged after failed withdrawal attempt"
+
 
 def test_prevent_delegate_permission_abuse(
     auction_house_with_auction,
@@ -1465,7 +1493,9 @@ def test_prevent_delegate_permission_abuse(
             house.withdraw(auction_id, alice)
 
     # Verify balances unchanged
-    assert payment_token.balanceOf(alice) == initial_balance_alice - initial_bid, "Alice's balance should be unchanged"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice - initial_bid
+    ), "Alice's balance should be unchanged"
 
     # Step 4: Alice grants Bob withdraw-only permission
     with boa.env.prank(alice):
@@ -1483,7 +1513,9 @@ def test_prevent_delegate_permission_abuse(
         house.withdraw(auction_id, alice)
 
     # Verify Alice received her funds (not Bob)
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice should have received her funds back"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice should have received her funds back"
     assert payment_token.balanceOf(bob) == initial_balance_bob, "Bob's balance should be unchanged"
 
     # Step 7: Alice tries to withdraw again (should fail)
@@ -1516,8 +1548,9 @@ def test_prevent_delegate_permission_abuse(
     assert house.pending_returns(charlie) == charlie_bid, "Charlie should have pending returns"
 
     # Final verification
-    assert payment_token.balanceOf(alice) == initial_balance_alice - bob_bid, "Alice's balance should reflect the new bid"
-
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice - bob_bid
+    ), "Alice's balance should reflect the new bid"
 
 
 def test_withdraw_multiple_with_duplicates(
@@ -1537,44 +1570,49 @@ def test_withdraw_multiple_with_duplicates(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Initial state tracking
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Alice makes initial bid
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice
     min_increment = house.default_min_bid_increment_percentage()
     second_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, second_bid)
         house.create_bid(auction_id, second_bid)
-    
+
     # Verify Alice has pending returns
     pending_returns = house.pending_returns(alice)
     assert pending_returns == default_reserve_price, "Alice should have pending returns"
-    
+
     # Attempt to double-withdraw by passing the same auction ID twice
     with boa.env.prank(alice):
         house.withdraw_multiple([auction_id, auction_id])
-    
+
     # Check if Alice was able to withdraw more than she should have
     alice_final_balance = payment_token.balanceOf(alice)
-    expected_final_balance = initial_balance_alice  # Should have received exactly her pending returns once
-    
+    expected_final_balance = (
+        initial_balance_alice  # Should have received exactly her pending returns once
+    )
+
     print(f"Alice initial balance: {initial_balance_alice}")
     print(f"Alice final balance: {alice_final_balance}")
     print(f"Expected final balance: {expected_final_balance}")
     print(f"Difference: {alice_final_balance - expected_final_balance}")
-    
+
     # The critical check - verify Alice didn't receive more than her pending returns
-    assert alice_final_balance <= expected_final_balance, "Alice should not receive more than her pending returns"
-    
+    assert (
+        alice_final_balance <= expected_final_balance
+    ), "Alice should not receive more than her pending returns"
+
     # Verify Alice has no more pending returns
     assert house.pending_returns(alice) == 0, "Alice should have no more pending returns"
+
 
 def test_basic_reentrancy_protection(
     auction_house_with_auction,
@@ -1593,43 +1631,47 @@ def test_basic_reentrancy_protection(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Initial state tracking
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Alice makes initial bid
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice
     min_increment = house.default_min_bid_increment_percentage()
     second_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, second_bid)
         house.create_bid(auction_id, second_bid)
-    
+
     # Verify Alice has pending returns
     pending_returns = house.pending_returns(alice)
     assert pending_returns == default_reserve_price, "Alice should have pending returns"
-    
+
     # Simulate reentrancy: In a real attack, this would be a malicious token's callback
     # In this test, we check that state is updated before external calls
     with boa.env.prank(alice):
         # First withdrawal should succeed
         house.withdraw(auction_id)
-        
+
         # If state is properly updated before external call, this should fail
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
-    
+
     # Verify Alice's balance is correct - received exactly her pending returns once
     alice_final_balance = payment_token.balanceOf(alice)
     expected_final_balance = initial_balance_alice
-    assert alice_final_balance == expected_final_balance, "Alice should receive her funds exactly once"
-    
+    assert (
+        alice_final_balance == expected_final_balance
+    ), "Alice should receive her funds exactly once"
+
     # Verify pending returns are cleared
-    assert house.auction_pending_returns(auction_id, alice) == 0, "Pending returns should be cleared"
+    assert (
+        house.auction_pending_returns(auction_id, alice) == 0
+    ), "Pending returns should be cleared"
 
 
 def test_prevent_accounting_inconsistencies(
@@ -1647,69 +1689,89 @@ def test_prevent_accounting_inconsistencies(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Setup a second auction
     with boa.env.prank(house.owner()):
         second_auction_id = house.create_new_auction()
-    
+
     # Track initial balances
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Alice bids on first auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice on first auction
     min_increment = house.default_min_bid_increment_percentage()
     bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
-    
+
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction_id, bob_bid)
-    
+
     # Verify Alice has pending returns on first auction
-    assert house.pending_returns(alice) == default_reserve_price, "Alice should have pending returns from first auction"
-    
+    assert (
+        house.pending_returns(alice) == default_reserve_price
+    ), "Alice should have pending returns from first auction"
+
     # Alice bids on second auction (becoming current high bidder there)
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(second_auction_id, default_reserve_price)
-    
+
     # Verify Alice is high bidder on second auction
     second_auction = house.auction_list(second_auction_id)
-    assert second_auction[auction_struct.bidder] == alice, "Alice should be high bidder on second auction"
-    
+    assert (
+        second_auction[auction_struct.bidder] == alice
+    ), "Alice should be high bidder on second auction"
+
     # Alice withdraws pending returns from first auction
     with boa.env.prank(alice):
         withdrawn = house.withdraw(auction_id)
-        assert withdrawn == default_reserve_price, "Alice should withdraw her full bid from first auction"
-    
+        assert (
+            withdrawn == default_reserve_price
+        ), "Alice should withdraw her full bid from first auction"
+
     # Verify Alice's pending returns are now zero for first auction but still high bidder on second
-    assert house.pending_returns(alice) == 0, "Alice should have no pending returns from first auction"
+    assert (
+        house.pending_returns(alice) == 0
+    ), "Alice should have no pending returns from first auction"
     second_auction = house.auction_list(second_auction_id)
-    assert second_auction[auction_struct.bidder] == alice, "Alice should still be high bidder on second auction"
-    assert second_auction[auction_struct.amount] == default_reserve_price, "Alice's bid amount should be unchanged"
-    
+    assert (
+        second_auction[auction_struct.bidder] == alice
+    ), "Alice should still be high bidder on second auction"
+    assert (
+        second_auction[auction_struct.amount] == default_reserve_price
+    ), "Alice's bid amount should be unchanged"
+
     # Bob outbids Alice on second auction
     bob_second_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_second_bid)
         house.create_bid(second_auction_id, bob_second_bid)
-    
+
     # Verify Alice now has pending returns from second auction
-    assert house.pending_returns(alice) == default_reserve_price, "Alice should have pending returns from second auction"
-    
+    assert (
+        house.pending_returns(alice) == default_reserve_price
+    ), "Alice should have pending returns from second auction"
+
     # Alice withdraws from second auction
     with boa.env.prank(alice):
         withdrawn = house.withdraw(second_auction_id)
-        assert withdrawn == default_reserve_price, "Alice should withdraw her full bid from second auction"
-    
+        assert (
+            withdrawn == default_reserve_price
+        ), "Alice should withdraw her full bid from second auction"
+
     # Final balance check - Alice should have same balance as she started with
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's final balance should match initial balance"
-    
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's final balance should match initial balance"
+
     # Verify total accounting is consistent - Alice should have 0 pending returns
-    assert house.pending_returns(alice) == 0, "Alice should have no pending returns after withdrawals"
+    assert (
+        house.pending_returns(alice) == 0
+    ), "Alice should have no pending returns after withdrawals"
 
 
 def test_prevent_rapid_cycling_manipulation(
@@ -1727,89 +1789,92 @@ def test_prevent_rapid_cycling_manipulation(
     """
     house = auction_house_with_auction
     first_auction_id = house.auction_id()
-    
+
     # Create two more auctions
     with boa.env.prank(house.owner()):
         second_auction_id = house.create_new_auction()
         third_auction_id = house.create_new_auction()
-    
+
     # Track initial balances
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Calculate minimum bids with increments
     min_increment = house.default_min_bid_increment_percentage()
     outbid_amount = default_reserve_price + (default_reserve_price * min_increment // precision)
-    
+
     # Step 1: Alice bids on first auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(first_auction_id, default_reserve_price)
-    
+
     # Step 2: Bob outbids Alice
     with boa.env.prank(bob):
         payment_token.approve(house.address, outbid_amount)
         house.create_bid(first_auction_id, outbid_amount)
-    
+
     # Step 3: Alice withdraws her returns
     with boa.env.prank(alice):
         house.withdraw(first_auction_id)
-    
+
     # Step 4: Alice bids on second auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(second_auction_id, default_reserve_price)
-    
+
     # Step 5: Charlie outbids Alice on second auction
     with boa.env.prank(charlie):
         payment_token.approve(house.address, outbid_amount)
         house.create_bid(second_auction_id, outbid_amount)
-    
+
     # Step 6: Alice withdraws from second auction
     with boa.env.prank(alice):
         house.withdraw(second_auction_id)
-    
+
     # Step 7: Alice bids on third auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(third_auction_id, default_reserve_price)
-    
+
     # Step 8: Bob outbids Alice on third auction
     with boa.env.prank(bob):
         payment_token.approve(house.address, outbid_amount)
         house.create_bid(third_auction_id, outbid_amount)
-    
+
     # Step 9: Alice withdraws from third auction
     with boa.env.prank(alice):
         house.withdraw(third_auction_id)
-    
-    # Calculate total funds Alice has put in versus taken out
-    total_spent = default_reserve_price * 3  # Bid on three auctions
-    total_withdrawn = default_reserve_price * 3  # Withdrew from three auctions
-    
+
     # Alice should be back at her initial balance after this rapid cycling
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's balance should return to initial after cycle"
-    
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's balance should return to initial after cycle"
+
     # Alice should have zero pending returns
     assert house.pending_returns(alice) == 0, "Alice should have no pending returns"
-    
+
     # Skip forward and settle all auctions
-    expiry_time = max(
-        house.auction_remaining_time(first_auction_id),
-        house.auction_remaining_time(second_auction_id),
-        house.auction_remaining_time(third_auction_id)
-    ) + 1
+    expiry_time = (
+        max(
+            house.auction_remaining_time(first_auction_id),
+            house.auction_remaining_time(second_auction_id),
+            house.auction_remaining_time(third_auction_id),
+        )
+        + 1
+    )
     boa.env.time_travel(seconds=expiry_time)
-    
+
     house.settle_auction(first_auction_id)
     house.settle_auction(second_auction_id)
     house.settle_auction(third_auction_id)
-    
+
     # Final check - Alice still cannot withdraw anything more
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw_multiple([first_auction_id, second_auction_id, third_auction_id])
-    
-    assert payment_token.balanceOf(alice) == initial_balance_alice, "Alice's final balance should match initial"
+
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice
+    ), "Alice's final balance should match initial"
 
 
 def test_prevent_status_tracking_bypass(
@@ -1826,72 +1891,81 @@ def test_prevent_status_tracking_bypass(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Create a second auction
     with boa.env.prank(house.owner()):
         second_auction_id = house.create_new_auction()
-    
+
     # Alice bids on first auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice on first auction
     min_increment = house.default_min_bid_increment_percentage()
     bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction_id, bob_bid)
-    
+
     # Alice bids on second auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(second_auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice on second auction
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(second_auction_id, bob_bid)
-    
+
     # End auctions but don't settle
-    expiry_time = max(
-        house.auction_remaining_time(auction_id),
-        house.auction_remaining_time(second_auction_id)
-    ) + 1
+    expiry_time = (
+        max(
+            house.auction_remaining_time(auction_id),
+            house.auction_remaining_time(second_auction_id),
+        )
+        + 1
+    )
     boa.env.time_travel(seconds=expiry_time)
-    
+
     # Try to withdraw from both auctions
     first_pending = house.auction_pending_returns(auction_id, alice)
     second_pending = house.auction_pending_returns(second_auction_id, alice)
     initial_balance_alice = payment_token.balanceOf(alice)
-    
+
     # Verify Alice has pending returns in both auctions
-    assert first_pending == default_reserve_price, "Alice should have pending returns from first auction"
-    assert second_pending == default_reserve_price, "Alice should have pending returns from second auction"
-    
+    assert (
+        first_pending == default_reserve_price
+    ), "Alice should have pending returns from first auction"
+    assert (
+        second_pending == default_reserve_price
+    ), "Alice should have pending returns from second auction"
+
     # Withdraw from first auction directly
     with boa.env.prank(alice):
         house.withdraw(auction_id)
-    
+
     # Withdraw from second auction directly
     with boa.env.prank(alice):
         house.withdraw(second_auction_id)
-    
+
     # Alice should have received both withdrawals
-    assert payment_token.balanceOf(alice) == initial_balance_alice + first_pending + second_pending, "Alice should receive both withdrawals"
-    
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice + first_pending + second_pending
+    ), "Alice should receive both withdrawals"
+
     # Alice should have no pending returns
     assert house.pending_returns(alice) == 0, "Alice should have no pending returns"
-    
+
     # Try withdraw_multiple now that balances are cleared
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw_multiple([auction_id, second_auction_id])
-    
+
     # Now settle the auctions
     house.settle_auction(auction_id)
     house.settle_auction(second_auction_id)
-    
+
     # Try to withdraw again - should still fail
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
@@ -1941,16 +2015,29 @@ def test_prevent_array_manipulation_attacks(
     # Record initial state
     initial_balance_alice = payment_token.balanceOf(alice)
     total_pending = house.pending_returns(alice)
-    assert total_pending == default_reserve_price * 3, "Alice should have pending returns from all three auctions"
+    assert (
+        total_pending == default_reserve_price * 3
+    ), "Alice should have pending returns from all three auctions"
 
     # Try to withdraw with duplicate auction IDs in the array
     with boa.env.prank(alice):
         # Should only handle unique auctions
-        house.withdraw_multiple([auction_id, auction_id, auction_id, second_auction_id, second_auction_id, third_auction_id])
+        house.withdraw_multiple(
+            [
+                auction_id,
+                auction_id,
+                auction_id,
+                second_auction_id,
+                second_auction_id,
+                third_auction_id,
+            ]
+        )
 
     # Verify Alice received exactly the right amount despite duplicate entries
     expected_withdrawal = default_reserve_price * 3
-    assert payment_token.balanceOf(alice) == initial_balance_alice + expected_withdrawal, "Alice should receive exactly the correct amount despite duplicates"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice + expected_withdrawal
+    ), "Alice should receive exactly the correct amount despite duplicates"
 
     # Verify pending returns are zero
     assert house.pending_returns(alice) == 0, "Alice should have no pending returns"
@@ -1959,6 +2046,7 @@ def test_prevent_array_manipulation_attacks(
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw_multiple([auction_id, second_auction_id, third_auction_id])
+
 
 def test_transfer_failure_handling(
     auction_house_with_auction,
@@ -1975,33 +2063,38 @@ def test_transfer_failure_handling(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Alice bids on auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice
     min_increment = house.default_min_bid_increment_percentage()
     bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction_id, bob_bid)
-    
+
     # Verify Alice has pending returns
-    assert house.pending_returns(alice) == default_reserve_price, "Alice should have pending returns"
-    
+    assert (
+        house.pending_returns(alice) == default_reserve_price
+    ), "Alice should have pending returns"
+
     # Alice withdraws her pending returns
     with boa.env.prank(alice):
         house.withdraw(auction_id)
-    
+
     # Verify Alice has no more pending returns
-    assert house.pending_returns(alice) == 0, "Alice should have no pending returns after withdrawal"
-    
+    assert (
+        house.pending_returns(alice) == 0
+    ), "Alice should have no pending returns after withdrawal"
+
     # Verify withdrawal was processed only once
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
+
 
 def test_timing_based_attacks(
     auction_house_with_auction,
@@ -2017,53 +2110,55 @@ def test_timing_based_attacks(
     """
     house = auction_house_with_auction
     auction_id = house.auction_id()
-    
+
     # Alice bids on auction
     with boa.env.prank(alice):
         payment_token.approve(house.address, default_reserve_price)
         house.create_bid(auction_id, default_reserve_price)
-    
+
     # Bob outbids Alice
     min_increment = house.default_min_bid_increment_percentage()
     bob_bid = default_reserve_price + (default_reserve_price * min_increment // precision)
     with boa.env.prank(bob):
         payment_token.approve(house.address, bob_bid)
         house.create_bid(auction_id, bob_bid)
-    
+
     # Record Alice's balance and pending returns
     initial_balance_alice = payment_token.balanceOf(alice)
     pending_returns = house.pending_returns(alice)
     assert pending_returns == default_reserve_price, "Alice should have pending returns"
-    
+
     # Time travel to just before auction end
     auction_remaining = house.auction_remaining_time(auction_id)
     boa.env.time_travel(seconds=auction_remaining - 1)
-    
+
     # Alice withdraws just before auction ends
     with boa.env.prank(alice):
         house.withdraw(auction_id)
-    
+
     # Verify Alice received her funds
-    assert payment_token.balanceOf(alice) == initial_balance_alice + pending_returns, "Alice should receive her pending returns"
+    assert (
+        payment_token.balanceOf(alice) == initial_balance_alice + pending_returns
+    ), "Alice should receive her pending returns"
     assert house.pending_returns(alice) == 0, "Alice should have no pending returns"
-    
+
     # Time travel past auction end
     boa.env.time_travel(seconds=2)
     assert house.is_auction_live(auction_id) is False, "Auction should have ended"
-    
+
     # Try to withdraw again or rebid
     with boa.env.prank(alice):
         with boa.reverts("!pending"):
             house.withdraw(auction_id)
-        
+
         # Try to rebid at the last moment
         payment_token.approve(house.address, bob_bid * 2)
         with boa.reverts("expired"):
             house.create_bid(auction_id, bob_bid * 2)
-    
+
     # Settle the auction
     house.settle_auction(auction_id)
-    
+
     # Verify no further withdrawals are possible
     with boa.env.prank(alice):
         with boa.reverts("!pending"):

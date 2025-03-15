@@ -717,6 +717,7 @@ def set_auction_manager(manager_address: address, status: bool):
     ownable._check_owner()
     self.auction_managers[manager_address] = status
 
+
 @external
 def recover_erc20(token_addr: address, amount: uint256):
     """

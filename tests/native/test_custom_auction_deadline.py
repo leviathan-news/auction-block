@@ -1,5 +1,4 @@
 import boa
-import pytest
 
 
 def test_create_custom_auction_by_deadline(
@@ -18,17 +17,16 @@ def test_create_custom_auction_by_deadline(
     custom_time_buffer = default_time_buffer * 2
     custom_reserve_price = default_reserve_price * 2
     custom_min_bid_increment = default_min_bid_increment + 1
-    
+
     # Get current start time by creating an auction
     with boa.env.prank(deployer):
         first_auction_id = auction_house.create_new_auction("")
-    
+
     first_auction = auction_house.auction_list(first_auction_id)
     current_time = first_auction[auction_struct.start_time]
-    
+
     # Set deadline to 2*default_duration in the future
     custom_deadline = current_time + (default_duration * 2)
-    expected_duration = custom_deadline - current_time
 
     with boa.env.prank(deployer):
         auction_id = auction_house.create_custom_auction_by_deadline(
@@ -68,8 +66,13 @@ def test_create_custom_auction_by_deadline(
         == custom_min_bid_increment
     ), "Min bid increment percentage should match custom value"
     # Duration should be calculated from deadline - start_time
-    duration_diff = abs(auction_params[auction_params_struct.duration] - (custom_deadline - auction[auction_struct.start_time]))
-    assert duration_diff <= 5, "Duration should be calculated from deadline (within 5 seconds tolerance)"
+    duration_diff = abs(
+        auction_params[auction_params_struct.duration]
+        - (custom_deadline - auction[auction_struct.start_time])
+    )
+    assert (
+        duration_diff <= 5
+    ), "Duration should be calculated from deadline (within 5 seconds tolerance)"
 
 
 def test_create_custom_auction_by_deadline_only_owner(
@@ -79,16 +82,16 @@ def test_create_custom_auction_by_deadline_only_owner(
     default_time_buffer,
     default_reserve_price,
     default_min_bid_increment,
-    auction_struct
+    auction_struct,
 ):
     """Test that only the owner can create a custom auction by deadline"""
     # Get current start time by creating an auction
     with boa.env.prank(deployer):
         first_auction_id = auction_house.create_new_auction("")
-    
+
     first_auction = auction_house.auction_list(first_auction_id)
     current_time = first_auction[auction_struct.start_time]
-    
+
     # Set deadline to 1 day in the future
     custom_deadline = current_time + 86400
 
@@ -115,10 +118,10 @@ def test_create_custom_auction_by_deadline_requires_future_deadline(
     # Get current time first
     with boa.env.prank(deployer):
         auction_id = auction_house.create_new_auction()
-    
+
     auction = auction_house.auction_list(auction_id)
     current_time = auction[auction_struct.start_time]
-    
+
     # Set deadline to 1 second in the past
     past_deadline = current_time - 1
 
@@ -146,19 +149,19 @@ def test_auction_manager_can_create_custom_auction_by_deadline(
     # Authorize alice as an auction manager
     with boa.env.prank(deployer):
         auction_house.set_auction_manager(alice, True)
-    
+
     # Get current time by creating an auction
     with boa.env.prank(deployer):
         baseline_auction_id = auction_house.create_new_auction("")
-    
+
     baseline_auction = auction_house.auction_list(baseline_auction_id)
     current_time = baseline_auction[auction_struct.start_time]
-    
+
     # Set deadline to 1 day in the future
     custom_deadline = current_time + 86400
-    
+
     curr_auction = auction_house.auction_id()
-    
+
     # Create auction by deadline as the auction manager
     with boa.env.prank(alice):
         auction_id = auction_house.create_custom_auction_by_deadline(
@@ -168,9 +171,9 @@ def test_auction_manager_can_create_custom_auction_by_deadline(
             custom_deadline,
             "",
         )
-    
+
     assert auction_id == curr_auction + 1, "Auction ID should be incremented"
-    
+
     # Retrieve the auction and verify end time
     auction = auction_house.auction_list(auction_id)
     assert auction[auction_struct.end_time] == custom_deadline, "End time should match the deadline"
@@ -189,19 +192,17 @@ def test_disabled_auction_manager_cannot_create_custom_auction_by_deadline(
     # First, authorize alice as an auction manager
     with boa.env.prank(deployer):
         auction_house.set_auction_manager(alice, True)
-    
+
     # Get current time by creating an auction
     with boa.env.prank(deployer):
         baseline_auction_id = auction_house.create_new_auction("")
-    
+
     baseline_auction = auction_house.auction_list(baseline_auction_id)
     current_time = baseline_auction[auction_struct.start_time]
-    
+
     # Set deadline to 1 day in the future
     custom_deadline = current_time + 86400
-    
-    curr_auction = auction_house.auction_id()
-    
+
     # Create an auction successfully
     with boa.env.prank(alice):
         auction_house.create_custom_auction_by_deadline(
@@ -211,11 +212,11 @@ def test_disabled_auction_manager_cannot_create_custom_auction_by_deadline(
             custom_deadline,
             "",
         )
-    
+
     # Now disable alice as an auction manager
     with boa.env.prank(deployer):
         auction_house.set_auction_manager(alice, False)
-    
+
     # Attempt to create another auction, which should fail
     with boa.env.prank(alice):
         with boa.reverts("!manager"):
@@ -236,18 +237,18 @@ def test_compare_deadline_vs_duration(
     default_min_bid_increment,
     auction_struct,
 ):
-    """Test that creating an auction by deadline is equivalent to creating with a calculated duration"""
+    """Test that creating an auction by deadline is equivalent to calculated duration"""
     # Get current time by creating an auction
     with boa.env.prank(deployer):
         baseline_auction_id = auction_house.create_new_auction("")
-    
+
     baseline_auction = auction_house.auction_list(baseline_auction_id)
     current_time = baseline_auction[auction_struct.start_time]
-    
+
     # Set deadline to 1 day in the future
     custom_deadline = current_time + 86400
     calculated_duration = 86400
-    
+
     # Create first auction using deadline
     with boa.env.prank(deployer):
         deadline_auction_id = auction_house.create_custom_auction_by_deadline(
@@ -257,7 +258,7 @@ def test_compare_deadline_vs_duration(
             custom_deadline,
             "deadline_auction",
         )
-    
+
     # Create second auction using equivalent duration
     with boa.env.prank(deployer):
         duration_auction_id = auction_house.create_custom_auction(
@@ -267,21 +268,27 @@ def test_compare_deadline_vs_duration(
             calculated_duration,
             "duration_auction",
         )
-    
+
     # Get both auctions
     deadline_auction = auction_house.auction_list(deadline_auction_id)
     duration_auction = auction_house.auction_list(duration_auction_id)
-    
+
     # The end times should be very close (might be off by a few seconds due to transaction timing)
     # Deadline auction's end time should be fixed at the deadline
-    assert deadline_auction[auction_struct.end_time] == custom_deadline, "Deadline auction should end at the specified deadline"
-    
+    assert (
+        deadline_auction[auction_struct.end_time] == custom_deadline
+    ), "Deadline auction should end at the specified deadline"
+
     # Duration auction's end time should be its start time + duration
     expected_duration_end = duration_auction[auction_struct.start_time] + calculated_duration
-    assert duration_auction[auction_struct.end_time] == expected_duration_end, "Duration auction should end at start_time + duration"
-    
-    # The difference between the two end times should be minimal (just the time to execute transactions)
-    end_time_difference = abs(deadline_auction[auction_struct.end_time] - duration_auction[auction_struct.end_time])
+    assert (
+        duration_auction[auction_struct.end_time] == expected_duration_end
+    ), "Duration auction should end at start_time + duration"
+
+    # The difference between the two end times should be minimal
+    end_time_difference = abs(
+        deadline_auction[auction_struct.end_time] - duration_auction[auction_struct.end_time]
+    )
     assert end_time_difference <= 5, "End times should be very close (within 5 seconds)"
 
 
@@ -297,13 +304,13 @@ def test_time_travel_shows_deadline_works(
     # Get current time by creating an auction
     with boa.env.prank(deployer):
         baseline_auction_id = auction_house.create_new_auction("")
-    
+
     baseline_auction = auction_house.auction_list(baseline_auction_id)
     current_time = baseline_auction[auction_struct.start_time]
-    
+
     # Set deadline to 1 hour in the future
     custom_deadline = current_time + 3600
-    
+
     # Create auction with deadline
     with boa.env.prank(deployer):
         deadline_auction_id = auction_house.create_custom_auction_by_deadline(
@@ -313,18 +320,22 @@ def test_time_travel_shows_deadline_works(
             custom_deadline,
             "deadline_auction",
         )
-    
+
     # Verify auction is active
     assert auction_house.is_auction_live(deadline_auction_id), "Auction should be live initially"
-    
+
     # Time travel to just before deadline
     boa.env.time_travel(seconds=3595)  # 5 seconds before deadline
-    
+
     # Verify auction is still active
-    assert auction_house.is_auction_live(deadline_auction_id), "Auction should be active before deadline"
-    
+    assert auction_house.is_auction_live(
+        deadline_auction_id
+    ), "Auction should be active before deadline"
+
     # Time travel past deadline
     boa.env.time_travel(seconds=10)  # 5 seconds past deadline
-    
+
     # Verify auction is no longer active
-    assert not auction_house.is_auction_live(deadline_auction_id), "Auction should not be active after deadline"
+    assert not auction_house.is_auction_live(
+        deadline_auction_id
+    ), "Auction should not be active after deadline"
