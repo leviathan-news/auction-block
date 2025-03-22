@@ -11,7 +11,7 @@
      - Fee distribution system
      - Emergency controls (pause/nullify)
      - Delegated bidding permissions
-     v2 adds Auction Managers, early withdrawals, duration or deadline creation
+     v2 adds Auction Managers, early withdrawals, flexible deadlines, instabuy, and hookers
 
 
                          ██████████████
