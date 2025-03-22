@@ -253,6 +253,7 @@ def __init__(
     # Helper data
     self.creation_block = block.number
 
+
 # ============================================================================================
 # 👀 View functions
 # ============================================================================================
@@ -364,8 +365,6 @@ def pending_returns(user: address) -> uint256:
             break
         total_pending += self.auction_pending_returns[auction_id][user]
     return total_pending
-
-
 
 
 # ============================================================================================
@@ -593,7 +592,7 @@ def create_custom_auction(
     duration: uint256,
     ipfs_hash: String[46] = "",
     instabuy_price: uint256 = 0,
-    beneficiary: address = empty(address)
+    beneficiary: address = empty(address),
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -612,7 +611,7 @@ def create_custom_auction(
             min_bid_increment_percentage=min_bid_increment_percentage,
             duration=duration,
             instabuy_price=instabuy_price,
-            beneficiary=beneficiary
+            beneficiary=beneficiary,
         ),
     )
 
@@ -626,7 +625,7 @@ def create_custom_auction_by_deadline(
     deadline: uint256,
     ipfs_hash: String[46] = "",
     instabuy_price: uint256 = 0,
-    beneficiary: address = empty(address)
+    beneficiary: address = empty(address),
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -646,7 +645,7 @@ def create_custom_auction_by_deadline(
             min_bid_increment_percentage=min_bid_increment_percentage,
             duration=deadline - block.timestamp,
             instabuy_price=instabuy_price,
-            beneficiary=beneficiary
+            beneficiary=beneficiary,
         ),
     )
 
@@ -786,7 +785,7 @@ def _default_auction_params() -> AuctionParams:
         min_bid_increment_percentage=self.default_min_bid_increment_percentage,
         duration=self.default_duration,
         instabuy_price=0,
-        beneficiary=empty(address)
+        beneficiary=empty(address),
     )
 
 
@@ -928,12 +927,14 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     if last_bidder != empty(address) and last_bidder != bidder:
         self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
 
+
     # Extend if within window
     _end_time: uint256 = _auction.end_time
     _extended: bool = _auction.end_time - block.timestamp < _time_buffer
 
     if _extended:
         _end_time = block.timestamp + _time_buffer
+
 
     # Close auction if it passes its instabuy price
     if _instabuy_price > 0 and total_bid >= _instabuy_price:
@@ -958,6 +959,7 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     )
     if _extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
+
 
     # Settle Auction
     if _instabuy_price > 0 and total_bid >= _instabuy_price:

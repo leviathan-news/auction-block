@@ -160,12 +160,12 @@ def test_instabuy_auction(
     default_duration,
     auction_params_struct,
     auction_struct,
-    zero_address
+    zero_address,
 ):
     """Test auction with instabuy price - verifies instabuy functionality"""
     # Set instabuy price to double the reserve price
     instabuy_price = default_reserve_price * 2
-    
+
     # Create auction with instabuy price
     with boa.env.prank(deployer):
         auction_id = auction_house.create_custom_auction(
@@ -177,36 +177,43 @@ def test_instabuy_auction(
             instabuy_price,  # instabuy_price
             zero_address,  # beneficiary (default to owner)
         )
-    
+
     # Verify instabuy price is set correctly
     auction = auction_house.auction_list(auction_id)
     auction_params = auction[auction_struct.params]
-    assert auction_params[auction_params_struct.instabuy_price] == instabuy_price, "Instabuy price should be set correctly"
-    
+    assert (
+        auction_params[auction_params_struct.instabuy_price] == instabuy_price
+    ), "Instabuy price should be set correctly"
+
     # Test bid below instabuy price
     with boa.env.prank(alice):
         payment_token.approve(auction_house.address, default_reserve_price)
         auction_house.create_bid(auction_id, default_reserve_price)
-    
+
     # Verify auction is still active
     auction = auction_house.auction_list(auction_id)
-    assert auction[auction_struct.settled] is False, "Auction should still be active after bid below instabuy"
+    assert (
+        auction[auction_struct.settled] is False
+    ), "Auction should still be active after bid below instabuy"
     assert auction[auction_struct.bidder] == alice, "Alice should be current bidder"
-    
+
     # Test bid above instabuy price (bob outbids with instabuy)
     with boa.env.prank(bob):
         payment_token.approve(auction_house.address, instabuy_price)
         auction_house.create_bid(auction_id, instabuy_price)
-    
+
     # Verify auction is now settled
     auction = auction_house.auction_list(auction_id)
     assert auction[auction_struct.settled] is True, "Auction should be settled after instabuy"
     assert auction[auction_struct.bidder] == bob, "Bob should be the winner"
-    assert auction[auction_struct.amount] == instabuy_price, "Winning amount should be instabuy price"
-    
+    assert (
+        auction[auction_struct.amount] == instabuy_price
+    ), "Winning amount should be instabuy price"
+
     # Verify alice's bid was refunded
     alice_pending = auction_house.auction_pending_returns(auction_id, alice)
     assert alice_pending == default_reserve_price, "Alice's bid should be added to pending returns"
+
 
 def test_instabuy_with_beneficiary(
     auction_house,
@@ -245,8 +252,12 @@ def test_instabuy_with_beneficiary(
     # Verify both instabuy price and beneficiary are set correctly
     auction = auction_house.auction_list(auction_id)
     auction_params = auction[auction_struct.params]
-    assert auction_params[auction_params_struct.instabuy_price] == instabuy_price, "Instabuy price should be set correctly"
-    assert auction_params[auction_params_struct.beneficiary] == beneficiary, "Beneficiary should be set correctly"
+    assert (
+        auction_params[auction_params_struct.instabuy_price] == instabuy_price
+    ), "Instabuy price should be set correctly"
+    assert (
+        auction_params[auction_params_struct.beneficiary] == beneficiary
+    ), "Beneficiary should be set correctly"
 
     # Record balances before instabuy
     fee_receiver = auction_house.fee_receiver()
@@ -262,7 +273,9 @@ def test_instabuy_with_beneficiary(
     auction = auction_house.auction_list(auction_id)
     assert auction[auction_struct.settled] is True, "Auction should be settled after instabuy"
     assert auction[auction_struct.bidder] == alice, "Alice should be the winner"
-    assert auction[auction_struct.amount] == instabuy_price, "Winning amount should be instabuy price"
+    assert (
+        auction[auction_struct.amount] == instabuy_price
+    ), "Winning amount should be instabuy price"
 
     # Verify fee distribution
     expected_fee = instabuy_price * test_fee // precision
@@ -277,4 +290,3 @@ def test_instabuy_with_beneficiary(
     assert (
         beneficiary_balance_after - beneficiary_balance_before == expected_remaining
     ), "Beneficiary should receive remaining amount"
-
