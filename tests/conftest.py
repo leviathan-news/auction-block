@@ -321,6 +321,7 @@ def auction_params_struct():
         duration = 3
         instabuy_price = 4
         beneficiary = 5
+        hooker = 6
 
     return AuctionParamsFields
 

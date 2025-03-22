@@ -83,6 +83,12 @@ interface AuctionDirectory:
     def mint_nft(owner: address, auction_id: uint256): nonpayable
 
 
+interface Hooker:
+    def settle_auction(
+        auction_id: uint256, winner: address, amount: uint256
+    ): nonpayable
+
+
 # ============================================================================================
 # 🏢 Structs
 # ============================================================================================
@@ -106,6 +112,7 @@ struct AuctionParams:
     duration: uint256
     instabuy_price: uint256
     beneficiary: address
+    hooker: address
 
 
 flag ApprovalStatus:
@@ -593,6 +600,7 @@ def create_custom_auction(
     ipfs_hash: String[46] = "",
     instabuy_price: uint256 = 0,
     beneficiary: address = empty(address),
+    hooker: address = empty(address),
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -612,6 +620,7 @@ def create_custom_auction(
             duration=duration,
             instabuy_price=instabuy_price,
             beneficiary=beneficiary,
+            hooker=hooker,
         ),
     )
 
@@ -626,6 +635,7 @@ def create_custom_auction_by_deadline(
     ipfs_hash: String[46] = "",
     instabuy_price: uint256 = 0,
     beneficiary: address = empty(address),
+    hooker: address = empty(address),
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -646,6 +656,7 @@ def create_custom_auction_by_deadline(
             duration=deadline - block.timestamp,
             instabuy_price=instabuy_price,
             beneficiary=beneficiary,
+            hooker=hooker,
         ),
     )
 
@@ -786,6 +797,7 @@ def _default_auction_params() -> AuctionParams:
         duration=self.default_duration,
         instabuy_price=0,
         beneficiary=empty(address),
+        hooker=empty(address),
     )
 
 
@@ -855,6 +867,11 @@ def _settle_auction(auction_id: uint256):
         address
     ) and _auction.bidder != empty(address):
         extcall self.authorized_directory.mint_nft(_auction.bidder, auction_id)
+
+    if _auction.params.hooker != empty(address):
+        extcall Hooker(_auction.params.hooker).settle_auction(
+            _auction.auction_id, _auction.bidder, _auction.amount
+        )
 
     log AuctionSettled(_auction.auction_id, _auction.bidder, _auction.amount)
 
@@ -927,16 +944,12 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     if last_bidder != empty(address) and last_bidder != bidder:
         self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
 
-
-    # Extend if within window
     _end_time: uint256 = _auction.end_time
     _extended: bool = _auction.end_time - block.timestamp < _time_buffer
 
     if _extended:
         _end_time = block.timestamp + _time_buffer
 
-
-    # Close auction if it passes its instabuy price
     if _instabuy_price > 0 and total_bid >= _instabuy_price:
         _end_time = block.timestamp - 1
         _extended = False
@@ -960,8 +973,6 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     if _extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
 
-
-    # Settle Auction
     if _instabuy_price > 0 and total_bid >= _instabuy_price:
         self._settle_auction(auction_id)
 
