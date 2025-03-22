@@ -146,3 +146,73 @@ def test_zero_fee_settlement(
     assert (
         owner_balance_after - owner_balance_before == default_reserve_price
     ), "Owner should receive full amount"
+
+
+
+def test_beneficiary_fee_distribution(
+    auction_house,
+    deployer,
+    alice,
+    payment_token,
+    default_reserve_price,
+    precision,
+    auction_struct,
+):
+    """Test that fees are distributed to custom beneficiary"""
+    # Create a custom beneficiary address
+    beneficiary = boa.env.generate_address()
+    
+    # Set fee to 10%
+    test_fee = 10
+    with boa.env.prank(deployer):
+        auction_house.set_fee_percent(test_fee)
+    
+    # Create auction with custom beneficiary
+    with boa.env.prank(deployer):
+        auction_id = auction_house.create_custom_auction(
+            auction_house.default_time_buffer(),
+            default_reserve_price,
+            auction_house.default_min_bid_increment_percentage(),
+            auction_house.default_duration(),
+            "",  # ipfs_hash
+            0,  # instabuy_price (disabled)
+            beneficiary,  # custom beneficiary
+        )
+    
+    # Place a bid
+    with boa.env.prank(alice):
+        payment_token.approve(auction_house.address, default_reserve_price)
+        auction_house.create_bid(auction_id, default_reserve_price)
+    
+    # Fast forward past auction end
+    auction = auction_house.auction_list(auction_id)
+    boa.env.time_travel(
+        seconds=int(auction[auction_struct.end_time])
+        - int(auction[auction_struct.start_time])
+        + 100
+    )
+    
+    # Record balances before settlement
+    fee_receiver = auction_house.fee_receiver()
+    fee_receiver_balance_before = payment_token.balanceOf(fee_receiver)
+    beneficiary_balance_before = payment_token.balanceOf(beneficiary)
+    
+    # Settle the auction
+    with boa.env.prank(deployer):
+        auction_house.settle_auction(auction_id)
+    
+    # Verify fee distribution
+    expected_fee = default_reserve_price * test_fee // precision
+    expected_remaining = default_reserve_price - expected_fee
+    
+    fee_receiver_balance_after = payment_token.balanceOf(fee_receiver)
+    beneficiary_balance_after = payment_token.balanceOf(beneficiary)
+    
+    assert (
+        fee_receiver_balance_after - fee_receiver_balance_before == expected_fee
+    ), "Fee receiver should receive correct fee amount"
+    assert (
+        beneficiary_balance_after - beneficiary_balance_before == expected_remaining
+    ), "Beneficiary should receive remaining amount instead of owner"
+
+

@@ -319,7 +319,8 @@ def auction_params_struct():
         reserve_price = 1
         min_bid_increment_percentage = 2
         duration = 3
-
+        instabuy_price = 4
+        beneficiary = 5
     return AuctionParamsFields
 
 

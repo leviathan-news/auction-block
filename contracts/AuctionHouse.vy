@@ -14,33 +14,40 @@
      v2 adds Auction Managers, early withdrawals, duration or deadline creation
 
 
-                            ####++++++++
-                       #+++++++++####+++##++
-                     #########+++-++##++-..
-                      ....++++#++++++#+++-....
-                 ++++++----+++++++++++++++++-..-++##
-                  ...-+++++++++++++++++++++++++++#####
-              +++-....+#+++++++++++++++++++++++++######
-          +++++++++++++++++++++++++++++++-+++++++++++++++++
-        ++#########++++++++----+++--++----+++++++########++++
-      ###############+++++-.-------------..+++++#############++
-     ##########++++###++++.  .---------.  .+++++++++-+++  ######
-     ########  ....--+++++.   .-------..  .++++++++++#+++#+ ####
-    ########  ..--+++++++++....-------....+++++++####+++++## ###
-     ######   +++++++++++++++-+-----+-++-+-++++++#######++++
-     #####   +#######+#+++++++++-+-++-++++++++++++---+#####++
-      ####  ++####+----+++++++++++++++++++++++++++++-  #####++
-       ###  +###+.....-+++++++++++++++++++++++++###+++  +###++
-            ++##+....-+++++#+++++++++++++#++++----+##++  +####+
-            +###  ..-+#####++++++++++++++##+++-....##++   ####
-            ++##   ++####+-++++##+##+++++++###++-+  +++  #####
-             +##+  +####-..+++####++###++-.-+###+++ ++   ###
-               +#  +####-..++#####--+###++--  +#++++
-                   ++###   +++####+..-+###+++   ++++
-                    ++#++   ++++###+     +#+++  +++
-                     ++++     +++++++     +++++
-                       +++      +++++++    +++
-                                     ++    +
+                         ██████████████
+                      ████████████████████
+                    █████████████████████████
+                  ████████████████████████████
+                 ██████████████████████████████
+                ████████████████████████████████
+               ██████████████████████████████████
+               ██████████████████████████████████
+               ██████████████████████████████████
+               █████     ██████████████     █████
+               ████       ████████████       ████
+                ███       ████████████       ███
+                ████     ██████████████     ████
+                  ████████████████████████████
+                   ██████████████████████████
+   ██████████       ████████████████████████       ██████████
+ ██████████████     ████████████████████████     ██████████████
+████████████████   ██████████████████████████   ████████████████
+███████ ████████  ████████████████████████████  ████████ ███████
+██████ █████████ ██████████████████████████████ █████████ ██████
+███████ ██████ ██████████ ████████████ ██████████ ██████ ███████
+████████████████████████  ████████████  ████████████████████████
+  ████████████████████    ████████████    ████████████████████
+   █████████████████     ██████████████     █████████████████
+      ███████████████    ██████████████    ███████████████
+            ███████████  ██████  ██████  ███████████
+           ██████ █████████████  █████████████ ██████
+          ██████ ██████████████   █████████████ ██████
+          ███████ ████████████    ████████████ ███████
+          ███████████████████      ███████████████████
+           ██████████████████      ██████████████████
+            ███████████████          ███████████████
+               ██████████              ██████████
+
 """
 
 
@@ -97,6 +104,8 @@ struct AuctionParams:
     reserve_price: uint256
     min_bid_increment_percentage: uint256
     duration: uint256
+    instabuy_price: uint256
+    beneficiary: address
 
 
 flag ApprovalStatus:
@@ -206,6 +215,8 @@ authorized_directory: public(AuctionDirectory)
 fee_receiver: public(address)
 fee_percent: public(uint256)
 
+# Helpers
+creation_block: public(uint256)
 
 # ============================================================================================
 # 🚧 Constructor
@@ -239,6 +250,8 @@ def __init__(
     # Bid must be 5% higher
     self.default_min_bid_increment_percentage = 5 * 10**8
 
+    # Helper data
+    self.creation_block = block.number
 
 # ============================================================================================
 # 👀 View functions
@@ -351,6 +364,8 @@ def pending_returns(user: address) -> uint256:
             break
         total_pending += self.auction_pending_returns[auction_id][user]
     return total_pending
+
+
 
 
 # ============================================================================================
@@ -577,6 +592,8 @@ def create_custom_auction(
     min_bid_increment_percentage: uint256,
     duration: uint256,
     ipfs_hash: String[46] = "",
+    instabuy_price: uint256 = 0,
+    beneficiary: address = empty(address)
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -594,6 +611,8 @@ def create_custom_auction(
             reserve_price=reserve_price,
             min_bid_increment_percentage=min_bid_increment_percentage,
             duration=duration,
+            instabuy_price=instabuy_price,
+            beneficiary=beneficiary
         ),
     )
 
@@ -606,6 +625,8 @@ def create_custom_auction_by_deadline(
     min_bid_increment_percentage: uint256,
     deadline: uint256,
     ipfs_hash: String[46] = "",
+    instabuy_price: uint256 = 0,
+    beneficiary: address = empty(address)
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -624,6 +645,8 @@ def create_custom_auction_by_deadline(
             reserve_price=reserve_price,
             min_bid_increment_percentage=min_bid_increment_percentage,
             duration=deadline - block.timestamp,
+            instabuy_price=instabuy_price,
+            beneficiary=beneficiary
         ),
     )
 
@@ -762,6 +785,8 @@ def _default_auction_params() -> AuctionParams:
         reserve_price=self.default_reserve_price,
         min_bid_increment_percentage=self.default_min_bid_increment_percentage,
         duration=self.default_duration,
+        instabuy_price=0,
+        beneficiary=empty(address)
     )
 
 
@@ -819,8 +844,12 @@ def _settle_auction(auction_id: uint256):
                 self.fee_receiver, fee_amount, default_return_value=True
             ), "!fee transfer"
 
+        _beneficiary: address = ownable.owner
+        if _auction.params.beneficiary != empty(address):
+            _beneficiary = _auction.params.beneficiary
+
         assert extcall self.payment_token.transfer(
-            ownable.owner, remaining_amount, default_return_value=True
+            _beneficiary, remaining_amount, default_return_value=True
         ), "!owner transfer"
 
     if self.authorized_directory.address != empty(
@@ -883,6 +912,7 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     _auction: Auction = self.auction_list[auction_id]
     _time_buffer: uint256 = _auction.params.time_buffer
     _reserve_price: uint256 = _auction.params.reserve_price
+    _instabuy_price: uint256 = _auction.params.instabuy_price
 
     assert _auction.auction_id == auction_id, "!auctionId"
     assert block.timestamp < _auction.end_time, "expired"
@@ -898,10 +928,17 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     if last_bidder != empty(address) and last_bidder != bidder:
         self.auction_pending_returns[auction_id][last_bidder] += _auction.amount
 
+    # Extend if within window
     _end_time: uint256 = _auction.end_time
     _extended: bool = _auction.end_time - block.timestamp < _time_buffer
+
     if _extended:
         _end_time = block.timestamp + _time_buffer
+
+    # Close auction if it passes its instabuy price
+    if _instabuy_price > 0 and total_bid >= _instabuy_price:
+        _end_time = block.timestamp - 1
+        _extended = False
 
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
@@ -915,11 +952,16 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
         params=_auction.params,
     )
 
+    # Emit Logs
     log AuctionBid(
         _auction.auction_id, bidder, msg.sender, total_bid, _extended
     )
     if _extended:
         log AuctionExtended(_auction.auction_id, _auction.end_time)
+
+    # Settle Auction
+    if _instabuy_price > 0 and total_bid >= _instabuy_price:
+        self._settle_auction(auction_id)
 
 
 @internal
