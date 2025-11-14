@@ -223,9 +223,9 @@ def save_deployment_info(
         "deployment_timestamp": datetime.now().isoformat(),
         "deployment_parameters": deployment_params,
         "artifacts": {
-            "vyper_output": f"artifacts/{timestamp_str}/{artifact_filename}"
-            if vyper_output
-            else None
+            "vyper_output": (
+                f"artifacts/{timestamp_str}/{artifact_filename}" if vyper_output else None
+            )
         },
     }
 

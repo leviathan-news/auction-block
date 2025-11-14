@@ -3,10 +3,18 @@
 Standalone script to verify contracts from deployment YAML files.
 
 Usage:
-    python scripts/verify_deployment.py <deployment_yaml_file> [chain_id]
+  # Verify a single contract YAML file:
+  python scripts/verify_deployment.py <deployment_yaml_file> [chain_id]
 
-Example:
-    python scripts/verify_deployment.py deployment/mainnet-fork/20251113_0xc6ac.yaml 1
+  # Verify all contracts in a timestamp directory:
+  python scripts/verify_deployment.py <timestamp_directory> [chain_id]
+
+Examples:
+  # Single contract:
+  python scripts/verify_deployment.py deployment/arb-sepolia/20251114_1430/House_0x04f7.yaml 421614
+
+  # All contracts in a deployment:
+  python scripts/verify_deployment.py deployment/arb-sepolia/20251114_1430 421614
 """
 
 import os
@@ -165,16 +173,86 @@ def verify_from_yaml(yaml_path: Path, chain_id: int = 1):
         print(f"  python scripts/verify_deployment.py {yaml_path} {chain_id}")
 
 
+def verify_from_directory(timestamp_dir: Path, chain_id: int = 1):
+    """Verify all contracts from a timestamp directory"""
+    if not timestamp_dir.is_dir():
+        raise ValueError(f"{timestamp_dir} is not a directory")
+
+    # Find all YAML files in the directory
+    yaml_files = sorted(timestamp_dir.glob("*.yaml"))
+
+    if not yaml_files:
+        print(f"No YAML files found in {timestamp_dir}")
+        return
+
+    print(f"Found {len(yaml_files)} contract(s) in {timestamp_dir}")
+    print("=" * 80)
+
+    all_contracts = []
+    all_contract_names = []
+
+    # Load all contracts
+    for yaml_file in yaml_files:
+        with open(yaml_file, "r") as f:
+            data = yaml.safe_load(f)
+
+        if "contract_address" in data:
+            try:
+                contract = load_single_contract(data, yaml_file)
+                all_contracts.append(contract)
+                all_contract_names.append(data.get("contract_filename", "Unknown"))
+                contract_addr = contract.address if hasattr(contract, "address") else contract
+                print(f"  Loaded {all_contract_names[-1]}: {contract_addr}")
+            except Exception as e:
+                print(f"  ✗ Failed to load {yaml_file.name}: {e}")
+
+    if not all_contracts:
+        print("\nNo contracts loaded. Cannot verify.")
+        return
+
+    # Get Etherscan API key
+    etherscan_api_key = os.getenv("ETHERSCAN_TOKEN") or os.getenv("ETHERSCAN_API_KEY")
+    if not etherscan_api_key:
+        print("\n⚠️  No ETHERSCAN_TOKEN or ETHERSCAN_API_KEY found in environment")
+        print("   Set one of these environment variables to enable verification")
+        return
+
+    # Verify all contracts
+    print("\n" + "=" * 80)
+    print("VERIFYING CONTRACTS")
+    print("=" * 80)
+
+    results = verify_contracts(
+        contracts=all_contracts,
+        chain_id=chain_id,
+        etherscan_api_key=etherscan_api_key,
+        continue_on_error=True,
+    )
+
+    # Print summary
+    print("\n" + "=" * 80)
+    if results["success"]:
+        print(f"✓ Successfully verified {len(results['success'])} contract(s)")
+    if results["failed"]:
+        print(f"✗ Failed to verify {len(results['failed'])} contract(s)")
+        print("\nTo retry verification, run this script again or use:")
+        print(f"  python scripts/verify_deployment.py {timestamp_dir} {chain_id}")
+
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print(__doc__)
         sys.exit(1)
 
-    yaml_path = Path(sys.argv[1])
-    if not yaml_path.exists():
-        print(f"Error: File not found: {yaml_path}")
+    input_path = Path(sys.argv[1])
+    if not input_path.exists():
+        print(f"Error: Path not found: {input_path}")
         sys.exit(1)
 
     chain_id = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 
-    verify_from_yaml(yaml_path, chain_id)
+    # Check if it's a directory or a file
+    if input_path.is_dir():
+        verify_from_directory(input_path, chain_id)
+    else:
+        verify_from_yaml(input_path, chain_id)
