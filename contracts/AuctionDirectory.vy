@@ -1,4 +1,4 @@
-# @version 0.4.0
+# @version 0.4.3
 
 """
 @title Auction Directory
@@ -12,33 +12,40 @@
      - Registry of all deployed auction contracts
 
 
-                            ####++++++++
-                       #+++++++++####+++##++
-                     #########+++-++##++-..
-                      ....++++#++++++#+++-....
-                 ++++++----+++++++++++++++++-..-++##
-                  ...-+++++++++++++++++++++++++++#####
-              +++-....+#+++++++++++++++++++++++++######
-          +++++++++++++++++++++++++++++++-+++++++++++++++++
-        ++#########++++++++----+++--++----+++++++########++++
-      ###############+++++-.-------------..+++++#############++
-     ##########++++###++++.  .---------.  .+++++++++-+++  ######
-     ########  ....--+++++.   .-------..  .++++++++++#+++#+ ####
-    ########  ..--+++++++++....-------....+++++++####+++++## ###
-     ######   +++++++++++++++-+-----+-++-+-++++++#######++++
-     #####   +#######+#+++++++++-+-++-++++++++++++---+#####++
-      ####  ++####+----+++++++++++++++++++++++++++++-  #####++
-       ###  +###+.....-+++++++++++++++++++++++++###+++  +###++
-            ++##+....-+++++#+++++++++++++#++++----+##++  +####+
-            +###  ..-+#####++++++++++++++##+++-....##++   ####
-            ++##   ++####+-++++##+##+++++++###++-+  +++  #####
-             +##+  +####-..+++####++###++-.-+###+++ ++   ###
-               +#  +####-..++#####--+###++--  +#++++
-                   ++###   +++####+..-+###+++   ++++
-                    ++#++   ++++###+     +#+++  +++
-                     ++++     +++++++     +++++
-                       +++      +++++++    +++
-                                     ++    +
+                         ██████████████
+                      ████████████████████
+                    █████████████████████████
+                  ████████████████████████████
+                 ██████████████████████████████
+                ████████████████████████████████
+               ██████████████████████████████████
+               ██████████████████████████████████
+               ██████████████████████████████████
+               █████     ██████████████     █████
+               ████       ████████████       ████
+                ███       ████████████       ███
+                ████     ██████████████     ████
+                  ████████████████████████████
+                   ██████████████████████████
+   ██████████       ████████████████████████       ██████████
+ ██████████████     ████████████████████████     ██████████████
+████████████████   ██████████████████████████   ████████████████
+███████ ████████  ████████████████████████████  ████████ ███████
+██████ █████████ ██████████████████████████████ █████████ ██████
+███████ ██████ ██████████ ████████████ ██████████ ██████ ███████
+████████████████████████  ████████████  ████████████████████████
+  ████████████████████    ████████████    ████████████████████
+   █████████████████     ██████████████     █████████████████
+      ███████████████    ██████████████    ███████████████
+            ███████████  ██████  ██████  ███████████
+           ██████ █████████████  █████████████ ██████
+          ██████ ██████████████   █████████████ ██████
+          ███████ ████████████    ████████████ ███████
+          ███████████████████      ███████████████████
+           ██████████████████      ██████████████████
+            ███████████████          ███████████████
+               ██████████              ██████████
+
 """
 
 
@@ -48,6 +55,7 @@
 
 from ethereum.ercs import IERC20
 
+from .imports import ownable as ownable_base
 from .imports import ownable_2step as ownable
 from .imports import pausable
 
@@ -100,7 +108,9 @@ interface AuctionNFT:
 # ⚙️ Modules
 # ============================================================================================
 
-initializes: ownable
+initializes: ownable_base
+
+initializes: ownable[ownable := ownable_base]
 exports: (
     ownable.owner,
     ownable.pending_owner,
@@ -108,12 +118,8 @@ exports: (
     ownable.accept_ownership,
 )
 
-initializes: pausable[ownable := ownable]
-exports: (
-    pausable.paused,
-    pausable.pause,
-    pausable.unpause,
-)
+initializes: pausable
+exports: (pausable.paused,)
 
 
 # ============================================================================================
@@ -206,6 +212,7 @@ nft: public(AuctionNFT)
 @deploy
 def __init__(payment_token: IERC20):
     self.directory_is_current = True
+    ownable_base.__init__()
     ownable.__init__()
     pausable.__init__()
     self.payment_token = payment_token
@@ -330,7 +337,7 @@ def create_bid(
     @custom:security Requires auction contract to be registered and appropriate approval for delegated bids
                      Requires appropriate approval status for delegated bids
     """
-    pausable._check_unpaused()
+    pausable._require_not_paused()
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
@@ -381,7 +388,7 @@ def create_bid_with_token(
                      Requires token to have zap contract configured
                      Requires appropriate approval status for delegated bids
     """
-    pausable._check_unpaused()
+    pausable._require_not_paused()
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.BidOnly)
 
@@ -430,7 +437,7 @@ def set_approved_caller(caller: address, status: ApprovalStatus):
                   - BidAndWithdraw: Full bidding and withdrawal permissions
     """
     self.approved_caller[msg.sender][caller] = status
-    log ApprovedCallerSet(msg.sender, caller, status)
+    log ApprovedCallerSet(account=msg.sender, caller=caller, status=status)
 
 
 @external
@@ -501,7 +508,7 @@ def withdraw(
     @custom:security Requires withdraw permission for on_behalf_of
                      Only withdraws if auction is settled
     """
-    pausable._check_unpaused()
+    pausable._require_not_paused()
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     return extcall auction_contract.withdraw(auction_id, on_behalf_of)
@@ -524,7 +531,7 @@ def withdraw_multiple(
                      Only processes settled auctions
                      Limited to MAX_WITHDRAWALS auctions
     """
-    pausable._check_unpaused()
+    pausable._require_not_paused()
     assert self._is_registered_contract(auction_contract), "!contract"
     self._check_caller(on_behalf_of, msg.sender, ApprovalStatus.WithdrawOnly)
     extcall auction_contract.withdraw_multiple(auction_ids, on_behalf_of)
@@ -533,6 +540,25 @@ def withdraw_multiple(
 # ============================================================================================
 # 👑 Owner functions
 # ============================================================================================
+
+@external
+def pause():
+    """
+    @notice Pause the contract
+    @dev Only callable by owner
+    """
+    ownable_base._check_owner()
+    pausable._pause()
+
+
+@external
+def unpause():
+    """
+    @notice Unpause the contract
+    @dev Only callable by owner
+    """
+    ownable_base._check_owner()
+    pausable._unpause()
 
 
 @external
@@ -544,8 +570,9 @@ def register_auction_contract(new_auction_addr: AuctionHouse):
     @param new_auction_addr Address of auction contract to register
     @custom:security Ensure contract is fully configured before registering
     """
+    ownable_base._check_owner()
     self.registered_auction_contracts.append(new_auction_addr)
-    log AuctionHouseAdded(new_auction_addr.address)
+    log AuctionHouseAdded(contract_address=new_auction_addr.address)
 
 
 @external
@@ -557,10 +584,10 @@ def deprecate_directory(new_directory_addr: address):
     @param new_directory_addr Address of new directory implementation
     @custom:security Users should migrate to new directory after deprecation
     """
-    ownable._check_owner()
+    ownable_base._check_owner()
     self.directory_is_current = False
     self.directory_upgrade_address = new_directory_addr
-    log DirectoryDeprecated(new_directory_addr)
+    log DirectoryDeprecated(new_address=new_directory_addr)
 
 
 @external
@@ -570,7 +597,7 @@ def set_nft(new_nft_addr: address):
     @dev Set to zero address to disable NFT minting
     @param new_nft_addr Address of NFT contract
     """
-    ownable._check_owner()
+    ownable_base._check_owner()
     self.nft = AuctionNFT(new_nft_addr)
 
 
@@ -585,7 +612,7 @@ def add_token_support(new_token_addr: IERC20, new_zap_addr: AuctionZap):
     @custom:security Zap contract must be verified and tested before adding
                      Cannot add primary payment token as alternate token
     """
-    ownable._check_owner()
+    ownable_base._check_owner()
     assert new_zap_addr.address != empty(address), "!trader"
     assert new_token_addr.address != empty(address), "!token"
     assert new_token_addr != self.payment_token, "!payment_token"
@@ -593,7 +620,9 @@ def add_token_support(new_token_addr: IERC20, new_zap_addr: AuctionZap):
     self.supported_token_zaps[new_token_addr] = new_zap_addr
     self.supported_tokens.append(new_token_addr)
 
-    log TokenSupportAdded(new_token_addr.address, new_zap_addr.address)
+    log TokenSupportAdded(
+        token=new_token_addr.address, trader=new_zap_addr.address
+    )
 
 
 @external
@@ -603,7 +632,7 @@ def revoke_token_support(token_addr: IERC20):
     @dev Only owner
     @param token_addr Address of previously supported token to remove
     """
-    ownable._check_owner()
+    ownable_base._check_owner()
     assert token_addr.address != empty(address), "!token"
     assert self.supported_token_zaps[token_addr] != empty(
         AuctionZap
@@ -622,7 +651,7 @@ def revoke_token_support(token_addr: IERC20):
             ]
             self.supported_tokens.pop()
             break
-    log TokenSupportRemoved(token_addr.address)
+    log TokenSupportRemoved(token=token_addr.address)
 
 
 @external
@@ -633,7 +662,7 @@ def set_payment_token_oracle(new_oracle_addr: AuctionOracle):
     @param new_oracle_addr Contract with public `price_usd` function
     """
 
-    ownable._check_owner()
+    ownable_base._check_owner()
     self.oracle = new_oracle_addr
 
 
@@ -645,10 +674,10 @@ def recover_erc20(token_addr: address, amount: uint256):
     @param token_addr The token contract address
     @param amount Amount of tokens to recover
     """
-    ownable._check_owner()
+    ownable_base._check_owner()
     token: IERC20 = IERC20(token_addr)
 
-    assert extcall token.transfer(ownable.owner, amount), "transfer failed"
+    assert extcall token.transfer(ownable_base.owner, amount), "transfer failed"
 
 
 # ============================================================================================

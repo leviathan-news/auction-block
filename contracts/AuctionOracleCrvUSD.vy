@@ -1,11 +1,12 @@
 # @version 0.4.3
 
 """
-@title Squid Price Oracle
+@title crvUSD Price Oracle
 @author https://github.com/leviathan-news/auction-block
 @license MIT
-@notice Indicative token price
+@notice Indicative crvUSD token price in USD
 @dev An artifact for frontend display, not robust enough for onchain usage!
+     Uses Curve TriCRV pool's price_oracle() for crvUSD/WETH price
 
                          ██████████████
                       ████████████████████
@@ -47,11 +48,7 @@
 # 🧩 Interfaces
 # ============================================================================================
 
-interface Oracle:
-    def price_oracle() -> uint256: view
-
-
-interface OracleWithArguments:
+interface TriCRV:
     def price_oracle(k: uint256) -> uint256: view
 
 
@@ -59,8 +56,7 @@ interface OracleWithArguments:
 # 💾 Storage
 # ============================================================================================
 
-squid_eth_pool: public(Oracle)
-eth_usd_pool: public(OracleWithArguments)
+tricrv: public(TriCRV)
 
 
 # ============================================================================================
@@ -68,9 +64,8 @@ eth_usd_pool: public(OracleWithArguments)
 # ============================================================================================
 
 @deploy
-def __init__(squid_eth_pool: Oracle, eth_usd_pool: OracleWithArguments):
-    self.squid_eth_pool = squid_eth_pool
-    self.eth_usd_pool = eth_usd_pool
+def __init__(tricrv: TriCRV):
+    self.tricrv = tricrv
 
 
 # ============================================================================================
@@ -79,26 +74,29 @@ def __init__(squid_eth_pool: Oracle, eth_usd_pool: OracleWithArguments):
 
 @external
 @view
-def eth_price_usd() -> uint256:
-    return staticcall self.eth_usd_pool.price_oracle(0)
-
-
-@external
-@view
-def squid_price_eth() -> uint256:
-    return staticcall self.squid_eth_pool.price_oracle()
-
-
-@external
-@view
 def price_usd() -> uint256:
     """
-    @notice Returns the USD price of the payment token
-    @dev Uses the pool's price oracle (price in ETH terms) and the ETH/USD price oracle
-         Both values are in 10**18 scale, so proper scaling is applied to avoid overflow
-    @return Price of the payment token in USD (10**18 precision)
+    @notice Returns the price of WETH in crvUSD
+    @dev Required function for Auction Directory solely for frontend display function (not robust)
+    @return Price of WETH in USD (10**18 precision)
     """
-    squid_price_eth: uint256 = staticcall self.squid_eth_pool.price_oracle()
-    eth_price_usd: uint256 = staticcall self.eth_usd_pool.price_oracle(0)
+    return self._eth_price_usd()
 
-    return (squid_price_eth * eth_price_usd) // 10**18
+
+@external
+@view
+def crvusd_price_eth() -> uint256:
+    """
+    @notice Returns the price of crvUSD denoinated in WETH
+    @dev Auction directory uses WETH as payment token
+    @return crvUSD price in ETH (10**18 precision)
+    """
+    _crvusd_precision: uint256 = 10**18
+    _weth_precision: uint256 = 10**18
+    return _crvusd_precision * _weth_precision // self._eth_price_usd()
+
+
+@internal
+@view
+def _eth_price_usd() -> uint256:
+    return staticcall self.tricrv.price_oracle(0)

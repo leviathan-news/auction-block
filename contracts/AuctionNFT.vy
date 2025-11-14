@@ -1,78 +1,46 @@
-# @version 0.4.0
-
+# pragma version ~=0.4.3
+# pragma nonreentrancy off
 """
 @title Modern and Gas-Efficient ERC-721 + EIP-4494 Implementation
 @custom:contract-name erc721
 @license GNU Affero General Public License v3.0 only
 @author pcaversaccio
 @dev Adapted lightly for https://github.com/leviathan-news/auction-block
-@notice These functions implement the ERC-721
-        standard interface:
-        - https://eips.ethereum.org/EIPS/eip-721.
-        In addition, the following functions have
-        been added for convenience:
-        - `name` (`external` `view` function),
-        - `symbol` (`external` `view` function),
-        - `tokenURI` (`external` `view` function),
-        - `totalSupply` (`external` `view` function),
-        - `tokenByIndex` (`external` `view` function),
-        - `tokenOfOwnerByIndex` (`external` `view` function),
-        - `burn` (`external` function),
-        - `is_minter` (`external` `view` function),
-        - `safe_mint` (`external` function),
-        - `set_minter` (`external` function),
-        - `permit` (`external` function),
-        - `nonces` (`external` `view` function),
-        - `DOMAIN_SEPARATOR` (`external` `view` function),
-        - `eip712Domain` (`external` `view` function),
-        - `owner` (`external` `view` function),
-        - `transfer_ownership` (`external` function),
-        - `renounce_ownership` (`external` function),
-        - `_check_on_erc721_received` (`internal` function),
-        - `_before_token_transfer` (`internal` function),
-        - `_after_token_transfer` (`internal` function).
-        The `permit` function implements approvals via
-        EIP-712 secp256k1 signatures for ERC-721 tokens:
-        https://eips.ethereum.org/EIPS/eip-4494.
-        In addition, this contract also implements the EIP-5267
-        function `eip712Domain`:
-        https://eips.ethereum.org/EIPS/eip-5267.
-        Eventually, this contract also implements the EIP-4906
-        metadata update extension:
-        https://eips.ethereum.org/EIPS/eip-4906.
-        The implementation is inspired by OpenZeppelin's
-        implementation here:
-        https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC721/ERC721.sol,
-        as well as by ApeAcademy's implementation here:
-        https://github.com/ApeAcademy/ERC721/blob/main/%7B%7Bcookiecutter.project_name%7D%7D/contracts/NFT.vy.
+@notice Original via https://github.com/pcaversaccio/snekmate/tree/main/src/snekmate
 
-                            ####++++++++
-                       #+++++++++####+++##++
-                     #########+++-++##++-..
-                      ....++++#++++++#+++-....
-                 ++++++----+++++++++++++++++-..-++##
-                  ...-+++++++++++++++++++++++++++#####
-              +++-....+#+++++++++++++++++++++++++######
-          +++++++++++++++++++++++++++++++-+++++++++++++++++
-        ++#########++++++++----+++--++----+++++++########++++
-      ###############+++++-.-------------..+++++#############++
-     ##########++++###++++.  .---------.  .+++++++++-+++  ######
-     ########  ....--+++++.   .-------..  .++++++++++#+++#+ ####
-    ########  ..--+++++++++....-------....+++++++####+++++## ###
-     ######   +++++++++++++++-+-----+-++-+-++++++#######++++
-     #####   +#######+#+++++++++-+-++-++++++++++++---+#####++
-      ####  ++####+----+++++++++++++++++++++++++++++-  #####++
-       ###  +###+.....-+++++++++++++++++++++++++###+++  +###++
-            ++##+....-+++++#+++++++++++++#++++----+##++  +####+
-            +###  ..-+#####++++++++++++++##+++-....##++   ####
-            ++##   ++####+-++++##+##+++++++###++-+  +++  #####
-             +##+  +####-..+++####++###++-.-+###+++ ++   ###
-               +#  +####-..++#####--+###++--  +#++++
-                   ++###   +++####+..-+###+++   ++++
-                    ++#++   ++++###+     +#+++  +++
-                     ++++     +++++++     +++++
-                       +++      +++++++    +++
-                                     ++    +
+                         ██████████████
+                      ████████████████████
+                    █████████████████████████
+                  ████████████████████████████
+                 ██████████████████████████████
+                ████████████████████████████████
+               ██████████████████████████████████
+               ██████████████████████████████████
+               ██████████████████████████████████
+               █████     ██████████████     █████
+               ████       ████████████       ████
+                ███       ████████████       ███
+                ████     ██████████████     ████
+                  ████████████████████████████
+                   ██████████████████████████
+   ██████████       ████████████████████████       ██████████
+ ██████████████     ████████████████████████     ██████████████
+████████████████   ██████████████████████████   ████████████████
+███████ ████████  ████████████████████████████  ████████ ███████
+██████ █████████ ██████████████████████████████ █████████ ██████
+███████ ██████ ██████████ ████████████ ██████████ ██████ ███████
+████████████████████████  ████████████  ████████████████████████
+  ████████████████████    ████████████    ████████████████████
+   █████████████████     ██████████████     █████████████████
+      ███████████████    ██████████████    ███████████████
+            ███████████  ██████  ██████  ███████████
+           ██████ █████████████  █████████████ ██████
+          ██████ ██████████████   █████████████ ██████
+          ███████ ████████████    ████████████ ███████
+          ███████████████████      ███████████████████
+           ██████████████████      ██████████████████
+            ███████████████          ███████████████
+               ██████████              ██████████
 
 """
 
@@ -320,7 +288,7 @@ def __init__(
     self.base_uri = base_uri_
 
     self.is_minter[msg.sender] = True
-    log RoleMinterChanged(msg.sender, True)
+    log RoleMinterChanged(minter=msg.sender, status=True)
 
     eip712_domain_separator.__init__(name_eip712_, version_eip712_)
 
@@ -516,9 +484,6 @@ def tokenURI(token_id: uint256) -> String[512]:
             string token URI of the `token_id` token.
     """
     self._require_minted(token_id)
-
-    # If both are set, concatenate the base URI
-    # and token URI.
     return concat(self.base_uri, uint2str(token_id))
 
 
@@ -611,7 +576,7 @@ def safe_mint(
     self.token_to_auction[token_id] = AuctionInfo(
         contract_address=contract_address, auction_id=auction_id
     )
-    log IERC4906.MetadataUpdate(token_id)
+    log IERC4906.MetadataUpdate(_tokenId=token_id)
     return token_id
 
 
@@ -639,7 +604,7 @@ def set_minter(minter: address, status: bool):
     # that `msg.sender` is the `owner`.
     assert minter != msg.sender, "erc721: minter is owner address"
     self.is_minter[minter] = status
-    log RoleMinterChanged(minter, status)
+    log RoleMinterChanged(minter=minter, status=status)
 
 
 @external
@@ -738,11 +703,11 @@ def transfer_ownership(new_owner: address):
     assert new_owner != empty(address), "erc721: new owner is the zero address"
 
     self.is_minter[msg.sender] = False
-    log RoleMinterChanged(msg.sender, False)
+    log RoleMinterChanged(minter=msg.sender, status=False)
 
     ownable._transfer_ownership(new_owner)
     self.is_minter[new_owner] = True
-    log RoleMinterChanged(new_owner, True)
+    log RoleMinterChanged(minter=new_owner, status=True)
 
 
 @external
@@ -764,7 +729,7 @@ def renounce_ownership():
     """
     ownable._check_owner()
     self.is_minter[msg.sender] = False
-    log RoleMinterChanged(msg.sender, False)
+    log RoleMinterChanged(minter=msg.sender, status=False)
     ownable._transfer_ownership(empty(address))
 
 
@@ -848,7 +813,9 @@ def _approve(to: address, token_id: uint256):
     @param token_id The 32-byte identifier of the token.
     """
     self._token_approvals[token_id] = to
-    log IERC721.Approval(self._owner_of(token_id), to, token_id)
+    log IERC721.Approval(
+        owner=self._owner_of(token_id), approved=to, token_id=token_id
+    )
 
 
 @internal
@@ -876,7 +843,9 @@ def _set_approval_for_all(owner: address, operator: address, approved: bool):
     """
     assert owner != operator, "erc721: approve to caller"
     self.isApprovedForAll[owner][operator] = approved
-    log IERC721.ApprovalForAll(owner, operator, approved)
+    log IERC721.ApprovalForAll(
+        owner=owner, operator=operator, approved=approved
+    )
 
 
 @internal
@@ -951,7 +920,9 @@ def _mint(owner: address, token_id: uint256):
     # this is no longer even theoretically possible.
     self._balances[owner] = unsafe_add(self._balances[owner], 1)
     self._owners[token_id] = owner
-    log IERC721.Transfer(empty(address), owner, token_id)
+    log IERC721.Transfer(
+        sender=empty(address), receiver=owner, token_id=token_id
+    )
 
     self._after_token_transfer(empty(address), owner, token_id)
 
@@ -1027,7 +998,7 @@ def _transfer(owner: address, to: address, token_id: uint256):
     self._balances[owner] = unsafe_sub(self._balances[owner], 1)
     self._balances[to] = unsafe_add(self._balances[to], 1)
     self._owners[token_id] = to
-    log IERC721.Transfer(owner, to, token_id)
+    log IERC721.Transfer(sender=owner, receiver=to, token_id=token_id)
 
     self._after_token_transfer(owner, to, token_id)
 
@@ -1066,7 +1037,9 @@ def _burn(token_id: uint256):
     # received through minting and transfer.
     self._balances[owner] = unsafe_sub(self._balances[owner], 1)
     self._owners[token_id] = empty(address)
-    log IERC721.Transfer(owner, empty(address), token_id)
+    log IERC721.Transfer(
+        sender=owner, receiver=empty(address), token_id=token_id
+    )
 
     self._after_token_transfer(owner, empty(address), token_id)
 

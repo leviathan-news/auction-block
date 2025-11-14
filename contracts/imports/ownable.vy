@@ -1,5 +1,5 @@
-# @version 0.4.0
-
+# pragma version ~=0.4.3
+# pragma nonreentrancy off
 """
 @title Owner-Based Access Control Functions
 @custom:contract-name ownable
@@ -91,4 +91,4 @@ def _transfer_ownership(new_owner: address):
     """
     old_owner: address = self.owner
     self.owner = new_owner
-    log OwnershipTransferred(old_owner, new_owner)
+    log OwnershipTransferred(previous_owner=old_owner, new_owner=new_owner)

@@ -12,10 +12,10 @@ TEST_TOKEN_ADDR = "0x9ee77bfb546805fafeb0a5e0cb150d5f82cda47d"
 TEST_POOL_ADDR = "0x3ff0c368af361ff01906f75a7750480d1e2d7aa9"
 WETH_ADDR = "0x980b62da83eff3d4576c647993b0c1d7faf17c73"
 
-# Default auction parameters
-DEFAULT_TIME_BUFFER = 3600  # 1 hour
-DEFAULT_RESERVE_PRICE = int(1000 * 10**18)  # 1000 tokens
-DEFAULT_MIN_BID_INCREMENT = 5 * 10**8  # 5$
+# Default auction parameters (matching AuctionHouse.vy defaults for WETH)
+DEFAULT_TIME_BUFFER = 600  # 10 minutes
+DEFAULT_RESERVE_PRICE = 10**15  # 0.001 ETH
+DEFAULT_MIN_BID_INCREMENT = 5 * 10**8  # 5%
 DEFAULT_DURATION = 24 * 3600  # 1 day
 DEFAULT_SPLIT_PERCENTAGE = 100 * 10**8  # 100%
 DEFAULT_FEE = 5 * 10**8  # 5%

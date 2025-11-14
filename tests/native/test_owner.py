@@ -22,10 +22,10 @@ def test_set_owner_zero_address(auction_house, deployer):
 
 
 def test_non_owner_cannot_transfer(auction_house, alice):
-    with boa.env.prank(alice), boa.reverts("!owner"):
+    with boa.env.prank(alice), boa.reverts("ownable: caller is not the owner"):
         auction_house.transfer_ownership(alice)  # Uses 2-step ownership transfer
 
-    with boa.env.prank(alice), boa.reverts("!owner"):
+    with boa.env.prank(alice), boa.reverts("ownable: caller is not the owner"):
         auction_house.pause()  # Uses 2-step ownership transfer
 
 
@@ -44,10 +44,10 @@ def test_pause_unpause(auction_house_with_auction, deployer):
 
 def test_non_owner_cannot_pause_unpause(auction_house, alice):
     """Test non-owner cannot pause or unpause"""
-    with boa.env.prank(alice), boa.reverts("!owner"):
+    with boa.env.prank(alice), boa.reverts("ownable: caller is not the owner"):
         auction_house.pause()
 
-    with boa.env.prank(alice), boa.reverts("!owner"):
+    with boa.env.prank(alice), boa.reverts("ownable: caller is not the owner"):
         auction_house.unpause()
 
 
@@ -174,7 +174,7 @@ def test_cannot_settle_when_paused(auction_house_with_auction, deployer):
         auction_house_with_auction.pause()
 
     # Try to settle - should fail
-    with boa.reverts("paused"):
+    with boa.reverts("pausable: contract is paused"):
         auction_house_with_auction.settle_auction(1)
 
 
@@ -190,7 +190,7 @@ def test_cannot_create_bid_when_paused(auction_house_with_auction, alice, paymen
     # Try to create bid - should fail
     with boa.env.prank(alice):
         payment_token.approve(auction_house_with_auction, bid_amount)
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             auction_house_with_auction.create_bid(auction_id, bid_amount)
 
 
@@ -208,7 +208,7 @@ def test_cannot_create_token_bid_when_paused(
     # Try to create token bid - should fail
     with boa.env.prank(alice):
         weth.approve(auction_house_with_auction, bid_amount)
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             directory.create_bid_with_token(
                 auction_house_with_auction, auction_id, bid_amount, weth, bid_amount
             )
@@ -237,7 +237,7 @@ def test_cannot_withdraw_when_paused(auction_house_with_auction, alice, payment_
 
     # Try to withdraw - should fail
     with boa.env.prank(alice):
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             auction_house_with_auction.withdraw(auction_id)
 
 
@@ -266,7 +266,7 @@ def test_cannot_withdraw_multiple_when_paused(
 
     # Try to withdraw multiple - should fail
     with boa.env.prank(alice):
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             auction_house_with_auction.withdraw_multiple([auction_id])
 
 
@@ -278,7 +278,7 @@ def test_cannot_withdraw_stale_when_paused(auction_house_with_auction, alice, de
 
     # Try to withdraw stale - should fail
     with boa.env.prank(deployer):
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             auction_house_with_auction.withdraw_stale([alice])
 
 
@@ -290,7 +290,7 @@ def test_cannot_create_new_auction_when_paused(auction_house_with_auction, deplo
 
     # Try to create new auction - should fail
     with boa.env.prank(deployer):
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             auction_house_with_auction.create_new_auction()
 
 
@@ -302,7 +302,7 @@ def test_cannot_create_custom_auction_when_paused(auction_house_with_auction, de
 
     # Try to create custom auction - should fail
     with boa.env.prank(deployer):
-        with boa.reverts("paused"):
+        with boa.reverts("pausable: contract is paused"):
             auction_house_with_auction.create_custom_auction(
                 300,  # time_buffer
                 100,  # reserve_price

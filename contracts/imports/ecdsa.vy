@@ -1,4 +1,4 @@
-# @version 0.4.0
+# @version 0.4.3
 
 """
 @title Elliptic Curve Digital Signature Algorithm (ECDSA) Secp256k1-Based Functions

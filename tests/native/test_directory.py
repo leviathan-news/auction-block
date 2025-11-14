@@ -34,13 +34,13 @@ def mock_auction_contract_2():
     return boa.loads(contract)
 
 
-def test_active_auctions(directory, mock_auction_contract_1, mock_auction_contract_2):
+def test_active_auctions(directory, mock_auction_contract_1, mock_auction_contract_2, deployer):
     """
     Test if active_auctions() correctly maps contract addresses to active auction lists.
     """
 
-    # Register mock auction contracts
-    with boa.env.prank(boa.env.eoa):
+    # Register mock auction contracts (must be called by owner)
+    with boa.env.prank(deployer):
         directory.register_auction_contract(mock_auction_contract_1)
         directory.register_auction_contract(mock_auction_contract_2)
 
