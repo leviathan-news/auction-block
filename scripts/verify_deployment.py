@@ -18,6 +18,7 @@ Examples:
 """
 
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -29,18 +30,42 @@ from dotenv import load_dotenv
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from scripts.config import verify_contracts  # noqa: E402
+from scripts.config import Network, verify_contracts  # noqa: E402
 
 load_dotenv()
+
+# Chain ID mapping
+CHAIN_IDS = {
+    Network.MAINNET.value: 1,
+    Network.ARB_SEPOLIA.value: 421614,
+    Network.SEPOLIA.value: 11155111,
+    Network.FRAXTAL.value: 252,  # Add if needed
+    # Also support lowercase variants
+    "MAINNET": 1,
+    "ARB-SEPOLIA": 421614,
+    "ARB_SEPOLIA": 421614,
+    "SEPOLIA": 11155111,
+    "FRAXTAL": 252,
+}
 
 
 def extract_address(address_data):
     """Extract address string from various YAML formats"""
     if isinstance(address_data, str):
-        return address_data
+        # Clean up address - extract only hex address (42 chars: 0x + 40 hex)
+        addr_match = re.search(r"(0x[0-9a-fA-F]{40})", address_data)
+        if addr_match:
+            return addr_match.group(1)
+        return address_data  # Return as-is if no match (might be invalid)
     elif isinstance(address_data, dict):
         if "args" in address_data and isinstance(address_data["args"], list):
-            return address_data["args"][0]
+            addr = address_data["args"][0]
+            # Clean up address if it's a string
+            if isinstance(addr, str):
+                addr_match = re.search(r"(0x[0-9a-fA-F]{40})", addr)
+                if addr_match:
+                    return addr_match.group(1)
+            return addr
         elif "canonical_address" in address_data:
             # Try to decode binary address (unlikely but handle it)
             return None
@@ -87,16 +112,102 @@ def load_single_contract(data: dict, yaml_path: Path):
     return load_contract_from_address_and_filename(address, contract_filename)
 
 
-def verify_from_yaml(yaml_path: Path, chain_id: int = 1):
+def load_yaml_safely(yaml_path: Path) -> dict:
+    """Load YAML file, handling boa Address objects and other special types"""
+    with open(yaml_path, "r") as f:
+        lines = f.readlines()
+
+    # Process line by line to handle Python objects
+    cleaned_lines = []
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
+        # Handle Address objects: extract the address from args
+        if (
+            "!!python/object/new:boa.util.abi.Address" in line
+            or "tag:yaml.org,2002:python/object/new:boa.util.abi.Address" in line
+        ):
+            # Extract key from current line (e.g., "contract_address: !!python/...")
+            key_match = re.match(r"^(\s*)([^:]+):\s*!!", line)
+            if key_match:
+                indent = key_match.group(1)
+                key = key_match.group(2).strip()
+                i += 1  # Skip tag line
+                if i < len(lines) and "args:" in lines[i]:
+                    i += 1  # Skip "args:" line
+                    if i < len(lines):
+                        # Extract address from line like "  - '0x...'"
+                        # Match only hex address (0x + 40 hex chars = 42 total)
+                        addr_match = re.search(r"'0x([0-9a-fA-F]{40})'", lines[i])
+                        if addr_match:
+                            # Replace the whole Address object with just the address string
+                            cleaned_lines.append(f"{indent}{key}: 0x{addr_match.group(1)}\n")
+                        i += 1  # Skip address line
+                        # Skip state: and its content (including binary data)
+                        while i < len(lines):
+                            line_stripped = lines[i].strip()
+                            # Stop if we hit a new top-level key (same or less indentation)
+                            if line_stripped and not line_stripped.startswith("#"):
+                                current_indent = len(lines[i]) - len(lines[i].lstrip())
+                                if current_indent <= len(indent) and ":" in line_stripped:
+                                    break
+                            # Skip state, tuple, binary, and canonical_address lines
+                            if (
+                                line_stripped.startswith("state:")
+                                or line_stripped.startswith("-")
+                                or line_stripped.startswith("canonical_address:")
+                                or line_stripped.startswith("!!")
+                            ):
+                                i += 1
+                            else:
+                                break
+                        continue
+
+        # Skip Python tuple and binary objects entirely
+        if "!!python/tuple" in line or "!!binary" in line:
+            i += 1
+            # Skip indented lines that are part of this object
+            indent_level = len(line) - len(line.lstrip())
+            while i < len(lines):
+                next_indent = len(lines[i]) - len(lines[i].lstrip())
+                if next_indent > indent_level:
+                    i += 1
+                else:
+                    break
+            continue
+
+        # Skip lines that are part of state: blocks
+        if line.strip().startswith("state:") or (
+            line.strip().startswith("-") and i > 0 and "state:" in lines[i - 1]
+        ):
+            i += 1
+            continue
+
+        cleaned_lines.append(line)
+        i += 1
+
+    # Join and parse cleaned YAML
+    cleaned_content = "".join(cleaned_lines)
+    return yaml.safe_load(cleaned_content)
+
+
+def verify_from_yaml(yaml_path: Path, chain_id: int = None):
     """Verify all contracts from a deployment YAML file"""
     print(f"Loading deployment from: {yaml_path}")
 
-    with open(yaml_path, "r") as f:
-        data = yaml.safe_load(f)
+    data = load_yaml_safely(yaml_path)
 
     # Determine network and fork status
     network = data.get("network", "UNKNOWN")
     is_fork = data.get("fork", False)
+
+    # Infer chain_id from network if not provided
+    if chain_id is None:
+        chain_id = CHAIN_IDS.get(network.upper(), CHAIN_IDS.get(network, 1))
+        print(f"Inferred chain_id: {chain_id} from network: {network}")
+    else:
+        print(f"Using provided chain_id: {chain_id}")
 
     print(f"Network: {network}")
     print(f"Fork: {is_fork}")
@@ -173,7 +284,7 @@ def verify_from_yaml(yaml_path: Path, chain_id: int = 1):
         print(f"  python scripts/verify_deployment.py {yaml_path} {chain_id}")
 
 
-def verify_from_directory(timestamp_dir: Path, chain_id: int = 1):
+def verify_from_directory(timestamp_dir: Path, chain_id: int = None):
     """Verify all contracts from a timestamp directory"""
     if not timestamp_dir.is_dir():
         raise ValueError(f"{timestamp_dir} is not a directory")
@@ -190,11 +301,24 @@ def verify_from_directory(timestamp_dir: Path, chain_id: int = 1):
 
     all_contracts = []
     all_contract_names = []
+    network = None
 
-    # Load all contracts
+    # Load all contracts and determine network from first file
     for yaml_file in yaml_files:
-        with open(yaml_file, "r") as f:
-            data = yaml.safe_load(f)
+        data = load_yaml_safely(yaml_file)
+
+        # Get network from first file if not set
+        if network is None:
+            network = data.get("network", "UNKNOWN")
+            # Infer chain_id from network if not provided
+            if chain_id is None:
+                chain_id = CHAIN_IDS.get(network.upper(), CHAIN_IDS.get(network, 1))
+                print(f"Inferred chain_id: {chain_id} from network: {network}")
+            else:
+                print(f"Using provided chain_id: {chain_id}")
+            print(f"Network: {network}")
+            print(f"Fork: {data.get('fork', False)}")
+            print()
 
         if "contract_address" in data:
             try:
@@ -217,11 +341,7 @@ def verify_from_directory(timestamp_dir: Path, chain_id: int = 1):
         print("   Set one of these environment variables to enable verification")
         return
 
-    # Verify all contracts
-    print("\n" + "=" * 80)
-    print("VERIFYING CONTRACTS")
-    print("=" * 80)
-
+    # Verify all contracts (verify_contracts will print its own header)
     results = verify_contracts(
         contracts=all_contracts,
         chain_id=chain_id,
@@ -249,7 +369,8 @@ if __name__ == "__main__":
         print(f"Error: Path not found: {input_path}")
         sys.exit(1)
 
-    chain_id = int(sys.argv[2]) if len(sys.argv) > 2 else 1
+    # Chain ID is optional - will be inferred from YAML if not provided
+    chain_id = int(sys.argv[2]) if len(sys.argv) > 2 else None
 
     # Check if it's a directory or a file
     if input_path.is_dir():
