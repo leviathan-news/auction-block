@@ -180,24 +180,31 @@ def save_deployment_info(
     if not save:
         return
 
-    # Create directory structure
+    # Create directory structure with timestamp subdirectory
     base_dir = Path("deployment")
     network_dir = network.lower()
     if deployment_params.get("fork", False):
         network_dir += "-fork"
-    chain_dir = base_dir / network_dir
 
-    artifacts_dir = base_dir / "artifacts"
+    # Use shared deployment timestamp if available, otherwise generate one
+    timestamp_str = deployment_params.get("deployment_timestamp") or datetime.now().strftime(
+        "%Y%m%d_%H%M"
+    )
+
+    # Create timestamped subdirectories
+    chain_dir = base_dir / network_dir / timestamp_str
+    artifacts_dir = base_dir / "artifacts" / timestamp_str
 
     # Create directories if they don't exist
     for dir_path in [chain_dir, artifacts_dir]:
         dir_path.mkdir(parents=True, exist_ok=True)
 
     # Generate filenames
-    date_str = datetime.now().strftime("%Y%m%d")
     addr_prefix = contract_address[:6].lower()
-    yaml_filename = f"{date_str}_{addr_prefix}.yaml"
-    artifact_filename = f"{date_str}_{contract_filename}_{addr_prefix}_vyper_output.json"
+    # Short contract name (e.g., "AuctionHouse" -> "House")
+    contract_short_name = contract_filename.replace("Auction", "")
+    yaml_filename = f"{contract_short_name}_{addr_prefix}.yaml"
+    artifact_filename = f"{contract_filename}_{addr_prefix}_vyper_output.json"
 
     # Save Vyper output separately
     vyper_output = get_vyper_bytecode(contract_filename)
@@ -215,7 +222,11 @@ def save_deployment_info(
         "constructor_arguments": constructor_args,
         "deployment_timestamp": datetime.now().isoformat(),
         "deployment_parameters": deployment_params,
-        "artifacts": {"vyper_output": f"artifacts/{artifact_filename}" if vyper_output else None},
+        "artifacts": {
+            "vyper_output": f"artifacts/{timestamp_str}/{artifact_filename}"
+            if vyper_output
+            else None
+        },
     }
 
     # Save to YAML file

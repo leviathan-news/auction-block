@@ -1,5 +1,6 @@
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import boa
@@ -21,10 +22,18 @@ from scripts.config import (
 load_dotenv()
 
 # Configuration
-FORK = True  # Set to True to test with mainnet fork
-DEPLOY = True  # Set to False to skip deployment
-SAVE = False
-NETWORK = Network.MAINNET  # Use Network.ARB_SEPOLIA for Arbitrum Sepolia
+# Works for Network.ARB_SEPOLIA or Network.MAINNET
+# NETWORK = Network.MAINNET
+NETWORK = Network.ARB_SEPOLIA
+DEPLOY = True
+SKIP = False
+
+if DEPLOY:
+    FORK = False
+    SAVE = True
+else:
+    FORK = True
+    SAVE = False
 
 # Pool addresses (will be used to fetch token addresses)
 TRICRV_ADDRS = {
@@ -157,7 +166,17 @@ else:
     except Exception as e:
         raise ValueError(f"Could not load keystore: {e}")
 
-if DEPLOY:
+if not SKIP:
+    # Check for Etherscan API key early (before deployment) if not in FORK mode
+    if not FORK:
+        etherscan_api_key = os.getenv("ETHERSCAN_TOKEN") or os.getenv("ETHERSCAN_API_KEY")
+        if not etherscan_api_key:
+            raise ValueError(
+                "ETHERSCAN_TOKEN or ETHERSCAN_API_KEY environment variable is required "
+                "for contract verification. Set one of these before deploying."
+            )
+        print("✅ Etherscan API key found for verification")
+
     print("\n" + "=" * 80)
     print(f"DEPLOYING WETH AUCTION SYSTEM ON {NETWORK.value}")
     print("=" * 80)
@@ -215,7 +234,7 @@ if DEPLOY:
 
         print(f"\n{i}. Deploying {contract_name}...")
         deployed = partial.deploy(*deploy_args)
-        print(f"   ✓ {contract_name} deployed at: {deployed.address}")
+        print(f"   ✅ {contract_name} deployed at: {deployed.address}")
 
         deployed_contracts.append(
             {
@@ -244,20 +263,20 @@ if DEPLOY:
     # Configure contracts
     print("\n7. Configuring contracts...")
     house.set_approved_directory(directory.address)
-    print("   ✓ Set directory in AuctionHouse")
+    print("   ✅ Set directory in AuctionHouse")
 
     directory.register_auction_contract(house)
     directory.add_token_support(CRVUSD_ADDR, zap1)
     directory.add_token_support(CRV_ADDR, zap2)
     directory.set_payment_token_oracle(oracle)
     directory.set_nft(nft.address)
-    print("   ✓ Registered house, added crvUSD zap, set oracle, and set NFT in Directory")
+    print("   ✅ Registered house, added crvUSD zap, set oracle, and set NFT in Directory")
 
     zap1.set_approved_directory(directory.address)
-    print("   ✓ Set directory in CRVUSD Zap")
+    print("   ✅ Set directory in CRVUSD Zap")
 
     zap2.set_approved_directory(directory.address)
-    print("   ✓ Set directory in CRV Zap")
+    print("   ✅ Set directory in CRV Zap")
 
     print("\n" + "=" * 80)
     print("DEPLOYMENT SUMMARY")
@@ -275,9 +294,7 @@ if DEPLOY:
     print(f"TriCRV Pool: {tricrv_addr}")
 
     # Generate constructor arguments and save deployment info
-    print("\n" + "=" * 80)
-    print("CONSTRUCTOR ARGUMENTS FOR VERIFICATION")
-    print("=" * 80)
+    deployment_timestamp = datetime.now().strftime("%Y%m%d_%H%M")
 
     deployment_params = {
         "fork": FORK,
@@ -289,6 +306,7 @@ if DEPLOY:
         "tricrv_eth_indices": CRVUSD_TRICRV_INDICES,
         "tricrv_crv_indices": CRV_TRICRV_INDICES,
         "fee_receiver": fee_receiver,
+        "deployment_timestamp": deployment_timestamp,  # Shared timestamp for all contracts
     }
 
     if SAVE:
@@ -343,8 +361,7 @@ if DEPLOY:
         cost_usd_formatted = format(gas_cost_usd, ".2f")
         print(f"Cost in USD: ${cost_usd_formatted}")
     else:
-        # Verify Contracts
-        etherscan_api_key = os.getenv("ETHERSCAN_TOKEN")
+        # Verify Contracts (API key already checked at top if not FORK)
         # Chain IDs: 1 = Mainnet, 421614 = Arbitrum Sepolia
         chain_ids = {
             Network.MAINNET: 1,
@@ -352,6 +369,8 @@ if DEPLOY:
         }
         chain_id = chain_ids.get(NETWORK, 1)
 
+        # Get API key (already validated if not FORK, but check again for FORK mode)
+        etherscan_api_key = os.getenv("ETHERSCAN_TOKEN") or os.getenv("ETHERSCAN_API_KEY")
         if etherscan_api_key:
             results = verify_contracts(
                 contracts=[info["instance"] for info in deployed_contracts],
@@ -363,6 +382,8 @@ if DEPLOY:
                 print("\n⚠️  Some contracts failed verification.")
                 print("   You can retry verification later using:")
                 print(f"   python scripts/verify_deployment.py <deployment_yaml_file> {chain_id}")
-
+        else:
+            print("⚠️  No ETHERSCAN_TOKEN or ETHERSCAN_API_KEY found - skipping verification")
+            print("   Set one of these environment variables to enable verification")
 else:
-    print("DEPLOY mode is False. Set DEPLOY=True at top of script to deploy contracts.")
+    print("SKIP mode is True. Set SKIP=False at top of script to deploy contracts.")
