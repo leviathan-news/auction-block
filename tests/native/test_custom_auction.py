@@ -132,9 +132,9 @@ def test_rando_cannot_designate_auction_manager(auction_house, alice, bob):
 
     curr_auction = auction_house.auction_id()
     with boa.env.prank(alice):
-        with boa.reverts("!owner"):
+        with boa.reverts("ownable: caller is not the owner"):
             auction_house.set_auction_manager(alice, True)
-        with boa.reverts("!owner"):
+        with boa.reverts("ownable: caller is not the owner"):
             auction_house.set_auction_manager(bob, True)
 
     with boa.env.prank(alice):

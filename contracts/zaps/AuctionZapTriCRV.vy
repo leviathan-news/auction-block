@@ -1,7 +1,7 @@
 # @version 0.4.3
 
 """
-@title WETH Auction Zap
+@title crvUSD Auction Zap
 @author https://github.com/leviathan-news/auction-block
 @license MIT
 @notice Facilitates token swaps and bidding for Leviathan auction system
@@ -10,7 +10,7 @@
      - Direct bidding with alternative tokens
      - Flexible trading across different token pairs
      - Delegated bidding permissions
-     - Contract holds no WETH/ETH
+     - Contract does not store ETH or ERC20 tokens
 
 
                          ██████████████
@@ -55,8 +55,8 @@
 # ============================================================================================
 
 from ethereum.ercs import IERC20
-from .imports import ownable as ownable_base
-from .imports import ownable_2step as ownable
+from ..imports import ownable as ownable_base
+from ..imports import ownable_2step as ownable
 
 initializes: ownable_base
 
@@ -213,7 +213,7 @@ def zap(token_amount: uint256, min_dy: uint256) -> uint256:
     """
     @notice Trade misc token for payment token
     @dev Utilized in Auction directory
-    @param token_amount Input amount of trading token (WETH) to trade
+    @param token_amount Input amount of trading token to trade
     @param min_dy Minimum payment tokens to receive
     @return Amount of payment tokens received
     """
@@ -278,8 +278,8 @@ def exchange(
     _dx: uint256, _min_dy: uint256, _from: address = msg.sender
 ) -> uint256:
     """
-    @notice Direct WETH -> SQUID trade through Curve pool
-    @param _dx Input amount of trading token (WETH) to exchange
+    @notice Direct trade through Curve pool
+    @param _dx Input amount of trading token to exchange
     @param _min_dy Minimum amount of payment token to receive
     @param _from Optional address to pull tokens from
     @return Amount of payment token received

@@ -11,7 +11,7 @@
      - Fee distribution system
      - Emergency controls (pause/nullify)
      - Delegated bidding permissions
-     v2 adds Auction Managers, early withdrawals, flexible deadlines, instabuy, and hookers
+     v2 adds Auction Managers, early withdrawals, duration or deadline creation
 
 
                          ██████████████
@@ -48,6 +48,7 @@
             ███████████████          ███████████████
                ██████████              ██████████
 
+
 """
 
 
@@ -82,12 +83,6 @@ interface AuctionDirectory:
     def mint_nft(owner: address, auction_id: uint256): nonpayable
 
 
-interface Hooker:
-    def settle_auction(
-        auction_id: uint256, winner: address, amount: uint256
-    ): nonpayable
-
-
 # ============================================================================================
 # 🏢 Structs
 # ============================================================================================
@@ -110,8 +105,6 @@ struct AuctionParams:
     min_bid_increment_percentage: uint256
     duration: uint256
     instabuy_price: uint256
-    beneficiary: address
-    hooker: address
 
 
 flag ApprovalStatus:
@@ -248,11 +241,11 @@ def __init__(
     # Duration 1 day
     self.default_duration = 3600 * 24
 
-    # Time buffer 10 minutes
-    self.default_time_buffer = 600
+    # Time buffer 1 hour
+    self.default_time_buffer = 3600
 
-    # Reserve price of .001 ETH
-    self.default_reserve_price = 10**15
+    # Reserve price of 1000 SQUID
+    self.default_reserve_price = 1000 * 10**18
 
     # Bid must be 5% higher
     self.default_min_bid_increment_percentage = 5 * 10**8
@@ -628,9 +621,6 @@ def create_custom_auction(
     min_bid_increment_percentage: uint256,
     duration: uint256,
     ipfs_hash: String[46] = "",
-    instabuy_price: uint256 = 0,
-    beneficiary: address = empty(address),
-    hooker: address = empty(address),
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -648,9 +638,7 @@ def create_custom_auction(
             reserve_price=reserve_price,
             min_bid_increment_percentage=min_bid_increment_percentage,
             duration=duration,
-            instabuy_price=instabuy_price,
-            beneficiary=beneficiary,
-            hooker=hooker,
+            instabuy_price=0,
         ),
     )
 
@@ -663,9 +651,6 @@ def create_custom_auction_by_deadline(
     min_bid_increment_percentage: uint256,
     deadline: uint256,
     ipfs_hash: String[46] = "",
-    instabuy_price: uint256 = 0,
-    beneficiary: address = empty(address),
-    hooker: address = empty(address),
 ) -> uint256:
     """
     @dev Create a new auction with custom parameters instead of defaults
@@ -684,9 +669,7 @@ def create_custom_auction_by_deadline(
             reserve_price=reserve_price,
             min_bid_increment_percentage=min_bid_increment_percentage,
             duration=deadline - block.timestamp,
-            instabuy_price=instabuy_price,
-            beneficiary=beneficiary,
-            hooker=hooker,
+            instabuy_price=0,
         ),
     )
 
@@ -826,8 +809,6 @@ def _default_auction_params() -> AuctionParams:
         min_bid_increment_percentage=self.default_min_bid_increment_percentage,
         duration=self.default_duration,
         instabuy_price=0,
-        beneficiary=empty(address),
-        hooker=empty(address),
     )
 
 
@@ -890,23 +871,14 @@ def _settle_auction(auction_id: uint256):
                 self.fee_receiver, fee_amount, default_return_value=True
             ), "!fee transfer"
 
-        _beneficiary: address = ownable_base.owner
-        if _auction.params.beneficiary != empty(address):
-            _beneficiary = _auction.params.beneficiary
-
         assert extcall self.payment_token.transfer(
-            _beneficiary, remaining_amount, default_return_value=True
+            ownable_base.owner, remaining_amount, default_return_value=True
         ), "!owner transfer"
 
     if self.authorized_directory.address != empty(
         address
     ) and _auction.bidder != empty(address):
         extcall self.authorized_directory.mint_nft(_auction.bidder, auction_id)
-
-    if _auction.params.hooker != empty(address):
-        extcall Hooker(_auction.params.hooker).settle_auction(
-            _auction.auction_id, _auction.bidder, _auction.amount
-        )
 
     log AuctionSettled(
         auction_id=_auction.auction_id,
@@ -967,7 +939,6 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     _auction: Auction = self.auction_list[auction_id]
     _time_buffer: uint256 = _auction.params.time_buffer
     _reserve_price: uint256 = _auction.params.reserve_price
-    _instabuy_price: uint256 = _auction.params.instabuy_price
 
     assert _auction.auction_id == auction_id, "!auctionId"
     assert block.timestamp < _auction.end_time, "expired"
@@ -985,13 +956,8 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
 
     _end_time: uint256 = _auction.end_time
     _extended: bool = _auction.end_time - block.timestamp < _time_buffer
-
     if _extended:
         _end_time = block.timestamp + _time_buffer
-
-    if _instabuy_price > 0 and total_bid >= _instabuy_price:
-        _end_time = block.timestamp - 1
-        _extended = False
 
     self.auction_list[auction_id] = Auction(
         auction_id=_auction.auction_id,
@@ -1005,7 +971,6 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
         params=_auction.params,
     )
 
-    # Emit Logs
     log AuctionBid(
         auction_id=_auction.auction_id,
         bidder=bidder,
@@ -1015,9 +980,6 @@ def _register_bid(auction_id: uint256, total_bid: uint256, bidder: address):
     )
     if _extended:
         log AuctionExtended(auction_id=_auction.auction_id, end_time=_end_time)
-
-    if _instabuy_price > 0 and total_bid >= _instabuy_price:
-        self._settle_auction(auction_id)
 
 
 @internal

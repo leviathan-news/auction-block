@@ -76,5 +76,7 @@ def set_rate(new_rate: uint256):
 
 
 @external
+@view
 def price_oracle() -> uint256:
+    """Mock price oracle - returns fixed value"""
     return 1321723924402

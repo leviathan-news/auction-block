@@ -6,3 +6,4 @@ mamushi==0.0.2a0
 eth-account==0.13.4
 python-dotenv==1.0.1
 titanoboa==0.2.5
+vyper>=0.4.3
